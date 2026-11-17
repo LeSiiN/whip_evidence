@@ -8,7 +8,7 @@ Version 4.0.0 · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
 ## Requires
 
 - `whip_core` (1.0+), `oxmysql`
-- `whip_evidence_assets` (props, ships with this)
+- [whip_evidence_assets](https://github.com/LeSiiN/whip_evidence_assets) (props, ships with this)
 - `whip_gunny` (shots, weapon prints)
 
 ## Install
