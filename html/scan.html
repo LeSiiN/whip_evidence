@@ -9,7 +9,7 @@
            cards     x 0-511,   y 0-383    6 cells of 256 x 128
            legend    x 512-1023, y 0-639   512 x 640 (camera)
            icons     x 512+,    y 640      64 x 64: dots green/yellow/red, rings green/yellow/red, camera badge, trail arrow
-           tags      x 512+,    y 704      64 x 80: marker tag fresh/ready/degrading
+           tags      x 512+,    y 704      64 x 80: marker tag too fresh/ready/gone soon
            digits    x 512+,    y 784      32 x 64: 0-9 */
         html, body { width: 1024px; height: 1024px; margin: 0; overflow: hidden; background: transparent; }
         body { font-family: var(--ui-font, 'Barlow', sans-serif); color: var(--ui-text, rgba(255, 255, 255, 0.93)); }
@@ -77,7 +77,7 @@
     <div id="atlas"></div>
     <script>
         const COLORS = { green: '#4ade80', yellow: '#fbbf24', red: '#f87171', blue: '#60a5fa' };
-        const STRIPE = ['#16a34a', '#ea580c', '#dc2626'];   // tag: fresh, ready, degrading
+        const STRIPE = ['#2563eb', '#16a34a', '#dc2626'];   // tag: too fresh (blue), ready (green), gone soon (red)
         const atlas = document.getElementById('atlas');
 
         function box(cls, x, y, html) {

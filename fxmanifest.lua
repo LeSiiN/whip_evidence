@@ -13,6 +13,7 @@ dependencies {
     'whip_evidence_assets',   -- the props live there, so this resource can restart safely
 }
 whip_requires '1.0'
+whip_updates 'LeSiiN/whip_evidence'   -- whip_core compares `version` with the latest GitHub release (tag v4.0.0 etc.)
 
 shared_scripts {
     '@whip_core/lib/satellite.lua',

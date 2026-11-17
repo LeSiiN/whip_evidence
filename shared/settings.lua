@@ -75,7 +75,7 @@ Whip.configPage({
             chance('vehicle_fragment', 'Vehicle fragment chance'),
             chance('blood', 'Blood chance'),
             chance('fingerprint', 'Fingerprint chance'),
-            { key = 'Aging.Fresh', type = 'int', min = 0, max = 7200, unit = 's', label = 'Green (too fresh) until' },
+            { key = 'Aging.Fresh', type = 'int', min = 0, max = 7200, unit = 's', label = 'Too fresh to collect for', help = '0 = can be collected right away.' },
             { key = 'Aging.Old', type = 'int', min = 60, max = 14400, unit = 's', label = 'Red from' },
             { key = 'Aging.Lifetime', type = 'int', min = 120, max = 28800, unit = 's', label = 'Removed after' },
             { key = 'RainFactor', type = 'number', min = 0.05, max = 1, step = 0.05, label = 'Time left in rain (share)' },

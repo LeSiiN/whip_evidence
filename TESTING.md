@@ -36,7 +36,7 @@ Dev-Tools: `/w` → **Forensics**.
 - [ ] 3.5 Einstellungen (Settings-Menü) → Layout von Scan und Foto ändern → wird übernommen.
 
 ## 4. Einsammeln
-- [ ] 4.1 Frische Spur → „too fresh“. Dann „Make evidence within 25 m ready“.
+- [ ] 4.1 Frische Spur ist sofort grün und einsammelbar (kein Warten).
 - [ ] 4.2 Einsammeln → Minigame je Typ (Pinzette, Tupfer, Ziehen …) → Beutel landet im Beweiskoffer.
 - [ ] 4.3 Minigame 3× verkacken → „The evidence is ruined.“
 - [ ] 4.4 Beutel-Infos: Marker `#n`, „Photographed: Yes/No“, Werte `???`, Chain of custody „Collected“.

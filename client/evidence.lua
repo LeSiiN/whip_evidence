@@ -136,32 +136,33 @@ end
 
 local function actionFor(ev)
     if not WhipEvidence.isPoliceOnDuty() then return civilianAction(ev) end
+    -- only collecting waits while it is too fresh; laser pointer and clearing away work at once
+    local police = { job = Config.PoliceJobs, onDuty = true }
     local options
     if ev.phase == 'green' then
         options = {
-            { id = 'fresh', label = 'Too fresh', icon = 'timer',
+            { id = 'fresh', label = 'Too fresh to collect', icon = 'timer',
               onSelect = function(ctx) ctx.refuse('This evidence is still too fresh.') end },
         }
     else
-        local police = { job = Config.PoliceJobs, onDuty = true }
         options = {
             { id = 'pickup', icon = 'pickup', require = police, press = true,
               canInteract = function() return WhipEvidence.can('evidence_collect') end,
               label = ev.fails > 0 and ('Collect (%d/%d failed)'):format(ev.fails, Config.MaxFails) or 'Collect',
               onSelect = function() TriggerServerEvent('whip_evidence:pickup', ev.id, WhipEvidence.street(ev.coords)) end },
         }
-        if ev.kind == 'bullet' and ev.origin then
-            options[#options + 1] = { id = 'laser', icon = 'target', require = police,
-                canInteract = function() return WhipEvidence.can('evidence_laser') end,
-                label = ev.laser and 'Remove laser pointer' or 'Place laser pointer',
-                onSelect = function() TriggerServerEvent('whip_evidence:laser', ev.id) end }
-        end
-        -- hold to clear: 1 s, without a photo 2 s (and it still asks)
-        options[#options + 1] = { id = 'clear', icon = 'fail', require = police, holdMs = ev.photo and 1000 or 2000,
-            canInteract = function() return WhipEvidence.can('evidence_clear') end,
-            label = ev.photo and 'Clear away' or 'Clear away (no photo!)',
-            onSelect = function() CreateThread(function() clearAway(ev.id) end) end }
     end
+    if ev.kind == 'bullet' and ev.origin then
+        options[#options + 1] = { id = 'laser', icon = 'target', require = police,
+            canInteract = function() return WhipEvidence.can('evidence_laser') end,
+            label = ev.laser and 'Remove laser pointer' or 'Place laser pointer',
+            onSelect = function() TriggerServerEvent('whip_evidence:laser', ev.id) end }
+    end
+    -- hold to clear: 1 s, without a photo 2 s (and it still asks)
+    options[#options + 1] = { id = 'clear', icon = 'fail', require = police, holdMs = ev.photo and 1000 or 2000,
+        canInteract = function() return WhipEvidence.can('evidence_clear') end,
+        label = ev.photo and 'Clear away' or 'Clear away (no photo!)',
+        onSelect = function() CreateThread(function() clearAway(ev.id) end) end }
 
     local tint = WhipEvidence.PhaseColor[ev.phase] or '#ffffff'
     return {

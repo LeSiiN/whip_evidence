@@ -333,7 +333,7 @@ function WhipEvidence.Evidence.makeReady(pos, radius)
 end
 
 function WhipEvidence.Evidence.phaseName(phase)
-    return ({ green = 'Too fresh', yellow = 'Ready', red = 'Degrading' })[phase] or '?'
+    return ({ green = 'Too fresh', yellow = 'Ready', red = 'Gone soon' })[phase] or '?'
 end
 
 ---------------------------------------------------------------- Aging and rain (every 10 s)

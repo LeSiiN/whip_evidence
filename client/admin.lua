@@ -30,7 +30,7 @@ local function topRows()
           desc = 'Forensics kit, empty bags, laser pointers, pliers, cloths, camera, flashlight.' },
         { id = 'spawn', label = 'Place test evidence around me', icon = 'target',
           desc = 'One of each type, with your own fingerprint and blood. Casing and bullet share a shot (trajectory).' },
-        { id = 'ready', label = 'Make evidence within 25 m ready', icon = 'timer', desc = 'No waiting for "too fresh".' },
+        { id = 'ready', label = 'Make evidence within 25 m ready', icon = 'timer', desc = 'Only needed when "too fresh" is turned on.' },
         { id = 'finishLabs', label = 'Finish running lab analyses now', icon = 'timer' },
         { id = 'reveal', label = 'Analyse the bags in my pockets', icon = 'timer', desc = 'Lab values at once, no lab needed.' },
         { sep = 'Labs' },

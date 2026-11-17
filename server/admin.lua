@@ -101,7 +101,7 @@ function WhipEvidence.Admin.register()
     }, function(source, player, action)
         local text
         if action == 'spawn' then
-            text = ('%d piece(s) of test evidence placed around you (too fresh: use "Make ready").'):format(spawnAll(source, player))
+            text = ('%d piece(s) of test evidence placed around you.'):format(spawnAll(source, player))
         elseif action == 'ready' then
             text = ('%d piece(s) within 25 m are ready to collect now.'):format(
                 WhipEvidence.Evidence.makeReady(GetEntityCoords(GetPlayerPed(source)), 25.0))

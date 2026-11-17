@@ -168,16 +168,18 @@ Whip.register(function()
                 id = 'lab:' .. id, at = { coords = WhipEvidence.vec(lab.device) },
                 label = lab.label or id, icon = 'timer', reach = 2.0,
                 require = { job = Config.PoliceJobs, onDuty = true },
+                -- in the order they are used: unload, analyse, upload
                 options = {
-                    { id = 'analyse', label = 'Analyse evidence', icon = 'timer', holdMs = 1000, press = true,
-                      canInteract = function() return WhipEvidence.can('evidence_lab') end,
-                      onSelect = function() TriggerServerEvent('whip_evidence:analyse', id) end },
-                    -- everything analysed in this lab's storage goes into a case's locker
+                    -- every bag from your evidence case into this lab's storage
                     { id = 'unload', label = 'Unload evidence case', icon = 'pickup', holdMs = 1000, press = true,
                       canInteract = function()
                           return WhipEvidence.can('evidence_lab') and Whip.core:HasItem(WhipEvidence.Items.case)
                       end,
                       onSelect = function() TriggerServerEvent('whip_evidence:labUnload', id) end },
+                    { id = 'analyse', label = 'Analyse evidence', icon = 'timer', holdMs = 1000, press = true,
+                      canInteract = function() return WhipEvidence.can('evidence_lab') end,
+                      onSelect = function() TriggerServerEvent('whip_evidence:analyse', id) end },
+                    -- everything analysed in this lab's storage goes into a case's locker
                     { id = 'upload', label = 'Upload to a case', icon = 'pickup', holdMs = 1000, press = true,
                       canInteract = function() return WhipEvidence.can('evidence_upload') end,
                       onSelect = function()

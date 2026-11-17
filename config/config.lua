@@ -134,9 +134,9 @@ Config = {
     BloodCriticalHealth = 115,   -- at or below this it keeps bleeding until healed (0 = off; alive is 100-200)
     BloodTrailHealth    = 150,   -- badly hurt below this: carrying them gets their blood on you
 
-    -- Aging in seconds: green = too fresh, yellow = can be collected, red = gone soon
+    -- Aging in seconds: green = ready, red = gone soon (blue = too fresh, only if Fresh is above 0)
     Aging = {
-        Fresh    = 300,   -- green for 5 min
+        Fresh    = 0,     -- seconds before it can be collected (0 = right away)
         Old      = 1800,  -- red after 30 min
         Lifetime = 2700,  -- removed after 45 min
     },

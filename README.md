@@ -3,12 +3,12 @@
 Forensics for WHIP: evidence at crime scenes, real crime scene photos, minigames, labs with a monitor,
 ballistics, gunshot residue, vehicle and weapon traces, an evidence case and case lockers for your MDT.
 
-Version 4.0.0 · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
+Version 4.0.0 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
 
 ## Requires
 
 - `whip_core` (1.0+), `oxmysql`
-- [whip_evidence_assets](https://github.com/LeSiiN/whip_evidence_assets) (props, ships with this)
+- `whip_evidence_assets` (props, ships with this)
 - `whip_gunny` (shots, weapon prints)
 
 ## Install
@@ -21,6 +21,9 @@ Version 4.0.0 · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
    ```
 3. Start the server. Tables, items and missing police jobs are made automatically.
 4. In game, `/whip` → Settings → Forensics: set the lab, its monitor and the evidence locker with "here".
+
+**Updates:** whip_core checks the GitHub releases every 12 hours and tells you when a newer version is out
+(console `whipupdates`, setup report, admins in dev mode). Turn it off with `set whip_update_check false`.
 
 Restart only `whip_evidence`. Leave `whip_evidence_assets` running (unloading props in use crashes the game).
 
@@ -70,19 +73,19 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
 ## A case, step by step
 
 1. **Scan.** On-duty police aim a flashlight (`gunny_torch`) or hold the `camera`. Every trace gets a numbered marker
-   (same number for everyone). Colour: green = too fresh, orange = ready, red = gone soon.
+   (same number for everyone). Colour: green = ready, red = gone soon (blue = too fresh, only if you turn on a wait in `Aging.Fresh`).
    Trajectories link a casing to its bullet. Blood trails show which way the person walked.
-   **G** changes the filter, the camera shows a legend.
+   **G** changes the filter, the camera shows a legend. Bullet holes: place a laser pointer now, so it is on the photo.
 2. **Photo.** **H** with the camera takes a real screenshot. The photo item lists every marker in it.
    Right-click → "View photo" (polaroid, click to zoom) or "Copy as text". Photographed markers get a camera badge.
 3. **Collect.** "Collect" → minigame → the bag goes into your evidence case. Three fails ruin the trace.
-   Vehicles: at a front door. Weapons: right-click → "Dust for prints". People: aim → "GSR test".
-4. **Lab.** At the lab device: "Unload evidence case", then "Analyse evidence" (5–10 min, storage locked).
+   Vehicles: at a front door. Weapons: right-click → "Dust for prints". People: aim → "GSR test" / "Swab clothes for blood".
+4. **Clean up.** "Clear away" on a marker, or F1 → "Release crime scene". Unphotographed traces need a confirmation.
+5. **Lab.** At the lab device: "Unload evidence case", then "Analyse evidence" (5–10 min, storage locked).
    A gun in the storage gets test-fired: a reference casing and "Ballistic match" on matching casings.
    The lab also tells how old a trace was when it was collected. The monitor shows progress and results.
-5. **Case.** Upload analysed items to a case in your MDT (or at the lab device: "Upload to a case").
+6. **Case.** Upload analysed items to a case in your MDT (or at the lab device: "Upload to a case").
    They move into that case's locker. Open it at any evidence locker by typing the case ID.
-6. **Clean up.** "Clear away" on a marker, or F1 → "Release crime scene". Unphotographed traces need a confirmation.
 
 Every bag and photo has a **chain of custody**: collected, received, in lab, analysed, uploaded, taken out, returned.
 Right-click → "Sign for evidence" when you take it over.

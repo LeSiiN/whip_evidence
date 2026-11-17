@@ -32,10 +32,11 @@ local shooting = false        -- a screenshot is being taken: legend and card st
 local highlight = {}          -- [id] = until (GetGameTimer): markers that blink (missing photos)
 local lastSummary
 
+-- phase keys are the old names; shown as blue = too fresh, green = ready, red = gone soon
 local PHASE = {
-    green  = { name = 'Too fresh', i = 0 },
-    yellow = { name = 'Ready',     i = 1 },
-    red    = { name = 'Degrading', i = 2 },
+    green  = { name = 'Too fresh', i = 0, color = 'blue' },
+    yellow = { name = 'Ready',     i = 1, color = 'green' },
+    red    = { name = 'Gone soon', i = 2, color = 'red' },
 }
 
 local FILTERS = {
@@ -295,7 +296,7 @@ end
 -- Card for the aimed-at evidence. Police on duty see everything, others only type and state.
 local function evidenceCard(ev, dist, police)
     local st = PHASE[ev.phase] or PHASE.yellow
-    local chips = { { text = st.name, color = ev.phase } }
+    local chips = { { text = st.name, color = st.color } }
     if police then
         local now = GetGameTimer()
         chips[#chips + 1] = { text = minutes(now - (ev.bornAt or now)) .. ' old' }
@@ -305,7 +306,7 @@ local function evidenceCard(ev, dist, police)
         chips[#chips + 1] = ev.photo and { text = 'Photographed', color = 'green' } or { text = 'No photo', color = 'yellow' }
         if ev.dir then chips[#chips + 1] = { text = 'Trail heading ' .. compass(ev.dir), color = 'red' } end
     end
-    return { no = ev.no and tostring(ev.no) or nil, title = WhipEvidence.label(ev.kind), color = ev.phase, dist = metres(dist), chips = chips }
+    return { no = ev.no and tostring(ev.no) or nil, title = WhipEvidence.label(ev.kind), color = st.color, dist = metres(dist), chips = chips }
 end
 
 -- Short line for the legend
@@ -502,7 +503,7 @@ local function rebuild()
         return
     end
 
-    local summary = ('Evidence nearby: %d | %d ready · %d too fresh · %d degrading | %d/%d photographed')
+    local summary = ('Evidence nearby: %d | %d ready · %d too fresh · %d gone soon | %d/%d photographed')
         :format(#found, counts.yellow, counts.green, counts.red, photographed, #found)
     if #carList > 0 then summary = summary .. (' | %d vehicle(s) with traces'):format(#carList) end
     summary = summary .. ' | ' .. hint()

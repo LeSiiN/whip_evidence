@@ -20,9 +20,9 @@ WhipEvidence.GsrFlag = RES .. ':gsr'
 WhipEvidence.PhotoChunk = 10000   -- characters per part when a photo travels (small parts, no kicks)
 
 WhipEvidence.PhaseColor = {
-    green  = '#3cdc50',
-    yellow = '#ffa500',
-    red    = '#c0392b',
+    green  = '#60a5fa',   -- too fresh (blue; the key names are the old phase names)
+    yellow = '#3cdc50',   -- ready (green)
+    red    = '#c0392b',   -- gone soon
 }
 
 function WhipEvidence.debug(fmt, ...)

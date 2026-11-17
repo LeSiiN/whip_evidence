@@ -19,12 +19,15 @@
 - **Glove wear**: HUD ring, worn gloves let more prints through.
 - **MDT guide** in the README: step-by-step integration with examples and a checklist.
 - Item pictures for everything, a bag colour per evidence type.
+- Update notices: whip_core tells you when a new release is on GitHub (`whip_updates`).
 - Player settings for the scan and photo layout. Admin dev tools and case management in `/w` → Forensics.
 
 ### Changed
 - **Performance**: much lower resmon (spatial grid, painted overlay, idle back-off, chunked transfers).
 - Prompts: hold to confirm risky actions (clear away, lab device), press for the rest.
 - The default lab is now called "Police Lab".
+- No more waiting before collecting (`Aging.Fresh = 0`, can be turned back on). Marker colours: green = ready, red = gone soon (blue = too fresh). Laser pointer and clearing away work on fresh evidence too.
+- Lab device options in the order you use them: unload, analyse, upload.
 
 ### Removed
 - "Set incident ID": the case ID now comes from the MDT upload.
