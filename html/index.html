@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://cfx-nui-whip_core/html/css/fonts.css">
+    <link rel="stylesheet" href="https://cfx-nui-whip_core/html/css/base.css">
+    <script src="https://cfx-nui-whip_core/html/js/page-tools.js"></script>
+    <style>
+        #clip { position: fixed; left: -9999px; top: 0; opacity: 0; }
+
+        /* Crime scene photo viewer: a polaroid with the evidence log clipped beside it */
+        #viewer {
+            position: fixed; inset: 0; display: none; align-items: center; justify-content: center; gap: 34px;
+            background: radial-gradient(ellipse at center, rgba(8, 10, 14, 0.62), rgba(8, 10, 14, 0.86));
+            font-family: var(--ui-font, 'Barlow', sans-serif); opacity: 0; transition: opacity 0.18s;
+        }
+        #viewer.open { display: flex; }
+        #viewer.shown { opacity: 1; }
+
+        .polaroid {
+            position: relative; background: #fbfaf6; padding: 16px 16px 0; border-radius: 3px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55), 0 2px 0 rgba(0, 0, 0, 0.08);
+            transform: translateY(10px); transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        /* not tilted: a rotated picture gets resampled and loses sharpness */
+        #viewer.shown .polaroid { transform: none; }
+        .tape {
+            position: absolute; top: -14px; left: 50%; width: 130px; height: 30px; margin-left: -65px;
+            background: rgba(253, 224, 71, 0.55); transform: rotate(2deg);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+        }
+        .tape span { display: block; text-align: center; font-size: 11px; line-height: 30px; font-weight: 800;
+                     letter-spacing: 3px; color: rgba(0, 0, 0, 0.55); }
+        .shot { position: relative; width: min(var(--size, 62vw), calc((var(--maxh, 78vh) - 110px) * var(--ar, 1.7778))); aspect-ratio: var(--ar, 16 / 9);
+                background: #1d2128; overflow: hidden; cursor: zoom-in; }
+        .shot img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .shot .zoomhint { position: absolute; left: 12px; top: 10px; padding: 4px 8px; border-radius: 6px; font-size: 12px;
+                          font-weight: 700; color: #fff; background: rgba(0, 0, 0, 0.45); opacity: 0; transition: opacity 0.15s; }
+        .shot:hover .zoomhint { opacity: 1; }
+
+        /* full screen zoom: wheel zooms at the cursor, drag moves, Esc or a click without moving goes back */
+        #zoom { position: fixed; inset: 0; display: none; background: #050608; overflow: hidden; cursor: grab;
+                font-family: var(--ui-font, 'Barlow', sans-serif); }
+        #zoom.open { display: block; }
+        #zoom.drag { cursor: grabbing; }
+        #zoom img { position: absolute; left: 0; top: 0; transform-origin: 0 0; user-select: none; -webkit-user-drag: none; }
+        #zoom .bar { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); padding: 8px 14px; border-radius: 8px;
+                     background: rgba(0, 0, 0, 0.6); color: #fff; font-size: 14px; font-weight: 700; }
+        .shot .none { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+                      color: rgba(255, 255, 255, 0.4); font-size: 18px; font-weight: 600; }
+        .stamp {
+            position: absolute; right: 14px; bottom: 10px; font-family: 'Courier New', monospace; font-weight: 700;
+            font-size: 20px; color: #ff8a1f; letter-spacing: 1px; text-shadow: 0 0 6px rgba(255, 120, 20, 0.7);
+        }
+        .caption { padding: 14px 6px 18px; display: flex; align-items: flex-end; gap: 16px; color: #1c1c1c; }
+        .caption .left { flex: 1; min-width: 0; }
+        .kicker { font-size: 12px; font-weight: 800; letter-spacing: 3px; color: #b45309; }
+        .street { font-family: var(--ui-font-display, 'Bricolage Grotesque', sans-serif); font-size: 30px; font-weight: 800;
+                  line-height: 1.05; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .meta { font-size: 14px; font-weight: 600; color: rgba(0, 0, 0, 0.55); margin-top: 4px; }
+        .casestamp { flex: none; font-size: 26px; font-weight: 800; color: #1c1c1c; padding: 6px 12px; border: 3px solid #1c1c1c;
+                    border-radius: 4px; transform: rotate(-3deg); }
+
+        .log {
+            width: 360px; max-height: min(78vh, 760px); display: flex; flex-direction: column;
+            background: var(--ui-surface-raised, rgba(12, 14, 20, 0.94)); color: var(--ui-text, rgba(255, 255, 255, 0.93));
+            border: 1px solid var(--ui-border, rgba(255, 255, 255, 0.08)); border-radius: 12px; overflow: hidden;
+            box-shadow: 0 24px 50px rgba(0, 0, 0, 0.45);
+        }
+        .log header { padding: 16px 18px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+        .log h2 { font-size: 13px; font-weight: 800; letter-spacing: 3px; color: #fde047; }
+        .log .scene { font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.6); margin-top: 6px; }
+        .rows { overflow-y: auto; padding: 4px 18px 8px; flex: 1; }
+        .row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .no { flex: none; min-width: 28px; height: 28px; padding: 0 6px; border-radius: 6px; background: #fde047; color: #111;
+              font-size: 17px; font-weight: 800; line-height: 28px; text-align: center; }
+        .car .no { background: #60a5fa; }
+        .row .what { flex: 1; min-width: 0; }
+        .row .t { font-size: 17px; font-weight: 700; }
+        .row .i { font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .row .d { flex: none; font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, 0.5); }
+        .custody { padding: 12px 18px 14px; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+        .custody h3 { font-size: 11px; font-weight: 800; letter-spacing: 2px; color: rgba(255, 255, 255, 0.45); margin-bottom: 6px; }
+        .step { font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.75); padding: 2px 0 2px 12px; position: relative; }
+        .step::before { content: ''; position: absolute; left: 0; top: 8px; width: 5px; height: 5px; border-radius: 50%; background: #fde047; }
+        /* player layout (pause menu → Server Settings → Forensics) */
+        #viewer.log-left { flex-direction: row-reverse; }
+        #viewer.log-bottom { flex-direction: column; gap: 18px; --maxh: 58vh; }
+        #viewer.log-bottom .log { width: min(var(--size, 62vw), 900px); max-height: 30vh; }
+        #viewer.log-hidden .log { display: none; }
+        #viewer.no-stamp .stamp { display: none; }
+        .close {
+            position: fixed; top: 22px; right: 26px; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+            background: rgba(255, 255, 255, 0.1); color: #fff; font-size: 14px; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .close:hover { background: rgba(255, 255, 255, 0.18); }
+
+
+        /* lab screen fit tool, step 2 (keys come here, so the game can't swallow them) */
+        #fit { position: fixed; left: 50%; bottom: 6vh; transform: translateX(-50%); display: none; z-index: 50;
+               background: rgba(18, 20, 28, .92); border: 1px solid rgba(255,255,255,.12); border-radius: 10px;
+               padding: 14px 18px; color: #f3f3f3; font-family: 'Barlow', sans-serif; box-shadow: 0 14px 40px rgba(0,0,0,.45); }
+        #fit.open { display: block; }
+        #fit h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
+        #fit .keys { display: grid; grid-template-columns: auto auto; gap: 5px 18px; font-size: 13px; color: rgba(255,255,255,.8); }
+        #fit kbd { display: inline-block; min-width: 22px; padding: 1px 6px; margin-right: 3px; border-radius: 4px; text-align: center;
+                   background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.18); font: 600 12px 'Barlow', sans-serif; color: #fff; }
+    </style>
+</head>
+<body>
+    <textarea id="clip"></textarea>
+
+    <div id="viewer">
+        <div class="polaroid">
+            <div class="tape"><span>EVIDENCE</span></div>
+            <div class="shot" id="shot"></div>
+            <div class="caption">
+                <div class="left">
+                    <div class="kicker" id="kicker">CRIME SCENE PHOTO</div>
+                    <div class="street" id="street"></div>
+                    <div class="meta" id="meta"></div>
+                </div>
+                <div class="casestamp" id="casestamp"></div>
+            </div>
+        </div>
+        <div class="log">
+            <header><h2>EVIDENCE IN THE PICTURE</h2><div class="scene" id="scene"></div></header>
+            <div class="rows" id="rows"></div>
+            <div class="custody" id="custody"></div>
+        </div>
+        <div class="close" id="close" data-probe-press>Close · Esc</div>
+    </div>
+    <div id="zoom"><img id="zoomImg" alt=""><div class="bar" id="zoomBar"></div></div>
+
+    <script src="games.js"></script>
+    <div id="fit">
+        <h3>Fine-tune the lab screen</h3>
+        <div class="keys">
+            <span><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>W</kbd><kbd>S</kbd> into / out of the monitor</span>
+            <span><kbd>Wheel</kbd> or <kbd>+</kbd><kbd>-</kbd> size</span><span><kbd>Shift</kbd> slower</span>
+            <span><kbd>R</kbd> pick the corners again</span><span><kbd>Enter</kbd> save &nbsp;<kbd>Esc</kbd> cancel</span>
+        </div>
+    </div>
+
+    <script>
+        const RES = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'whip_evidence';
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        // Clipboard. CEF: navigator.clipboard does not work, execCommand('copy') does
+        function copy(text) {
+            const clip = $('clip');
+            clip.value = text;
+            clip.select();
+            document.execCommand('copy');
+            clip.blur();
+        }
+
+        // "2026-11-16 14:33:10" -> "11 16 '26 14:33" (the orange camera date stamp)
+        function stamp(time) {
+            const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(time || '');
+            return m ? `${m[2]} ${m[3]} '${m[1].slice(2)}  ${m[4]}:${m[5]}` : '';
+        }
+
+        // the picture arrives after the rest (in parts); until then "Loading picture..."
+        let stampText = '';
+        function setImage(image, loading) {
+            const has = image && /^data:image\//.test(image);
+            current = has ? image : null;
+            $('shot').innerHTML = has
+                ? `<img src="${image}" alt=""><div class="zoomhint">Click to zoom</div>`
+                : `<div class="none" id="shotNone">${loading ? 'Loading picture...' : 'No picture (only the list was kept)'}</div>`;
+            const img = $('shot').querySelector('img');
+            if (img) img.onload = () => { if (img.naturalHeight) $('shot').style.setProperty('--ar', String(img.naturalWidth / img.naturalHeight)); };
+            $('shot').insertAdjacentHTML('beforeend', `<div class="stamp">${esc(stampText)}</div>`);
+        }
+
+        function applyLayout(ui) {
+            ui = ui || {};
+            const v = $('viewer');
+            const size = Math.min(95, Math.max(35, Number(ui.size) || 62));
+            v.style.setProperty('--size', size + 'vw');
+            v.classList.remove('log-left', 'log-bottom', 'log-hidden');
+            if (['left', 'bottom', 'hidden'].includes(ui.log)) v.classList.add('log-' + ui.log);
+            v.classList.toggle('no-stamp', ui.stamp === false);
+        }
+
+        function openPhoto(d, loading, ui) {
+            applyLayout(ui);
+            stampText = stamp(d.time);
+            $('shot').style.setProperty('--ar', '1.7778');
+            setImage(null, loading);
+            $('street').textContent = d.street || '?';
+            $('meta').textContent = `${d.time || '?'} · ${d.taken_by || '?'}`;
+            $('casestamp').textContent = d.case ? '#' + d.case : 'NO CASE';
+            $('kicker').textContent = `CRIME SCENE PHOTO · ${d.photo_id || ''}`;
+            $('scene').textContent = d.scene || '';
+
+            const rows = (Array.isArray(d.entries) ? d.entries : []).map((e) => `<div class="row">
+                <span class="no">${esc(e.n)}</span>
+                <div class="what"><div class="t">${esc(e.t)}</div>${e.s ? `<div class="i">${esc(e.s)} · ${esc(e.a || 0)} min old</div>` : ''}</div>
+                <span class="d">${esc(e.d || 0)} m</span></div>`);
+            (Array.isArray(d.cars) ? d.cars : []).forEach((c, i) => rows.push(`<div class="row car">
+                <span class="no">V${i + 1}</span>
+                <div class="what"><div class="t">${esc(c.p)}</div><div class="i">${esc(c.t)}</div></div></div>`));
+            $('rows').innerHTML = rows.join('') || '<div class="row"><div class="what"><div class="i">Nothing listed.</div></div></div>';
+
+            const steps = typeof d.custody === 'string' && d.custody ? d.custody.split(' → ') : [];
+            $('custody').innerHTML = steps.length
+                ? '<h3>CHAIN OF CUSTODY</h3>' + steps.map((s) => `<div class="step">${esc(s)}</div>`).join('') : '';
+            $('custody').style.display = steps.length ? '' : 'none';
+
+            const v = $('viewer');
+            v.classList.add('open');
+            requestAnimationFrame(() => v.classList.add('shown'));
+        }
+
+        // ---------- zoom (the picture at full resolution)
+        let current = null;
+        const Z = { s: 1, x: 0, y: 0, min: 1, drag: null, moved: false };
+        function applyZoom() {
+            $('zoomImg').style.transform = `translate(${Z.x}px, ${Z.y}px) scale(${Z.s})`;
+            $('zoomBar').textContent = `${Math.round(Z.s * 100)} %  ·  wheel: zoom  ·  drag: move  ·  Esc: back`;
+        }
+        function clamp() {
+            const img = $('zoomImg'), w = img.naturalWidth * Z.s, h = img.naturalHeight * Z.s;
+            const W = innerWidth, H = innerHeight;
+            Z.x = w <= W ? (W - w) / 2 : Math.min(0, Math.max(W - w, Z.x));
+            Z.y = h <= H ? (H - h) / 2 : Math.min(0, Math.max(H - h, Z.y));
+        }
+        function openZoom() {
+            if (!current) return;
+            const img = $('zoomImg');
+            img.onload = () => {
+                Z.min = Math.min(innerWidth / img.naturalWidth, innerHeight / img.naturalHeight);
+                Z.s = Z.min; clamp(); applyZoom();
+            };
+            img.src = current;
+            $('zoom').classList.add('open');
+        }
+        function closeZoom() { $('zoom').classList.remove('open'); }
+        $('shot').addEventListener('click', openZoom);
+        $('zoom').addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const old = Z.s;
+            Z.s = Math.min(4, Math.max(Z.min, Z.s * (e.deltaY < 0 ? 1.2 : 1 / 1.2)));
+            Z.x = e.clientX - (e.clientX - Z.x) * (Z.s / old);
+            Z.y = e.clientY - (e.clientY - Z.y) * (Z.s / old);
+            clamp(); applyZoom();
+        }, { passive: false });
+        $('zoom').addEventListener('mousedown', (e) => {
+            Z.drag = { x: e.clientX - Z.x, y: e.clientY - Z.y }; Z.moved = false; $('zoom').classList.add('drag');
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!Z.drag) return;
+            Z.moved = true;
+            Z.x = e.clientX - Z.drag.x; Z.y = e.clientY - Z.drag.y;
+            clamp(); applyZoom();
+        });
+        window.addEventListener('mouseup', () => {
+            if (!Z.drag) return;
+            Z.drag = null; $('zoom').classList.remove('drag');
+            if (!Z.moved) closeZoom();
+        });
+
+        function closePhoto(tell) {
+            closeZoom();
+            const v = $('viewer');
+            v.classList.remove('shown');
+            setTimeout(() => { v.classList.remove('open'); $('shot').innerHTML = ''; }, 180);
+            if (tell) fetch(`https://${RES}/photoClose`, { method: 'POST', body: '{}' }).catch(() => {});
+        }
+
+        $('close').addEventListener('click', () => closePhoto(true));
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape' && e.key !== 'Backspace') return;
+            if ($('zoom').classList.contains('open')) closeZoom();
+            else if ($('viewer').classList.contains('open')) closePhoto(true);
+        });
+
+        // ---- lab screen fit tool, step 2: held keys go to client/labscreen.lua
+        const FIT = { open: false, held: {} };
+        const FIT_KEYS = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right', w: 'w', W: 'w', s: 's', S: 's' };
+        const fitPost = (name, body) => fetch(`https://${RES}/${name}`, { method: 'POST', body: JSON.stringify(body || {}) }).catch(() => {});
+        const fitSendHeld = () => fitPost('fitKeys', { held: FIT.held });
+        function fitShow(on) { FIT.open = on; FIT.held = {}; $('fit').classList.toggle('open', on); }
+        function fitEnd(how) { fitShow(false); fitPost('fitDone', { how }); }
+        document.addEventListener('keydown', (e) => {
+            if (!FIT.open) return;
+            e.preventDefault();
+            const k = FIT_KEYS[e.key];
+            if (k) { if (!FIT.held[k]) { FIT.held[k] = true; fitSendHeld(); } }
+            else if (e.key === 'Shift') { FIT.held.shift = true; fitSendHeld(); }
+            else if (e.key === '+' || e.key === '=') fitPost('fitSize', { dir: 1, slow: e.shiftKey });
+            else if (e.key === '-' || e.key === '_') fitPost('fitSize', { dir: -1, slow: e.shiftKey });
+            else if (e.key === 'r' || e.key === 'R') fitEnd('redo');
+            else if (e.key === 'Enter') fitEnd('save');
+            else if (e.key === 'Escape' || e.key === 'Backspace') fitEnd('cancel');
+        });
+        document.addEventListener('keyup', (e) => {
+            if (!FIT.open) return;
+            const k = FIT_KEYS[e.key] || (e.key === 'Shift' && 'shift');
+            if (k && FIT.held[k]) { delete FIT.held[k]; fitSendHeld(); }
+        });
+        window.addEventListener('wheel', (e) => {
+            if (FIT.open && e.deltaY) fitPost('fitSize', { dir: e.deltaY < 0 ? 1 : -1, slow: e.shiftKey });
+        }, { passive: true });
+        window.addEventListener('blur', () => { if (FIT.open) { FIT.held = {}; fitSendHeld(); } });
+
+        window.addEventListener('message', (e) => {
+            const d = e.data || {};
+            if (d.action === 'fit') fitShow(d.open === true);
+            if (d.action === 'copy' && typeof d.text === 'string') copy(d.text);
+            else if (d.action === 'photo') openPhoto(d.data || {}, d.loading === true, d.ui);
+            else if (d.action === 'photoImage') setImage(d.image, false);
+            else if (d.action === 'photoLoading' && $('shotNone')) $('shotNone').textContent = `Loading picture... ${Math.round(d.done / d.total * 100)} %`;
+            else if (d.action === 'photoClose') closePhoto(false);
+        });
+    </script>
+</body>
+</html>

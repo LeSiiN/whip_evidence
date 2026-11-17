@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="https://cfx-nui-whip_core/html/css/fonts.css">
+    <style>
+        /* Lab monitor (DUI 1280 x 720): a desktop in the style of a modern PC.
+           Laid out 800 px wide (height to the screen's shape) and zoomed 1.6x, so text stays big and sharp in the world.
+           client/labscreen.lua sends { action = 'paint', ... } when the lab's state changes. */
+        * { box-sizing: border-box; }
+        html { zoom: 1.6; }
+        html, body { width: 800px; height: var(--h, 450px); margin: 0; overflow: hidden; }
+        body { font-family: 'Segoe UI Variable', 'Segoe UI', 'Barlow', sans-serif; color: #f5f5f5; background: #0b1530;
+               position: relative; }   /* window, taskbar and toast sit inside the page height, not the whole texture */
+
+        /* wallpaper: soft blooms */
+        .wall { position: absolute; inset: 0; overflow: hidden;
+            background: radial-gradient(120% 90% at 50% 120%, #0c3b8f 0%, #0a1f54 40%, #071230 75%); }
+        .bloom { position: absolute; border-radius: 50%; opacity: .9; }
+        .b1 { width: 560px; height: 560px; left: 120px; top: 160px;
+              background: radial-gradient(circle at 50% 40%, rgba(80,160,255,.75), rgba(40,90,220,.35) 45%, transparent 70%); }
+        .b2 { width: 390px; height: 390px; left: 205px; top: 190px;
+              background: radial-gradient(circle at 50% 35%, rgba(170,220,255,.65), rgba(80,150,255,.2) 50%, transparent 72%); }
+
+        /* window, maximized */
+        .win { position: absolute; left: 0; top: 0; right: 0; bottom: 40px; overflow: hidden;
+               background: rgba(30, 32, 42, .94); }
+        .bar { height: 30px; display: flex; align-items: center; padding-left: 12px; gap: 8px; font-size: 12px; color: rgba(255,255,255,.9); }
+        .bar img { width: 15px; height: 15px; object-fit: contain; }
+        .bar .grow { flex: 1; }
+        .ctl { width: 38px; height: 30px; display: flex; align-items: center; justify-content: center; }
+        .ctl svg { width: 9px; height: 9px; }
+        .body { display: grid; grid-template-columns: 150px 1fr; height: calc(100% - 30px); }
+        .nav { padding: 6px 6px; }
+        .nav .item { display: flex; align-items: center; gap: 9px; padding: 7px 10px; border-radius: 5px; font-size: 13px; color: rgba(255,255,255,.85); }
+        .nav .item.on { background: rgba(255,255,255,.08); position: relative; }
+        .nav .item.on::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: #60cdff; }
+        .nav .ico { width: 14px; height: 14px; border-radius: 3px; }
+        .main { padding: 16px 22px; background: rgba(255,255,255,.04); border-top-left-radius: 7px; overflow: hidden; }
+        h1 { font-size: 24px; font-weight: 600; margin: 0 0 3px; }
+        .sub { font-size: 13px; color: rgba(255,255,255,.72); margin-bottom: 14px; }
+
+        .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+        .card { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.07); border-radius: 7px; padding: 12px 14px; }
+        .card .n { font-size: 32px; font-weight: 600; line-height: 1.1; }
+        .card .l { font-size: 12.5px; color: rgba(255,255,255,.75); margin-top: 3px; }
+        .tip { margin-top: 14px; font-size: 12.5px; color: rgba(255,255,255,.75); display: flex; gap: 8px; align-items: center;
+               background: rgba(96,205,255,.09); border: 1px solid rgba(96,205,255,.2); border-radius: 7px; padding: 10px 12px; }
+
+        .prog { height: 7px; border-radius: 4px; background: rgba(255,255,255,.14); margin: 14px 0 7px; overflow: hidden; }
+        .prog b { display: block; height: 100%; width: 0; border-radius: 4px; background: #60cdff; transition: width 1s linear; }
+        .row { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; color: rgba(255,255,255,.88); }
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+        .chip { font-size: 12.5px; padding: 5px 10px; border-radius: 14px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.07); }
+        .scan { margin-top: 16px; height: 80px; border-radius: 7px; position: relative; overflow: hidden;
+                background: repeating-linear-gradient(90deg, rgba(96,205,255,.07) 0 1px, transparent 1px 16px),
+                            repeating-linear-gradient(0deg, rgba(96,205,255,.07) 0 1px, transparent 1px 16px), rgba(0,0,0,.2); }
+        .scan i { position: absolute; top: 0; bottom: 0; width: 80px; background: linear-gradient(90deg, transparent, rgba(96,205,255,.35), transparent);
+                  animation: sweep 2.4s linear infinite; }
+        @keyframes sweep { from { left: -80px; } to { left: 100%; } }
+        .scan svg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 180px; opacity: .65; }
+
+        .ok { display: flex; align-items: center; gap: 12px; }
+        .ok .tick { width: 34px; height: 34px; border-radius: 50%; background: #6ccb5f; display: flex; align-items: center; justify-content: center; flex: none; }
+        .results { margin-top: 12px; border-radius: 7px; overflow: hidden; border: 1px solid rgba(255,255,255,.07); }
+        .res { display: flex; gap: 10px; align-items: center; padding: 6px 10px; font-size: 13px; background: rgba(255,255,255,.04);
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .res:nth-child(odd) { background: rgba(255,255,255,.075); }
+        .res .no { min-width: 28px; height: 20px; line-height: 20px; text-align: center; border-radius: 4px; background: #fde047; color: #111; font-weight: 700; font-size: 12px; flex: none; }
+        .res .tx { overflow: hidden; text-overflow: ellipsis; }
+        .res.match .no { background: #f87171; }
+        .res.reference .no { background: #4ade80; }
+        .more { font-size: 12px; color: rgba(255,255,255,.65); margin-top: 6px; }
+
+        /* taskbar */
+        .task { position: absolute; left: 0; right: 0; bottom: 0; height: 40px; display: flex; align-items: center; justify-content: center; gap: 4px;
+                background: rgba(26, 28, 38, .92); border-top: 1px solid rgba(255,255,255,.08); }
+        .tb { width: 32px; height: 32px; border-radius: 5px; display: flex; align-items: center; justify-content: center; position: relative; }
+        .tb.on { background: rgba(255,255,255,.08); }
+        .tb.on::after { content: ''; position: absolute; bottom: 2px; width: 12px; height: 3px; border-radius: 2px; background: #60cdff; }
+        .tb img, .tb .ico { width: 19px; height: 19px; object-fit: contain; border-radius: 4px; }
+        .search { width: 150px; height: 26px; border-radius: 13px; background: rgba(255,255,255,.09); display: flex; align-items: center; gap: 6px;
+                  padding: 0 10px; font-size: 11.5px; color: rgba(255,255,255,.65); margin: 0 3px; }
+        .tray { position: absolute; right: 10px; top: 0; bottom: 0; display: flex; align-items: center; gap: 10px; font-size: 11.5px; text-align: right; }
+        .tray .clock { line-height: 1.3; }
+        .tray svg { width: 13px; height: 13px; opacity: .9; }
+
+        /* toast */
+        .toast { position: absolute; right: 10px; bottom: 48px; width: 270px; padding: 10px 12px; border-radius: 7px; display: none;
+                 background: rgba(40, 42, 54, .97); border: 1px solid rgba(255,255,255,.1); box-shadow: 0 12px 30px rgba(0,0,0,.4); }
+        .toast.show { display: block; animation: tin .35s cubic-bezier(.16,1,.3,1); }
+        @keyframes tin { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+        .toast .h { display: flex; gap: 6px; align-items: center; font-size: 11px; color: rgba(255,255,255,.75); }
+        .toast .h img { width: 13px; height: 13px; object-fit: contain; }
+        .toast .t { font-size: 14px; font-weight: 600; margin-top: 6px; }
+        .toast .d { font-size: 12px; color: rgba(255,255,255,.78); margin-top: 2px; }
+    </style>
+</head>
+<body>
+    <div class="wall"><div class="bloom b1"></div><div class="bloom b2"></div></div>
+
+    <div class="win">
+        <div class="bar">
+            <img class="logo" alt=""><span id="title">Forensic Analysis</span><span class="grow"></span>
+            <span class="ctl"><svg viewBox="0 0 10 10"><path d="M0 5h10" stroke="#fff" stroke-width="1"/></svg></span>
+            <span class="ctl"><svg viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" rx="1.5" fill="none" stroke="#fff"/></svg></span>
+            <span class="ctl x"><svg viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="#fff" stroke-width="1"/></svg></span>
+        </div>
+        <div class="body">
+            <div class="nav">
+                <div class="item on"><span class="ico" style="background:#60cdff"></span>Analysis</div>
+                <div class="item"><span class="ico" style="background:#fbbf24"></span>Storage</div>
+                <div class="item"><span class="ico" style="background:#4ade80"></span>Ballistics</div>
+                <div class="item"><span class="ico" style="background:#a78bfa"></span>Reports</div>
+            </div>
+            <div class="main" id="main"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">
+        <div class="h"><img class="logo" alt=""><span>Forensic Analysis</span></div>
+        <div class="t">Analysis complete</div>
+        <div class="d" id="toastText"></div>
+    </div>
+
+    <div class="task">
+        <div class="tb"><img class="logo" alt=""></div>
+        <div class="search"><svg viewBox="0 0 16 16" width="12"><circle cx="7" cy="7" r="5" fill="none" stroke="#fff" stroke-width="1.5"/><path d="M11 11l4 4" stroke="#fff" stroke-width="1.5"/></svg>Search</div>
+        <div class="tb"><span class="ico" style="background:linear-gradient(135deg,#ffd166,#f4a300)"></span></div>
+        <div class="tb"><span class="ico" style="background:linear-gradient(135deg,#7dd3fc,#2563eb)"></span></div>
+        <div class="tb on"><img class="logo" alt=""></div>
+        <div class="tb"><span class="ico" style="background:linear-gradient(135deg,#86efac,#16a34a)"></span></div>
+        <div class="tray">
+            <svg viewBox="0 0 16 16"><path d="M1 6a10 10 0 0 1 14 0M3.5 8.5a6.5 6.5 0 0 1 9 0M6 11a3 3 0 0 1 4 0" fill="none" stroke="#fff" stroke-width="1.4"/><circle cx="8" cy="13.3" r="1" fill="#fff"/></svg>
+            <svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#fff"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4" fill="none" stroke="#fff" stroke-width="1.3"/></svg>
+            <div class="clock"><div id="time">--:--</div><div id="date"></div></div>
+        </div>
+    </div>
+
+    <script>
+        const $ = (id) => document.getElementById(id);
+        const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const KIND = { casing: 'Casings', bullet: 'Bullets', blood: 'Blood', fingerprint: 'Fingerprints', vehicle_fragment: 'Vehicle fragments',
+                       gsr: 'GSR', reference: 'Reference', other: 'Other' };
+        // fallback mark if the logo file is missing
+        const MARK = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#2563eb"/><circle cx="10.5" cy="10.5" r="5" fill="none" stroke="#fff" stroke-width="2"/><path d="M14.5 14.5l5 5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>');
+        let timer = 0, toastTimer = 0, lastDone = 0;
+        let MAX_ROWS = 7, last = null;
+
+        function setLogo(src) {
+            document.querySelectorAll('img.logo').forEach((img) => {
+                img.onerror = () => { img.onerror = null; img.src = MARK; };
+                img.src = src || MARK;
+            });
+        }
+        setLogo();
+
+        function mmss(ms) {
+            const m = Math.max(0, Math.ceil(ms / 60000));
+            return m <= 1 ? 'Less than a minute left' : `About ${m} min left`;
+        }
+
+        function render(d) {
+            last = d;
+            clearInterval(timer);
+            $('title').textContent = `Forensic Analysis — ${d.label || 'Lab'}`;
+            const m = $('main');
+            if (d.state === 'running') {
+                const total = Math.max(1, d.totalMs || 1), endsAt = Date.now() + (d.leftMs || 0);
+                const chips = Object.entries(d.kinds || {}).map(([k, n]) => `<span class="chip">${esc(KIND[k] || k)}: ${esc(n)}</span>`).join('');
+                m.innerHTML = `<h1>Analysing evidence…</h1>
+                    <div class="sub">${esc(d.count)} bag(s)${d.guns ? ` · ${esc(d.guns)} weapon(s) to test-fire` : ''} · started by ${esc(d.by || '?')}</div>
+                    <div class="prog"><b id="pb"></b></div>
+                    <div class="row"><span id="pct">0 %</span><span id="left"></span></div>
+                    <div class="chips">${chips}</div>
+                    <div class="scan"><i></i><svg viewBox="0 0 120 60"><g fill="none" stroke="#60cdff" stroke-width="1.6">
+                        <path d="M10 50 Q30 5 60 30 T110 20"/><path d="M10 40 Q35 15 60 38 T110 30" opacity=".6"/></g></svg></div>`;
+                const tick = () => {
+                    const left = endsAt - Date.now();
+                    const pct = Math.min(100, Math.max(0, (1 - left / total) * 100));
+                    $('pb').style.width = pct + '%';
+                    $('pct').textContent = Math.floor(pct) + ' %';
+                    $('left').textContent = mmss(left);
+                };
+                tick();
+                timer = setInterval(tick, 1000);
+            } else if (d.state === 'done') {
+                const lines = (d.results || []);
+                const shown = lines.slice(0, MAX_ROWS).map((r) => `<div class="res ${esc(r.kind || '')}">
+                    <span class="no">${esc(r.no || '•')}</span><span class="tx">${esc(r.text)}</span></div>`).join('');
+                m.innerHTML = `<div class="ok"><span class="tick"><svg viewBox="0 0 16 16" width="18"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="#fff" stroke-width="2.2"/></svg></span>
+                    <div><h1>Analysis complete</h1><div class="sub" style="margin:0">${esc(d.summary || '')}</div></div></div>
+                    <div class="results">${shown || '<div class="res">No results.</div>'}</div>
+                    ${lines.length > MAX_ROWS ? `<div class="more">+ ${lines.length - MAX_ROWS} more in the evidence bags</div>` : ''}`;
+                if (d.finished && d.finished !== lastDone) {
+                    lastDone = d.finished;
+                    $('toastText').textContent = d.summary || '';
+                    $('toast').classList.add('show');
+                    clearTimeout(toastTimer);
+                    toastTimer = setTimeout(() => $('toast').classList.remove('show'), 15000);
+                }
+            } else {
+                m.innerHTML = `<h1>Ready</h1><div class="sub">${esc(d.label || 'Lab')} · Evidence analysis</div>
+                    <div class="cards">
+                        <div class="card"><div class="n">${esc(d.pending || 0)}</div><div class="l">Bags waiting for analysis</div></div>
+                        <div class="card"><div class="n">${esc(d.analysed || 0)}</div><div class="l">Analysed, in storage</div></div>
+                        <div class="card"><div class="n">${esc(d.newGuns || 0)}</div><div class="l">Weapons to test-fire</div></div>
+                    </div>
+                    <div class="tip"><svg viewBox="0 0 16 16" width="15" style="flex:none"><circle cx="8" cy="8" r="7" fill="none" stroke="#60cdff"/><path d="M8 7v4M8 4.6v.1" stroke="#60cdff" stroke-width="1.6"/></svg>
+                        Put evidence into the storage, then start the analysis at the device.</div>`;
+            }
+        }
+
+        // the real time and date (the player's own PC), not the game clock
+        const fmtTime = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
+        const fmtDate = new Intl.DateTimeFormat(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
+        function clock() {
+            const now = new Date();
+            $('time').textContent = fmtTime.format(now);
+            $('date').textContent = fmtDate.format(now);
+            setTimeout(clock, 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()) + 50);   // on the next full minute
+        }
+        clock();
+
+        window.addEventListener('message', (e) => {
+            const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+            if (!d) return;
+            if (d.action === 'paint') render(d);
+            else if (d.action === 'size') {
+                // the screen's shape: d.h page pixels high (zoom 1.6), more result rows on taller screens
+                const h = Math.max(225, Math.round(d.h / 1.6));
+                document.documentElement.style.setProperty('--h', h + 'px');
+                MAX_ROWS = Math.max(3, Math.floor((h - 190) / 34));
+                if (last) { const keepDone = lastDone; render(last); lastDone = keepDone; }
+            }
+            else if (d.action === 'logo') setLogo(d.src);
+        });
+    </script>
+</body>
+</html>

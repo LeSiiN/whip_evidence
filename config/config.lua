@@ -1,0 +1,259 @@
+-- Defaults. Admins change almost everything in game: /whip -> Settings -> Forensics.
+-- Values saved in /whip win over this file.
+Config = {
+    Debug = false,
+
+    -- Jobs that collect evidence, run GSR tests and use the labs (on duty)
+    PoliceJobs = { 'police', 'bcso', 'sahp' },
+
+    -- Rank permissions. Each one shows up as a toggle on every role in /whip -> Jobs.
+    -- level: on the first start every role at this level or higher gets it (later you decide in /whip).
+    -- UsePermissions = false: every on-duty officer may do everything.
+    UsePermissions = true,
+    Permissions = {
+        evidence_scan        = { level = 1,  label = 'Evidence: scan (flashlight, camera)' },
+        evidence_photo       = { level = 1,  label = 'Evidence: take crime scene photos' },
+        evidence_collect     = { level = 20, label = 'Evidence: collect evidence' },
+        evidence_gsr         = { level = 20, label = 'Evidence: GSR tests' },
+        evidence_vehicle     = { level = 20, label = 'Evidence: collect vehicle traces' },
+        evidence_laser       = { level = 20, label = 'Evidence: laser pointer' },
+        evidence_sign        = { level = 20, label = 'Evidence: sign for evidence' },
+        evidence_clear       = { level = 20, label = 'Evidence: clear away single traces' },
+        evidence_upload      = { level = 20, label = 'Evidence: upload to a case (MDT)' },
+        evidence_locker      = { level = 20, label = 'Evidence: open case lockers' },
+        evidence_dust        = { level = 40, label = 'Evidence: dust weapons for prints' },
+        evidence_release     = { level = 40, label = 'Evidence: release crime scenes' },
+        evidence_lab         = { level = 40, label = 'Evidence: run lab analyses' },
+        evidence_locker_take = { level = 40, label = 'Evidence: take items out of case lockers' },
+        evidence_case_close  = { level = 60, label = 'Evidence: close cases' },
+    },
+
+    -- Created on start if a job above does not exist yet (existing jobs only get the permissions).
+    Jobs = {
+        police = {
+            name = 'Los Santos Police Department', icon = 'shield',
+            roles = {
+                { name = 'Chief of Police', level = 100 },
+                { name = 'Captain',    level = 80, permissions = { canHire = true, canFire = true, canPromote = true, canDemote = true, bankAccess = 'withdraw' } },
+                { name = 'Lieutenant', level = 60, permissions = { canHire = true, canPromote = true, bankAccess = 'view' } },
+                { name = 'Sergeant',   level = 40, permissions = { bankAccess = 'view' } },
+                { name = 'Officer',    level = 20 },
+                { name = 'Cadet',      level = 1 },
+            },
+        },
+        bcso = {
+            name = "Blaine County Sheriff's Office", icon = 'shield',
+            roles = {
+                { name = 'Sheriff',      level = 100 },
+                { name = 'Undersheriff', level = 80, permissions = { canHire = true, canFire = true, canPromote = true, canDemote = true, bankAccess = 'withdraw' } },
+                { name = 'Lieutenant',   level = 60, permissions = { canHire = true, canPromote = true, bankAccess = 'view' } },
+                { name = 'Sergeant',     level = 40, permissions = { bankAccess = 'view' } },
+                { name = 'Deputy',       level = 20 },
+                { name = 'Cadet',        level = 1 },
+            },
+        },
+        sahp = {
+            name = 'San Andreas Highway Patrol', icon = 'shield',
+            roles = {
+                { name = 'Commissioner', level = 100 },
+                { name = 'Captain',      level = 80, permissions = { canHire = true, canFire = true, canPromote = true, canDemote = true, bankAccess = 'withdraw' } },
+                { name = 'Lieutenant',   level = 60, permissions = { canHire = true, canPromote = true, bankAccess = 'view' } },
+                { name = 'Sergeant',     level = 40, permissions = { bankAccess = 'view' } },
+                { name = 'Trooper',      level = 20 },
+                { name = 'Cadet',        level = 1 },
+            },
+        },
+    },
+
+    -- Evidence
+    MaxEvidence     = 500,    -- more at once? the oldest is removed
+    MinDistance     = 1.6,    -- metres between two pieces of evidence
+    PickupDistance  = 1.5,    -- metres to pick up
+    SeeDistance     = 25.0,   -- metres you see evidence with a flashlight or camera (markers and info)
+    RenderDistance  = 50.0,   -- metres the props are shown
+    MaxShotDistance = 150.0,  -- max distance from shooter to bullet impact
+    NeedFlashlight  = true,   -- evidence only visible with an aimed flashlight or the camera
+    MaxFails        = 3,      -- failed attempts before the evidence is ruined
+    NeedEmptyBag    = false,  -- true: every collected piece uses up one empty evidence bag
+    BagsIntoCase    = true,   -- new bags go into the evidence case first (when carried and not full)
+
+    -- Keys while scanning (players can change them: Settings > Key Bindings > FiveM)
+    ScanKeys = {
+        Filter = 'G',   -- next filter: all, blood, casings, ...
+        Photo  = 'H',   -- take a crime scene photo (camera in hand)
+    },
+
+    -- Crime scene photos (a real screenshot, kept in the database)
+    Photo = {
+        Width    = 0,       -- picture width in pixels, 0 = the player's full screen (sharpest)
+        Format   = 'webp',  -- 'webp' (sharp and small) or 'jpg'
+        Quality  = 0.85,    -- 0.1 - 1.0 (higher = sharper, bigger, slower to send)
+        MaxKB    = 2500,    -- bigger pictures are refused
+        KeepDays = 60,    -- pictures older than this are deleted on start (0 = keep forever)
+    },
+
+    ReleaseRadius = 20.0,   -- metres a "Release crime scene" clears
+
+    -- Minigame per job. 'ring' = WHIP's ring (Config.SkillCheck below) instead of the forensic game.
+    Minigames = {
+        fingerprint      = 'dust',      -- brush the print visible, press the tape on
+        casing           = 'tweezers',  -- grab it at the rim, carry it into the bag
+        blood            = 'swab',      -- rub in circles on the stain
+        bullet           = 'pull',      -- steady pull in the green zone (police and civilians)
+        vehicle_fragment = 'shards',    -- click every fragment
+        gsr              = 'gsrswab',   -- swab the spots on both hands
+        wipe             = 'swab',      -- civilians wiping away evidence
+        dust             = 'dust',      -- dusting a weapon for prints
+    },
+    MinigameLevel = 'easy',   -- easy, medium or hard
+
+    -- Skill check when collecting (the ring): bigger gap, fewer rounds, more time = easier
+    SkillCheck = {
+        pieces    = 4,     -- the ring is cut into this many pieces
+        widest    = 2,     -- lit part at the start (in pieces)
+        narrowest = 2,     -- lit part at the end (in pieces)
+        parts     = 3,     -- rounds
+        msPerPart = 1000,  -- time per round
+    },
+
+    DropChance = {            -- percent
+        casing           = 50,
+        blood            = 75,
+        bullet           = 50,
+        vehicle_fragment = 50,
+        fingerprint      = 80,
+    },
+
+    -- Blood
+    Bleeding       = true,  -- drip blood when you lose health (shot, fall, crash ...)
+    BleedMinDamage = 10,    -- health lost at once before blood drips (health is 0-200)
+    BloodOnDeath   = true,  -- always leave blood where you die
+    BloodTrail          = true,  -- a hit makes you leave a trail of blood for a while
+    BloodTrailSeconds   = 30,    -- how long after a normal hit (30 health); light hits shorter, heavy ones up to twice as long
+    BloodTrailMeters    = 4.0,   -- a drop every this many metres at first; further apart towards the end
+    BloodCriticalHealth = 115,   -- at or below this it keeps bleeding until healed (0 = off; alive is 100-200)
+    BloodTrailHealth    = 150,   -- badly hurt below this: carrying them gets their blood on you
+
+    -- Aging in seconds: green = too fresh, yellow = can be collected, red = gone soon
+    Aging = {
+        Fresh    = 300,   -- green for 5 min
+        Old      = 1800,  -- red after 30 min
+        Lifetime = 2700,  -- removed after 45 min
+    },
+    RainFactor = 0.25,    -- rain leaves only this share of the remaining time
+
+    -- No evidence inside these areas
+    NoEvidenceZones = {
+        { name = 'Oil Rig Paleto',     coords = vector3(4331.2090, 7834.4414, 43.2909),  radius = 150.0 },
+        { name = 'Oil Rig Los Santos', coords = vector3(-220.7804, -5058.2856, 44.3922), radius = 150.0 },
+        { name = 'Cayo Perico',        coords = vector3(4889.8770, -5736.1929, 44.3922), radius = 2000.0 },
+    },
+
+    -- Gunshot residue (GSR) on a person
+    GsrMinutes     = 30,    -- how long it stays (it fades: strong, then weak traces)
+    GsrHud         = true,  -- show it as a ring on the player's HUD
+    WashSeconds    = 15,    -- washing it off in water (F1 wheel), or swimming this long
+    GsrRainSeconds = 60,    -- on foot outside in the rain this long washes it off
+    -- Items that clean it off (right-click the item). use: 'remove' = one is used up, 'wear' = wears out, 'keep' = stays
+    -- blood = true: also cleans blood off you
+    GsrCleaners = {
+        { item = 'water',              seconds = 8,  use = 'remove', blood = false },
+        { item = 'whip_evidence_wipe', seconds = 12, use = 'wear',   blood = true },
+    },
+
+    -- Blood on clothes and hands: your own when hurt, someone else's when standing next to them or carrying them.
+    -- Police swabs it ("Swab clothes for blood"); water, swimming, new clothes or a cleaning item take it off.
+    BloodOnClothes   = true,
+    BloodOnHud       = true,   -- ring on the player's HUD
+    BloodOnMinutes   = 120,    -- fades away after this long
+    BloodSplashRange = 1.5,    -- metres: blood gets on whoever stands this close to someone who is hit
+
+    -- Gloves wear out (ring on the HUD). Worn gloves let more prints through, up to GloveTornLeak when torn.
+    GloveHud       = true,
+    GloveWearShot  = 0.5,   -- % per shot
+    GloveWearTouch = 2,     -- % per touch the gloves catch (car, weapon, ...)
+    GloveTornLeak  = 60,    -- percent: a print through torn gloves (new gloves: GloveLeakChance)
+
+    -- Traces inside vehicles: prints, blood, casings, bullet holes, GSR
+    VehicleTraceMinutes = 30,   -- how long they stay in the car
+    PrintDelayMin       = 60,   -- seconds in the car before a print is left (min)
+    PrintDelayMax       = 120,  -- ... (max)
+    GloveLeakChance     = 5,    -- percent: a print despite gloves
+
+    -- Prints on weapons (whip_gunny), dusted at the weapon's right-click menu
+    WeaponPrintHours = 48,      -- how long a print stays on a weapon
+
+    -- Labs: each lab is a storage and its analysis device. Add as many as you like.
+    Labs = {
+        { id = 'mrpd', label = 'Police Lab',
+          stash = vector3(-1111.9, -829.42, 31.27), heading = 310.0,
+          device = vector3(-1111.9, -829.42, 31.77),
+          -- screen: a monitor showing the analysis (leave out for none). Set it with "here" in /whip.
+          -- screenModel: any prop, e.g. prop_monitor_w_large (PC monitor), prop_tv_flat_michael (slim TV),
+          -- ex_prop_ex_tv_flat_01 (office TV), prop_tv_flat_01 (old TV). 'none' = a monitor already in the map.
+          -- Put the picture on the glass: /w -> Forensics -> "Fit the lab screen" (click 3 corners).
+          screen = vector3(-1111.3, -828.9, 31.85), screenHeading = 310.0, screenModel = 'prop_monitor_w_large',
+          slots = 10, weight = 50.0 },
+    },
+    LabScreenLogo = 'img/screen/logo.png',   -- your own logo for the lab screen (html/img/screen/), PNG
+    LabMinMinutes = 5,     -- an analysis takes between ...
+    LabMaxMinutes = 10,    -- ... and this many minutes
+
+    -- Evidence lockers: where officers open the locker of a case (case ID asked).
+    -- Every case's locker opens at every one of these places. Set the spot in /whip -> Forensics.
+    Lockers = {
+        { id = 'mrpd', label = 'Evidence Lockers', coords = vector3(-1108.6, -832.9, 31.27) },
+    },
+    CaseSlots = 50,        -- slots per case locker
+
+    -- Resources allowed to use the case exports (your MDT). Empty = any resource.
+    ApiResources = {},
+
+    -- Prop per evidence type
+    Props = {
+        casing           = { label = 'Casing',            model = 'lev_casing',             rotX = -90.0,  rotY = 0.0, z = 0.0 },
+        blood            = { label = 'Blood',             model = 'p_bloodsplat_s',         rotX = -90.0,  rotY = 0.0, z = -0.25 },
+        bullet           = { label = 'Bullet',            model = 'lev_bullet',             rotX = -90.0,  rotY = 0.0, z = -0.02 },
+        vehicle_fragment = { label = 'Vehicle fragments', model = 'v_ret_gc_sprinkler',     rotX = -180.0, rotY = 0.0, z = -0.06 },
+        fingerprint      = { label = 'Fingerprint',       model = 'p_banknote_onedollar_s', rotX = 0.0,    rotY = 0.0, z = 0.0 },
+    },
+
+    -- Weapon item -> caliber (whip_gunny). Missing = 'Unknown'
+    Calibers = {
+        gunny_pistol = '9mm', gunny_pistol_mk2 = '9mm', gunny_combatpistol = '9mm', gunny_appistol = '9mm',
+        gunny_snspistol = '9mm', gunny_snspistol_mk2 = '9mm', gunny_vintagepistol = '9mm',
+        gunny_ceramicpistol = '9mm', gunny_gadgetpistol = '9mm', gunny_pistol50 = '.50 AE (Action Express)',
+        gunny_heavypistol = '.45 ACP', gunny_doubleaction = '.45 ACP', gunny_gusenberg = '.45 ACP',
+        gunny_smg = '9mm', gunny_smg_mk2 = '9mm', gunny_microsmg = '9mm', gunny_minismg = '9mm',
+        gunny_assaultsmg = '9mm', gunny_combatpdw = '9mm', gunny_machinepistol = '9mm', gunny_tecpistol = '9mm',
+        gunny_rifle = '5.56x45 NATO', gunny_rifle_mk2 = '5.56x45 NATO', gunny_carbinerifle = '5.56x45 NATO',
+        gunny_carbinerifle_mk2 = '5.56x45 NATO', gunny_advancedrifle = '5.56x45 NATO',
+        gunny_specialcarbine = '5.56x45 NATO', gunny_specialcarbine_mk2 = '5.56x45 NATO',
+        gunny_bullpuprifle = '5.56x45 NATO', gunny_bullpuprifle_mk2 = '5.56x45 NATO',
+        gunny_militaryrifle = '5.56x45 NATO', gunny_tacticalrifle = '5.56x45 NATO',
+        gunny_compactrifle = '7.62x39 (AK)', gunny_heavyrifle = '7.62x51 NATO',
+        gunny_battlerifle = '7.62x51 NATO', gunny_mg = '7.62x51 NATO', gunny_combatmg = '7.62x51 NATO',
+        gunny_combatmg_mk2 = '7.62x51 NATO', gunny_marksmanrifle = '7.62x51 NATO (marksman)',
+        gunny_marksmanrifle_mk2 = '7.62x51 NATO (marksman)', gunny_sniperrifle = '.308 Win',
+        gunny_heavysniper = '.50 BMG', gunny_heavysniper_mk2 = '.50 BMG', gunny_precisionrifle = '.50 BMG',
+        gunny_revolver = '.44 Magnum', gunny_revolver_mk2 = '.357 Magnum', gunny_navyrevolver = '.36 Navy',
+        gunny_marksmanpistol = '.22 LR (Long Rifle)', gunny_musket = 'Musket ball',
+        gunny_pumpshotgun = '12 gauge', gunny_pumpshotgun_mk2 = '12 gauge', gunny_sawnoffshotgun = '12 gauge',
+        gunny_dbshotgun = '12 gauge', gunny_bullpupshotgun = '12 gauge', gunny_combatshotgun = '12 gauge',
+        gunny_assaultshotgun = '12 gauge', gunny_heavyshotgun = '12 gauge', gunny_autoshotgun = '12 gauge',
+    },
+
+    -- Melee weapons that also keep prints (every gun in Calibers does too)
+    MeleeWeapons = {
+        'gunny_knife', 'gunny_dagger', 'gunny_machete', 'gunny_switchblade', 'gunny_hatchet', 'gunny_stone_hatchet',
+        'gunny_battleaxe', 'gunny_bat', 'gunny_golfclub', 'gunny_crowbar', 'gunny_hammer', 'gunny_wrench',
+        'gunny_nightstick', 'gunny_knuckle', 'gunny_poolcue', 'gunny_bottle', 'gunny_torch',
+    },
+
+    -- These weapons leave no evidence and no GSR
+    IgnoreWeapons = {
+        'gunny_stungun', 'gunny_flaregun', 'gunny_firework', 'gunny_raypistol', 'gunny_raycarbine',
+        'gunny_rayminigun', 'gunny_railgun', 'gunny_minigun', 'gunny_rpg', 'gunny_hominglauncher',
+        'gunny_grenadelauncher', 'gunny_compactlauncher', 'gunny_emplauncher',
+    },
+}
