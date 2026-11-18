@@ -106,6 +106,14 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
    <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/RNkChaXrRvhq.png" alt="Tweezers: casings" width="285" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/1O3ENQkCA3rt.png" alt="Swab: blood" width="272" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/m2buOqwYfmc3.png" alt="Dust: fingerprints" width="295" height="240">
    <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/WjfnTXHaUbI4.png" alt="Pull: bullets" width="290" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/oNTR0p5FZIhD.png" alt="Shards: vehicle fragments" width="286" height="240">
 
+   **Bodies.** Someone killed by a player (player or any pedestrian) is a body: a purple marker "L1" in the scan like any trace, card when aimed at, listed on photos. Police: "Examine the body"
+   opens the findings: cause of death, wounds per body part, shot distance, bullets in the body, defence wounds, moved after death.
+   Then take out bullets (lab: weapon), a blood sample and a GSR test.
+   A dead player can't respawn while being examined (up to 10 min, `BodyHoldMinutes`). "Release the body" ends it.
+   Pedestrian bodies don't despawn and are taken away after 30 min.
+
+   <img src="LINK_body_card" alt="Body card in the scan: time of death, wounds, bullets" width="434" height="236">
+
 4. **Clean up.** "Clear away" on a marker, or F1 → "Release crime scene". Unphotographed traces need a confirmation.
 5. **Lab.** At the lab device: "Unload evidence case", then "Analyse evidence" (5–10 min, storage locked).
    A gun in the storage gets test-fired: a reference casing and "Ballistic match" on matching casings.

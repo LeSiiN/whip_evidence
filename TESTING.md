@@ -89,6 +89,22 @@ CreateThread(function()
 end)
 ```
 
+## 7b. Leichen (alleine testbar)
+Vorbereitung: `/w` → Forensics → „Give me the test kit“, Polizei im Dienst, eine Waffe.
+- [ ] 7b.1 „Place a test pedestrian“ → Passant steht 4 m vor dir und bleibt stehen.
+- [ ] 7b.2 Zweimal anschießen, dann erschießen → Blutlache am Boden. Taschenlampe drauf: Karte „L1 Leiche · Noch nicht untersucht“.
+- [ ] 7b.3 Prompt „Leiche L1“ sitzt auf der Brust der Leiche (auch nach Wegtragen). „Leiche untersuchen“ (kniend, 6 s) → Befund-Fenster öffnet sich: Todesursache, Verletzungen je Körperstelle, Schussdistanz, Projektile, Geschlecht. „Als Text kopieren“ geht, Esc/B schließt. „Befund ansehen“ öffnet es wieder.
+- [ ] 7b.3b Kamera auf die Leiche, Foto (H) → im Foto steht „L1 Leiche“ in der Liste, Karte zeigt „Fotografiert“.
+- [ ] 7b.3c Einen normalen Passanten auf der Straße erschießen (nicht gespawnt) → wird genauso zur Leiche.
+- [ ] 7b.4 „Projektil entnehmen“ → Herausziehen-Minigame → Beutel „Projektil (aus Leiche)“. Im Labor: Seriennummer deiner Waffe.
+- [ ] 7b.5 „Blutprobe nehmen“ und „Schmauchtest an den Händen“ → unbewaffneter Passant: negativ. Optionen verschwinden danach.
+- [ ] 7b.6 „Place an armed test pedestrian“ → erschießen → Schmauchtest positiv, Beutel kommt.
+- [ ] 7b.7 „Place a stand-in for me“ → erschießen → Blutprobe im Labor = deine Blutgruppe.
+- [ ] 7b.8 Mit dem Messer / Auto töten → Wunde „Stich/Schnitt“ bzw. „Von Fahrzeug erfasst“.
+- [ ] 7b.9 Weggehen (über 300 m) und zurück → Leiche liegt noch da. „Leiche freigeben“ (halten) → Leiche weg.
+- [ ] 7b.10 Vier Leichen nebeneinander → jede hat einen lila Marker „L1“–„L4“, die Karte nur bei der angezielten. Foto → alle vier in der Liste. Filter (G) „Leichen“ zeigt nur Leichen; Kamera-Legende listet sie.
+- [ ] 7b.11 (Zweiter Spieler) Spieler 2 stirbt → Leiche „L…“. Untersuchen → Spieler 2 kann nicht respawnen und bekommt eine Meldung; nach „Leiche freigeben“ oder 10 Min wieder.
+
 ## 8. Neustart und Kanten
 - [ ] 8.1 Spur fotografieren, Resource neu starten → Spur, Nummer, Foto-Abzeichen und Blutrichtung sind noch da.
 - [ ] 8.2 Beweiskoffer an Spieler 2 geben → Custody „Received (evidence case)“ bei allen Beuteln, **nur einmal**.

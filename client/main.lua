@@ -70,9 +70,15 @@ function WhipEvidence.blocked()
     return ok and inFfa == true
 end
 
+-- The floor under a spot: a ray from just above it straight down. Starting higher would land
+-- on whatever is overhead (an awning, a balcony, a car roof), so it never starts more than 0.6 m up.
 function WhipEvidence.ground(pos)
-    local found, z = GetGroundZFor_3dCoord(pos.x, pos.y, pos.z + 3.0, false)
-    if found then return vector3(pos.x, pos.y, z) end
+    local top = pos.z + 0.6
+    local ray = StartExpensiveSynchronousShapeTestLosProbe(pos.x, pos.y, top, pos.x, pos.y, pos.z - 6.0, 1 | 16, PlayerPedId(), 0)
+    local _, hit, at = GetShapeTestResult(ray)
+    if hit == 1 and at then return vector3(pos.x, pos.y, at.z) end
+    local found, z = GetGroundZFor_3dCoord(pos.x, pos.y, top, false)
+    if found and z <= top then return vector3(pos.x, pos.y, z) end
     return pos
 end
 

@@ -116,6 +116,39 @@ function WhipEvidence.Admin.register()
         exports.whip_core:NotifyPlayer(source, text, 'success')
     end)
 
+    -- Test bodies: a pedestrian 4 m in front (armed: holds a pistol, GSR on the hands);
+    -- "stand-in": your model, bleeds your blood and carries your GSR (tests a player's body alone)
+    Whip.core:SecureEvent('whip_evidence:adminBody', {
+        ace = 'whip.devtools', rateLimit = 1000,
+        params = { { 'action', 'enum', { 'ped', 'armed', 'clone', 'clear' } } },
+    }, function(source, player, action)
+        if action == 'clear' then
+            local n = WhipEvidence.Bodies.clearAll()
+            exports.whip_core:NotifyPlayer(source, ('%d body/bodies removed.'):format(n), 'success')
+            return
+        end
+        local me = GetPlayerPed(source)
+        local h = GetEntityHeading(me)
+        local r = math.rad(h)
+        local pos = GetEntityCoords(me) + vector3(-math.sin(r) * 4.0, math.cos(r) * 4.0, 0.0)
+        local model = action == 'clone' and GetEntityModel(me) or joaat('a_m_y_business_01')
+        local ped = CreatePed(4, model, pos.x, pos.y, pos.z - 0.9, (h + 180.0) % 360.0, true, true)
+        local untilAt = GetGameTimer() + 3000
+        while not DoesEntityExist(ped) and GetGameTimer() < untilAt do Wait(50) end
+        if not exports.whip_core:IsSessionCurrent(source, player.session) then
+            if DoesEntityExist(ped) then DeleteEntity(ped) end
+            return
+        end
+        if not DoesEntityExist(ped) then
+            return false, 'The pedestrian could not be made (entity lockdown?).'
+        end
+        if action == 'armed' then GiveWeaponToPed(ped, joaat('WEAPON_PISTOL'), 30, false, true) end
+        local net = NetworkGetNetworkIdFromEntity(ped)
+        if action == 'clone' then WhipEvidence.Bodies.markClone(net, source, player.charId) end
+        TriggerClientEvent('whip_evidence:client:testPed', source, net)
+        exports.whip_core:NotifyPlayer(source, 'Test pedestrian placed in front of you. Kill it, then examine the body.', 'success')
+    end)
+
     Whip.core:SecureCallback('whip_evidence:adminCases', { ace = 'whip.devtools', rateLimit = 500 }, function()
         return WhipEvidence.Cases.list()
     end)

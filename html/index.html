@@ -75,6 +75,7 @@
         .no { flex: none; min-width: 28px; height: 28px; padding: 0 6px; border-radius: 6px; background: #fde047; color: #111;
               font-size: 17px; font-weight: 800; line-height: 28px; text-align: center; }
         .car .no { background: #60a5fa; }
+        .body .no { background: #a78bfa; }
         .row .what { flex: 1; min-width: 0; }
         .row .t { font-size: 17px; font-weight: 700; }
         .row .i { font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -101,6 +102,24 @@
                background: rgba(18, 20, 28, .92); border: 1px solid rgba(255,255,255,.12); border-radius: 10px;
                padding: 14px 18px; color: #f3f3f3; font-family: 'Barlow', sans-serif; box-shadow: 0 14px 40px rgba(0,0,0,.45); }
         #fit.open { display: block; }
+        /* body findings sheet */
+        #report { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 60;
+                  background: rgba(5, 6, 8, .55); font-family: 'Barlow', sans-serif; color: #f3f3f3; }
+        #report.open { display: flex; }
+        #report .sheet { width: min(620px, 92vw); max-height: 86vh; overflow-y: auto; background: rgba(18, 20, 28, .97);
+                         border: 1px solid rgba(255,255,255,.12); border-top: 4px solid #a78bfa; border-radius: 12px;
+                         padding: 20px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
+        #report .kicker { font-size: 12px; font-weight: 800; letter-spacing: 3px; color: #a78bfa; }
+        #report h2 { margin: 4px 0 2px; font-size: 26px; font-weight: 800; }
+        #report .sub { font-size: 15px; color: rgba(255,255,255,.6); margin-bottom: 12px; }
+        #report .r { display: flex; gap: 14px; padding: 7px 0; border-top: 1px solid rgba(255,255,255,.06); font-size: 16px; }
+        #report .r .k { flex: none; width: 200px; color: rgba(255,255,255,.55); font-weight: 600; white-space: pre-wrap; }
+        #report .r .v { flex: 1; font-weight: 700; }
+        #report .r.sub-part .k, #report .r.sub-part .v { font-size: 15px; font-weight: 600; }
+        #report .btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+        #report .btn { padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14);
+                       font-size: 14px; font-weight: 700; cursor: pointer; }
+        #report .btn:hover { background: rgba(255,255,255,.16); }
         #fit .padkeys { display: none; max-width: 460px; font-size: 13px; line-height: 1.6; color: rgba(255,255,255,.8); }
         #fit.pad .keys { display: none; }
         #fit.pad .padkeys { display: block; }
@@ -148,6 +167,16 @@
             .catch(() => {});
     </script>
     <script src="games.js"></script>
+    <div id="report">
+        <div class="sheet">
+            <div class="kicker" id="repKicker"></div>
+            <h2 id="repTitle"></h2>
+            <div class="sub" id="repSub"></div>
+            <div class="list" id="repRows"></div>
+            <div class="btns"><div class="btn" id="repCopy" data-probe-press></div><div class="btn" id="repClose" data-probe-press></div></div>
+        </div>
+    </div>
+
     <div id="fit">
         <h3 data-t="fit_title">Fine-tune the lab screen</h3>
         <div class="keys">
@@ -220,6 +249,10 @@
             (Array.isArray(d.cars) ? d.cars : []).forEach((c, i) => rows.push(`<div class="row car">
                 <span class="no">V${i + 1}</span>
                 <div class="what"><div class="t">${esc(c.p)}</div><div class="i">${esc(c.t)}</div></div></div>`));
+            (Array.isArray(d.bodies) ? d.bodies : []).forEach((b) => rows.push(`<div class="row body">
+                <span class="no">${esc(b.n)}</span>
+                <div class="what"><div class="t">${esc(b.t)}</div><div class="i">${esc(b.i)}</div></div>
+                <span class="d">${esc(b.d || 0)} m</span></div>`));
             $('rows').innerHTML = rows.join('') || `<div class="row"><div class="what"><div class="i">${esc(T('nui_nothing_listed', 'Nothing listed.'))}</div></div></div>`;
 
             const steps = typeof d.custody === 'string' && d.custody ? d.custody.split(' → ') : [];
@@ -320,6 +353,45 @@
             if (e.key !== 'Escape' && e.key !== 'Backspace') return;
             if ($('zoom').classList.contains('open')) closeZoom();
             else if ($('viewer').classList.contains('open')) closePhoto(true);
+        });
+
+        // ---- body findings sheet (client/bodies.lua)
+        const REP = { open: false, text: '', copied: 'Copied' };
+        const REP_COLORS = { red: '#f87171', yellow: '#facc15', green: '#4ade80', blue: '#60a5fa' };
+        function repClose(tell) {
+            REP.open = false;
+            $('report').classList.remove('open');
+            if (tell) fetch(`https://${RES}/bodyReportClose`, { method: 'POST', body: '{}' }).catch(() => {});
+        }
+        function repCopy() {
+            copy(REP.text);
+            $('repCopy').textContent = REP.copied;
+        }
+        $('repCopy').addEventListener('click', repCopy);
+        $('repClose').addEventListener('click', () => repClose(true));
+        window.addEventListener('message', (e) => {
+            const d = e.data || {};
+            if (d.action === 'bodyReport') {
+                if (!d.open) return repClose(false);
+                REP.open = true; REP.text = d.text || ''; REP.copied = d.copied || 'Copied';
+                $('repKicker').textContent = d.kicker || '';
+                $('repTitle').textContent = d.title || '';
+                $('repSub').textContent = d.sub || '';
+                $('repRows').innerHTML = (d.rows || []).map((r) => {
+                    const part = /^\s/.test(r.k || '');
+                    const c = REP_COLORS[r.c] ? ` style="color:${REP_COLORS[r.c]}"` : '';
+                    return `<div class="r${part ? ' sub-part' : ''}"><span class="k">${esc(r.k)}</span><span class="v"${c}>${esc(r.v)}</span></div>`;
+                }).join('');
+                $('repCopy').textContent = (d.pad ? 'A: ' : '') + (d.copy || 'Copy as text');
+                $('repClose').textContent = d.close || 'Close · Esc';
+                $('report').classList.add('open');
+            } else if (d.action === 'bodyReportPad' && REP.open) {
+                if (d.cmd === 'a') repCopy();
+                else if (d.cmd === 'b') repClose(true);
+            }
+        });
+        document.addEventListener('keydown', (e) => {
+            if (REP.open && (e.key === 'Escape' || e.key === 'Backspace')) repClose(true);
         });
 
         // ---- lab screen fit tool, step 2: held keys go to client/labscreen.lua

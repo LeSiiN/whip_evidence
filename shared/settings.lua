@@ -58,7 +58,7 @@ Whip.configPage({
                   local list = {}
                   for _, row in ipairs({ { 'fingerprint', 'Fingerprint' }, { 'casing', 'Casing' }, { 'blood', 'Blood' },
                       { 'bullet', 'Bullet' }, { 'vehicle_fragment', 'Vehicle fragments' }, { 'gsr', 'GSR test' },
-                      { 'wipe', 'Civilians wiping' }, { 'dust', 'Dusting a weapon' } }) do
+                      { 'wipe', 'Civilians wiping' }, { 'dust', 'Dusting a weapon' }, { 'body_bullet', 'Bullet from a body' } }) do
                       list[#list + 1] = { key = row[1], type = 'enum', label = row[2], options = games }
                   end
                   return list
@@ -126,6 +126,13 @@ Whip.configPage({
             { key = 'GloveWearShot', type = 'number', min = 0, max = 20, step = 0.1, unit = '%', label = 'Glove wear per shot' },
             { key = 'GloveWearTouch', type = 'number', min = 0, max = 50, step = 0.5, unit = '%', label = 'Glove wear per touch' },
             { key = 'GloveTornLeak', type = 'int', min = 0, max = 100, unit = '%', label = 'Print through torn gloves' },
+        } },
+        { label = 'Bodies', settings = {
+            { key = 'Bodies', type = 'bool', label = 'Bodies can be examined', help = 'Killed by a player: people and pedestrians.' },
+            { key = 'BodyKeepMinutes', type = 'int', min = 5, max = 240, unit = 'min', label = 'Pedestrian bodies stay for' },
+            { key = 'BodyMax', type = 'int', min = 1, max = 40, label = 'Most pedestrian bodies at once' },
+            { key = 'BodyHoldMinutes', type = 'int', min = 0, max = 60, unit = 'min', label = 'No respawn while examined, up to', help = '0 = players can always respawn.' },
+            { key = 'BodyBulletStays', type = 'int', min = 0, max = 100, unit = '%', label = 'Bullet stays in the body' },
         } },
         { label = 'Vehicles and weapons', settings = {
             { key = 'VehicleTraceMinutes', type = 'int', min = 1, max = 240, unit = 'min', label = 'Vehicle traces stay for' },

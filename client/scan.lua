@@ -47,6 +47,7 @@ local FILTERS = {
     { key = 'fingerprint',      label = 'filter_fingerprint' },
     { key = 'vehicle_fragment', label = 'filter_fragment' },
     { key = 'vehicles',         label = 'filter_vehicles' },
+    { key = 'bodies',           label = 'filter_bodies' },
 }
 local filter = 1
 
@@ -125,6 +126,8 @@ for i = 0, 2 do
     RING_UV[i] = { uv(512 + (i + 3) * 64, 640, 64, 64) }
 end
 for d = 0, 9 do DIGIT_UV[d] = { uv(512 + d * 32, 784, 32, 64) } end
+local BODY_TAG_UV = { uv(512 + 3 * 64, 704, 64, 80) }   -- bodies: purple tag
+local LETTER_L_UV = { uv(512 + 10 * 32, 784, 32, 64) }
 
 ---------------------------------------------------------------- Keys
 
@@ -193,11 +196,11 @@ local snapping, pendingPicture = false, nil
 local function takePhoto()
     if not cameraUp or not scanning or not keysAllowed() or not once('photo') or snapping then return end
     if not WhipEvidence.can('evidence_photo') then return WhipEvidence.notify(L('photo_rank'), 'info') end
-    if #picture.ids == 0 and #picture.cars == 0 then
+    if #picture.ids == 0 and #picture.cars == 0 and #(picture.bodies or {}) == 0 then
         return WhipEvidence.notify(L('photo_nothing'), 'info')
     end
     snapping = true
-    local ids, carNets = { table.unpack(picture.ids) }, picture.cars
+    local ids, carNets, bodyIds = { table.unpack(picture.ids) }, picture.cars, picture.bodies or {}
     local street = WhipEvidence.street(GetEntityCoords(PlayerPedId()))
     CreateThread(function()
         PlaySoundFrontend(-1, 'Camera_Shoot', 'Phone_Soundset_Franklin', true)
@@ -211,7 +214,7 @@ local function takePhoto()
         flash()
         pendingPicture = type(image) == 'string' and image or nil
         if not pendingPicture then WhipEvidence.notify(L('photo_failed'), 'warning') end
-        TriggerServerEvent('whip_evidence:photo', ids, carNets, street, pendingPicture ~= nil)
+        TriggerServerEvent('whip_evidence:photo', ids, carNets, street, pendingPicture ~= nil, bodyIds)
         snapping = false
     end)
 end
@@ -408,12 +411,24 @@ local function digitsOf(no)
     return list
 end
 
+-- "L" and the digits of a body's number
+local bodyDigitCache = {}
+local function bodyDigitsOf(no)
+    local list = bodyDigitCache[no]
+    if list then return list end
+    list = { LETTER_L_UV }
+    for _, uvs in ipairs(digitsOf(no)) do list[#list + 1] = uvs end
+    bodyDigitCache[no] = list
+    return list
+end
+
 -- Everything a marker needs per frame, worked out here once (no strings per frame)
 local function markerGeometry(m, aspect)
     local w = math.max(0.011, math.min(0.024, 0.024 - m.dist * 0.0005)) * layout.tag
     local h = w * (80 / 64) * aspect
     m.w, m.h = w, h
-    m.digits = digitsOf(m.no)
+    m.digits = m.body and bodyDigitsOf(m.no) or digitsOf(m.no)
+    m.tagUv = m.body and BODY_TAG_UV or TAG_UV[m.phase]
     local n = #m.digits
     local scale = n == 1 and 0.95 or (n == 2 and 0.72 or 0.55)
     local dw = w * 0.5 * scale
@@ -422,7 +437,7 @@ local function markerGeometry(m, aspect)
     m.line = m.dist < 18.0
     m.bw = w * 0.55
     m.ring = math.max(0.014, 0.03 - m.dist * 0.0006)
-    local dir = m.ev.dir
+    local dir = m.ev and m.ev.dir
     if dir then
         -- a point 0.6 m ahead on the ground: the arrow turns to face it on screen
         local r = math.rad(dir)
@@ -435,7 +450,8 @@ end
 
 local foundBuf, markerBuf, picBuf, picIds, lineBuf, lineRows = {}, {}, {}, {}, {}, {}
 local casingOf, bulletOf, countBuf = {}, {}, {}
-local markerOf, rebuildNo = {}, 0
+local markerOf, bodyMarkOf, rebuildNo = {}, {}, 0
+local NO_BODIES = {}
 local function byDist(a, b) return a.scanDist < b.scanDist end
 
 local function rebuild()
@@ -499,7 +515,6 @@ local function rebuild()
             elseif ev.kind == 'bullet' then bulletOf[ev.shot] = ev.coords end
         end
     end
-    clearFrom(list, nList + 1)
     clearFrom(inPicture, nPic + 1)
     -- markers of evidence out of range for a while are let go
     if rebuildNo % 20 == 0 then
@@ -508,9 +523,6 @@ local function rebuild()
         end
     end
 
-    -- the aimed-at one gets a card (cell 0)
-    if best then paint(0, evidenceCard(best.ev, best.dist, police)) end
-    focus = best
 
     -- shot trajectories (police): casing -> bullet of the same shot
     local lineList, nLines = lineBuf, 0
@@ -554,13 +566,59 @@ local function rebuild()
         end
     end
 
+    -- bodies: a purple marker "L1", "L2", ... on each (as many as there are, like evidence);
+    -- the one aimed at gets the card (cell 0), the legend and a photo list them all
+    local bodyRows, nBodies, bodyIds = {}, 0, NO_BODIES
+    if scanning and passes('bodies') and WhipEvidence.Bodies and next(WhipEvidence.Bodies.all()) then
+        for id, b in pairs(WhipEvidence.Bodies.all()) do
+            local bpos = WhipEvidence.Bodies.chest(b)
+            local dist = #(bpos - pos)
+            if dist <= Config.SeeDistance and nList < MAX_MARKERS then
+                nBodies = nBodies + 1
+                local m = bodyMarkOf[id]
+                if not m then
+                    m = { id = id, body = true, phase = 1 }
+                    bodyMarkOf[id] = m
+                end
+                m.b, m.seen, m.pos, m.dist, m.no, m.photo = b, rebuildNo, bpos, dist, b.no, b.photo == true
+                markerGeometry(m, aspect)
+                nList = nList + 1
+                list[nList] = m
+                local on, sx, sy = onScreen(bpos + vector3(0.0, 0.0, TAG_LIFT))
+                if on then
+                    if bodyIds == NO_BODIES then bodyIds = {} end
+                    bodyIds[#bodyIds + 1] = id
+                    bodyRows[#bodyRows + 1] = { no = 'L' .. b.no, body = true, title = L('body'), info = WhipEvidence.Bodies.info(b), dist = metres(dist) }
+                    local dx, dy = sx - 0.5, (sy - 0.5) / aspect
+                    local score = dx * dx + dy * dy
+                    if score < 0.006 and (not bestScore or score < bestScore) then best, bestScore = m, score end
+                end
+            end
+        end
+        if rebuildNo % 20 == 0 then
+            for id, m in pairs(bodyMarkOf) do
+                if rebuildNo - m.seen > 20 then bodyMarkOf[id] = nil end
+            end
+        end
+    end
+    -- the aimed-at one gets a card (cell 0): evidence or body
+    if best then
+        if best.body then
+            paint(0, { no = 'L' .. best.no, body = true, title = L('body'), dist = metres(best.dist), chips = WhipEvidence.Bodies.chips(best.b) })
+        else
+            paint(0, evidenceCard(best.ev, best.dist, police))
+        end
+    end
+    focus = best
+
+    clearFrom(list, nList + 1)
     markers, cars, lines, lasers = list, carList, lineList, laserList
 
     -- what a photo would show (takePhoto copies it)
     local ids = picIds
     for i = 1, nPic do ids[i] = inPicture[i].id end
     clearFrom(ids, nPic + 1)
-    picture.ids, picture.cars = ids, carNets
+    picture.ids, picture.cars, picture.bodies = ids, carNets, bodyIds
 
     if not scanning then return end
 
@@ -578,7 +636,11 @@ local function rebuild()
             if #rows >= LEGEND_ROWS then break end
             rows[#rows + 1] = r
         end
-        local total = #inPicture + #carRows
+        for _, r in ipairs(bodyRows) do
+            if #rows >= LEGEND_ROWS then break end
+            rows[#rows + 1] = r
+        end
+        local total = #inPicture + #carRows + #bodyRows
         paint('legend', {
             label = L('crime_scene'), street = WhipEvidence.street(pos),
             sub = L('legend_sub', GetClockHours(), GetClockMinutes(), total, photographed, #found),
@@ -592,6 +654,7 @@ local function rebuild()
     end
 
     local summary = L('summary', #found, counts.yellow, counts.green, counts.red, photographed, #found)
+    if nBodies > 0 then summary = summary .. L('summary_bodies', nBodies) end
     if #carList > 0 then summary = summary .. L('summary_cars', #carList) end
     summary = summary .. ' | ' .. hint()
     if summary ~= lastSummary then
@@ -604,7 +667,7 @@ local function stopScan()
     scanning, legendOn = false, false
     markers, focus, cars, lines = {}, nil, {}, {}
     picture = { ids = {}, cars = {} }
-    markerBuf, lineBuf, picIds, markerOf = markers, lines, picture.ids, {}
+    markerBuf, lineBuf, picIds, markerOf, bodyMarkOf = markers, lines, picture.ids, {}, {}
     if lastSummary then
         lastSummary = nil
         Whip.core:HideText()
@@ -634,7 +697,7 @@ end
 -- one marker: yellow tag, coloured stripe (age), digits, badge. Geometry from markerGeometry.
 local function drawMarker(m, x, y, aspect)
     local cy = y - m.h / 2
-    sprite(x, cy, m.w, m.h, TAG_UV[m.phase])
+    sprite(x, cy, m.w, m.h, m.tagUv)
     local dy, digits = cy - m.h * 0.11, m.digits
     local n, step = #digits, m.step
     for i = 1, n do
@@ -691,9 +754,9 @@ local function drawFrame(aspect)
         end
         for i = 1, #cars do
             local c = cars[i]
-            if DoesEntityExist(c.ent) then
-                local p = GetEntityCoords(c.ent)
-                local on, x, y = GetScreenCoordFromWorldCoord(p.x, p.y, p.z + 1.3)
+            local p = (c.ent and DoesEntityExist(c.ent)) and GetEntityCoords(c.ent) or c.pos
+            if p then
+                local on, x, y = GetScreenCoordFromWorldCoord(p.x, p.y, p.z + (c.lift or 1.3))
                 if on then
                     local cw, ch = cardSize(c.dist, aspect)
                     cardSprite(x, y - ch / 2, cw, ch, c.cell)
@@ -738,6 +801,7 @@ CreateThread(function()
     while true do
         local police = WhipEvidence.isPoliceOnDuty()
         local hasData = WhipEvidence.Ev.count() > 0 or next(WhipEvidence.Ev.vehicles()) ~= nil
+            or (WhipEvidence.Bodies and next(WhipEvidence.Bodies.all()) ~= nil)
         local active = police and hasData and detect()
         if active then
             if not scanning then readLayout() end

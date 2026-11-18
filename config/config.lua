@@ -27,6 +27,7 @@ Config = {
         evidence_lab         = { level = 40, label = 'Evidence: run lab analyses' },
         evidence_locker_take = { level = 40, label = 'Evidence: take items out of case lockers' },
         evidence_case_close  = { level = 60, label = 'Evidence: close cases' },
+        evidence_body        = { level = 20, label = 'Evidence: examine bodies' },
     },
 
     -- Created on start if a job above does not exist yet (existing jobs only get the permissions).
@@ -105,6 +106,7 @@ Config = {
         gsr              = 'gsrswab',   -- swab the spots on both hands
         wipe             = 'swab',      -- civilians wiping away evidence
         dust             = 'dust',      -- dusting a weapon for prints
+        body_bullet      = 'pull',      -- taking a bullet out of a body
     },
     MinigameLevel = 'easy',   -- easy, medium or hard
 
@@ -174,6 +176,14 @@ Config = {
     GloveWearShot  = 0.5,   -- % per shot
     GloveWearTouch = 2,     -- % per touch the gloves catch (car, weapon, ...)
     GloveTornLeak  = 60,    -- percent: a print through torn gloves (new gloves: GloveLeakChance)
+
+    -- Bodies: people and pedestrians killed by a player can be examined by police
+    -- (time of death, wounds, bullets, blood sample, GSR on the hands).
+    Bodies           = true,
+    BodyKeepMinutes  = 30,    -- a pedestrian's body stays this long (then it is taken away)
+    BodyMax          = 12,    -- most pedestrian bodies kept at once (the oldest goes first)
+    BodyHoldMinutes  = 10,    -- a dead player can't respawn this long once police examine them (0 = never held)
+    BodyBulletStays  = 70,    -- percent: a bullet stays in the body (the rest went through)
 
     -- Traces inside vehicles: prints, blood, casings, bullet holes, GSR
     VehicleTraceMinutes = 30,   -- how long they stay in the car

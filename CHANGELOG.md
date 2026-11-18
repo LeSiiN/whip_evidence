@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.1.0
+
+### New
+- **Bodies**: players and pedestrians killed by a player can be examined (time of death, wounds, body parts), bullets taken out for the lab, blood sample and GSR test on the hands. Card "L1" in the scan, respawn held while police examine, pedestrian bodies don't despawn. Dev tools: test pedestrians and a stand-in with your blood.
+- Findings sheet per body (cause of death, wounds per body part, shot distance, bullets in the body or through, defence wounds, weapon in hand, moved after death), copy as text, controller.
+- Every body gets its own purple marker ("L1", "L2", ...) like evidence, the card shows for the one you aim at. Bodies are listed on crime scene photos. Every pedestrian works, also ones only your game knows. The prompt sits on the chest.
+- Fix: blood, casings and fragments landed on top of awnings, balconies or roofs above the spot. The floor is now found straight below.
+- Rank permission "Evidence: examine bodies", settings group "Bodies" in `/whip`.
+
 ## 4.0.0
 
 ### New

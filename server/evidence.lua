@@ -394,6 +394,9 @@ local function awaitShot(source)
     return nil
 end
 
+-- bodies.lua: the gun of a shot that hit someone (whip_gunny's report, not the client's)
+WhipEvidence.Evidence.shotOf = awaitShot
+
 AddEventHandler('playerDropped', function()
     lastShot[source] = nil
     fragmentCooldown[source] = nil
@@ -447,6 +450,7 @@ local function ageText(seconds)
     local h = math.floor(m / 60)
     return L('age_hours', h, h + 1)
 end
+WhipEvidence.Evidence.ageText = ageText
 
 -- Fills the visible '???' fields into meta and returns the hidden values for the lab.
 -- age: seconds since it was left (ground evidence); the lab reveals it as "Age at collection"

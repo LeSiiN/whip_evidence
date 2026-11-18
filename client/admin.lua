@@ -33,6 +33,12 @@ local function topRows()
         { id = 'ready', label = 'Make evidence within 25 m ready', icon = 'timer', desc = 'Only needed when "too fresh" is turned on.' },
         { id = 'finishLabs', label = 'Finish running lab analyses now', icon = 'timer' },
         { id = 'reveal', label = 'Analyse the bags in my pockets', icon = 'timer', desc = 'Lab values at once, no lab needed.' },
+        { sep = 'Bodies' },
+        { id = 'body:ped', label = 'Place a test pedestrian', icon = 'target', desc = 'Stands 4 m in front of you. Kill it, then examine the body.' },
+        { id = 'body:armed', label = 'Place an armed test pedestrian', icon = 'target', desc = 'Holds a pistol: GSR on the hands.' },
+        { id = 'body:clone', label = 'Place a stand-in for me', icon = 'target',
+          desc = 'Your model, your blood and your GSR: tests a player\'s body alone (no respawn hold).' },
+        { id = 'body:clear', label = 'Remove all bodies', icon = 'warning', desc = 'Pedestrian bodies are taken away.' },
         { sep = 'Labs' },
         { id = 'fitScreen', label = 'Fit the lab screen', icon = 'target', close = true,
           desc = 'Stand at a lab: click 3 corners of the monitor (top left, top right, bottom left), then fine-tune.' },
@@ -90,6 +96,8 @@ Whip.register(function()
                     loadCases()
                 elseif rowId == 'fitScreen' then
                     WhipEvidence.fitScreen()
+                elseif rowId:sub(1, 5) == 'body:' then
+                    TriggerServerEvent('whip_evidence:adminBody', rowId:sub(6))
                 elseif rowId:sub(1, 4) == 'wipe' then
                     local radius = tonumber(rowId:match('%d+'))
                     if radius then TriggerServerEvent('whip_evidence:admin', 'wipe', radius) end

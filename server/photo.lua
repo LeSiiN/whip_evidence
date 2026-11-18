@@ -22,7 +22,7 @@ local function count(n, word)
 end
 
 -- "12 traces: 5 casings, 3 blood, 2 bullets · 1 vehicle"
-local function sceneText(entries, cars)
+local function sceneText(entries, cars, bodies)
     local counts, order = {}, {}
     for _, e in ipairs(entries) do
         if not counts[e.t] then counts[e.t] = 0; order[#order + 1] = e.t end
@@ -33,6 +33,7 @@ local function sceneText(entries, cars)
     local text = L('scene_traces', #entries)
     if #parts > 0 then text = text .. ': ' .. table.concat(parts, ', ') end
     if #cars > 0 then text = text .. L('scene_vehicles', #cars) end
+    if bodies and #bodies > 0 then text = text .. L('scene_bodies', #bodies) end
     return text
 end
 
@@ -60,6 +61,9 @@ local function photoText(m)
     end
     for _, c in ipairs(type(m.cars) == 'table' and m.cars or {}) do
         lines[#lines + 1] = L('photo_text_car', c.p or '?', c.t or '')
+    end
+    for _, b in ipairs(type(m.bodies) == 'table' and m.bodies or {}) do
+        lines[#lines + 1] = ('%s %s · %s · %d m'):format(b.n or '?', b.t or '?', b.i or '', b.d or 0)
     end
     return table.concat(lines, '\n')
 end
@@ -92,7 +96,7 @@ function WhipEvidence.Photo.registerItem(actSign)
         local parts = image and math.ceil(#image / CHUNK) or 0
         TriggerClientEvent('whip_evidence:client:viewPhoto', source, {
             photo_id = m.photo_id, case = m.case, street = m.street, time = m.time, scene = m.scene,
-            taken_by = m.taken_by, entries = m.entries, cars = m.cars, custody = m.custody,
+            taken_by = m.taken_by, entries = m.entries, cars = m.cars, bodies = m.bodies, custody = m.custody,
         }, parts)
         if not image then return end
         CreateThread(function()
@@ -117,8 +121,9 @@ function WhipEvidence.Photo.register()
             { 'cars', 'list', { 'net', 'int', 1, 2147483647 }, MAX_CARS },
             { 'street', 'string', 80, 'Unknown' },
             { 'picture', 'bool', false },   -- the client has a screenshot to send
+            { 'bodies', 'list', { 'id', 'key', 16 }, MAX_CARS },
         },
-    }, function(source, player, ids, cars, street, picture)
+    }, function(source, player, ids, cars, street, picture, bodies)
         if not WhipEvidence.can(source, 'evidence_photo') then return false, L('photo_not_allowed') end
         if exports.whip_core:GetHeldPropsTag(source) ~= 'camera' then return false, L('need_camera') end
         local pos = GetEntityCoords(GetPlayerPed(source))
@@ -147,23 +152,26 @@ function WhipEvidence.Photo.register()
                 if s then carList[#carList + 1] = { p = plate or '?', t = carText(s) } end
             end
         end
-        if #entries == 0 and #carList == 0 then return false, L('photo_nothing') end
+        local bodyRows, bodiesShown = WhipEvidence.Bodies.photoRows(bodies or {}, pos, range)
+        if #entries == 0 and #carList == 0 and #bodyRows == 0 then return false, L('photo_nothing') end
 
         local takenBy = WhipEvidence.officerLabel(source, player)
         local meta = {
             photo_id = WhipEvidence.Data.newId(),
             street   = street,
             time     = os.date('%Y-%m-%d %H:%M:%S'),
-            scene    = sceneText(entries, carList),
+            scene    = sceneText(entries, carList, bodyRows),
             taken_by = takenBy,
             entries  = entries,
             cars     = carList,
+            bodies   = #bodyRows > 0 and bodyRows or nil,
         }
         meta.custody = WhipEvidence.custody(nil, L('custody_taken'), takenBy)
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
         local ok, why = exports.whip_core:AddItem(source, I.photo, 1, meta, 'Crime scene photo')
         if not ok then return false, why end
         WhipEvidence.Evidence.markPhotographed(shown, meta.photo_id)
+        WhipEvidence.Bodies.markPhotographed(bodiesShown, meta.photo_id)
         if picture then
             pending[source] = { id = meta.photo_id, charId = player.charId, at = os.time() }
             TriggerClientEvent('whip_evidence:client:photoUpload', source, meta.photo_id)

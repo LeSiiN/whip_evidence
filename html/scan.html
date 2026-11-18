@@ -55,6 +55,7 @@
         .row .dist { font-size: 15px; flex: none; }
         .more, .hint { font-size: 14px; font-weight: 600; color: var(--ui-text-mid, rgba(255, 255, 255, 0.5)); margin-top: 8px; }
         .car .no { background: #60a5fa; }
+        .body .no { background: #a78bfa; }
         .cam { flex: none; width: 20px; height: 20px; }
         .badge { width: 46px; height: 46px; border-radius: 50%; background: #0f172a; border: 3px solid #fff;
                  display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
@@ -100,6 +101,9 @@
             box('tag', 512 + i * 64, 704, `<div class="body"><div class="stripe" style="background:${STRIPE[i]}"></div></div>`);
         });
         for (let d = 0; d <= 9; d++) box('digit', 512 + d * 32, 784, String(d));
+        // bodies: a purple tag and the letter L ("L1", "L2", ...)
+        box('tag', 512 + 3 * 64, 704, `<div class="body" style="background:#c4b5fd"><div class="stripe" style="background:#7c3aed"></div></div>`);
+        box('digit', 512 + 10 * 32, 784, 'L');
 
         // camera glyph: badge on photographed markers, icon in legend rows
         const CAM = (c) => `<svg viewBox="0 0 24 24" width="100%" height="100%"><path fill="${c}" d="M9 4h6l1.6 2.2H20a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8.2a2 2 0 0 1 2-2h3.4z"/><circle cx="12" cy="13" r="4.2" fill="none" stroke="${c === '#fff' ? '#0f172a' : '#111'}" stroke-width="2.2"/></svg>`;
@@ -119,7 +123,8 @@
                 const style = c.color ? ` style="color:${COLORS[c.color] || '#fff'}"` : '';
                 return `<span class="chip"${style}>${esc(c.text)}</span>`;
             }).join('');
-            const no = d.no ? `<span class="no"${d.car ? ' style="background:#60a5fa"' : ''}>${esc(d.no)}</span>`
+            const tagBg = d.body ? '#a78bfa' : (d.car ? '#60a5fa' : '');
+            const no = d.no ? `<span class="no"${tagBg ? ` style="background:${tagBg}"` : ''}>${esc(d.no)}</span>`
                             : `<span class="dot" style="background:${COLORS[d.color] || COLORS.blue}"></span>`;
             el.innerHTML = `<div class="card">
                 <div class="head">${no}<span class="title">${esc(d.title)}</span><span class="dist">${esc(d.dist || '')}</span></div>
@@ -129,7 +134,7 @@
         // legend (camera)
         function paintSheet(el, d) {
             if (!d.street) { el.innerHTML = ''; return; }
-            const rows = (d.rows || []).map((r) => `<div class="row${r.car ? ' car' : ''}">
+            const rows = (d.rows || []).map((r) => `<div class="row${r.car ? ' car' : ''}${r.body ? ' body' : ''}">
                 <span class="no">${esc(r.no)}</span><span class="title">${esc(r.title)}</span>
                 <span class="info"${r.color ? ` style="color:${COLORS[r.color]}"` : ''}>${esc(r.info || '')}</span>
                 ${r.photo ? `<span class="cam">${CAM('#4ade80')}</span>` : ''}
