@@ -34,19 +34,19 @@ local lastSummary
 
 -- phase keys are the old names; shown as blue = too fresh, green = ready, red = gone soon
 local PHASE = {
-    green  = { name = 'Too fresh', i = 0, color = 'blue' },
-    yellow = { name = 'Ready',     i = 1, color = 'green' },
-    red    = { name = 'Gone soon', i = 2, color = 'red' },
+    green  = { key = 'phase_fresh', i = 0, color = 'blue' },
+    yellow = { key = 'phase_ready', i = 1, color = 'green' },
+    red    = { key = 'phase_old',   i = 2, color = 'red' },
 }
 
 local FILTERS = {
-    { key = 'all',              label = 'All' },
-    { key = 'blood',            label = 'Blood' },
-    { key = 'casing',           label = 'Casings' },
-    { key = 'bullet',           label = 'Bullets' },
-    { key = 'fingerprint',      label = 'Fingerprints' },
-    { key = 'vehicle_fragment', label = 'Fragments' },
-    { key = 'vehicles',         label = 'Vehicles' },
+    { key = 'all',              label = 'filter_all' },
+    { key = 'blood',            label = 'filter_blood' },
+    { key = 'casing',           label = 'filter_casing' },
+    { key = 'bullet',           label = 'filter_bullet' },
+    { key = 'fingerprint',      label = 'filter_fingerprint' },
+    { key = 'vehicle_fragment', label = 'filter_fragment' },
+    { key = 'vehicles',         label = 'filter_vehicles' },
 }
 local filter = 1
 
@@ -134,9 +134,22 @@ local function keyLabel(command, fallback)
     return fallback
 end
 
+-- On a controller: the button the action sits on ('LB+D-pad left'), else the keyboard key
+local padOn, padAt = false, -10000
+AddEventHandler('whip_core:pad:deviceChanged', function() padAt = -10000 end)
+local function keyFor(padId, command, key)
+    local now = GetGameTimer()
+    if now - padAt > 5000 then padOn, padAt = Whip.core:IsControllerActive() == true, now end
+    if padOn then
+        local _, _, name = Whip.core:GetPadActionButton(padId)
+        if name then return name end
+    end
+    return keyLabel(command, key)
+end
+
 local function hint()
-    local text = ('[%s] Filter: %s'):format(keyLabel('whip_evidence_filter', Config.ScanKeys.Filter), FILTERS[filter].label)
-    if cameraUp then text = text .. ('   [%s] Photo'):format(keyLabel('whip_evidence_photo', Config.ScanKeys.Photo)) end
+    local text = L('hint_filter', keyFor('evidence_filter', 'whip_evidence_filter', Config.ScanKeys.Filter), L(FILTERS[filter].label))
+    if cameraUp then text = text .. L('hint_photo', keyFor('evidence_photo', 'whip_evidence_photo', Config.ScanKeys.Photo)) end
     return text
 end
 
@@ -179,12 +192,12 @@ local snapping, pendingPicture = false, nil
 
 local function takePhoto()
     if not cameraUp or not scanning or not keysAllowed() or not once('photo') or snapping then return end
-    if not WhipEvidence.can('evidence_photo') then return WhipEvidence.notify('Your rank does not take crime scene photos.', 'info') end
+    if not WhipEvidence.can('evidence_photo') then return WhipEvidence.notify(L('photo_rank'), 'info') end
     if #picture.ids == 0 and #picture.cars == 0 then
-        return WhipEvidence.notify('There is no evidence in the picture.', 'info')
+        return WhipEvidence.notify(L('photo_nothing'), 'info')
     end
     snapping = true
-    local ids, carNets = picture.ids, picture.cars
+    local ids, carNets = { table.unpack(picture.ids) }, picture.cars
     local street = WhipEvidence.street(GetEntityCoords(PlayerPedId()))
     CreateThread(function()
         PlaySoundFrontend(-1, 'Camera_Shoot', 'Phone_Soundset_Franklin', true)
@@ -197,7 +210,7 @@ local function takePhoto()
         shooting = false
         flash()
         pendingPicture = type(image) == 'string' and image or nil
-        if not pendingPicture then WhipEvidence.notify('The camera could not take a picture. The photo still lists everything.', 'warning') end
+        if not pendingPicture then WhipEvidence.notify(L('photo_failed'), 'warning') end
         TriggerServerEvent('whip_evidence:photo', ids, carNets, street, pendingPicture ~= nil)
         snapping = false
     end)
@@ -227,9 +240,29 @@ function WhipEvidence.Scan.highlight(ids, seconds)
 end
 
 RegisterCommand('whip_evidence_filter', nextFilter, false)
-RegisterKeyMapping('whip_evidence_filter', 'Evidence scan: next filter', 'keyboard', Config.ScanKeys.Filter)
+RegisterKeyMapping('whip_evidence_filter', L('key_filter'), 'keyboard', Config.ScanKeys.Filter)
 RegisterCommand('whip_evidence_photo', takePhoto, false)
-RegisterKeyMapping('whip_evidence_photo', 'Evidence scan: take a photo (camera)', 'keyboard', Config.ScanKeys.Photo)
+RegisterKeyMapping('whip_evidence_photo', L('key_photo'), 'keyboard', Config.ScanKeys.Photo)
+
+-- Controller: the same two on WHIP's pad buttons (movable on the pause menu's Controller screen).
+-- Ready only while scanning (photo: camera up), otherwise the buttons stay GTA's.
+local padReady = { evidence_filter = false, evidence_photo = false }
+Whip.register(function()
+    padReady = { evidence_filter = false, evidence_photo = false }
+    Whip.core:RegisterPadAction('evidence_filter', { label = L('pad_filter'), slot = 'lb_dpad_left', menus = true, ready = false,
+        onPress = function() nextFilter() end })
+    Whip.core:RegisterPadAction('evidence_photo', { label = L('pad_photo'), slot = 'lb_dpad_right', menus = true, ready = false,
+        onPress = function() takePhoto() end })
+end)
+
+local function padActions(filterOn, photoOn)
+    for id, on in pairs({ evidence_filter = filterOn, evidence_photo = photoOn }) do
+        if padReady[id] ~= on then
+            padReady[id] = on
+            Whip.core:SetPadActionReady(id, on)
+        end
+    end
+end
 
 -- Fallback while the viewfinder is up: read G and H as game controls too (they still report while
 -- disabled). Only while the binding is still G / H, so a player who rebinds gets just their key.
@@ -270,6 +303,10 @@ AddEventHandler('whip_core:ui:cleanScreen', function(e)
     worldHidden = type(e) == 'table' and e.on == true and e.world == true
 end)
 
+-- a setting was changed: read the layout on the next rebuild
+local lastLayout = 0
+function WhipEvidence.Scan.layoutChanged() lastLayout = -100000 end
+
 function WhipEvidence.Scan.active()
     return scanning
 end
@@ -296,15 +333,15 @@ end
 -- Card for the aimed-at evidence. Police on duty see everything, others only type and state.
 local function evidenceCard(ev, dist, police)
     local st = PHASE[ev.phase] or PHASE.yellow
-    local chips = { { text = st.name, color = st.color } }
+    local chips = { { text = L(st.key), color = st.color } }
     if police then
         local now = GetGameTimer()
-        chips[#chips + 1] = { text = minutes(now - (ev.bornAt or now)) .. ' old' }
-        chips[#chips + 1] = { text = minutes(math.max(0, (ev.endsAt or now) - now)) .. ' left' }
-        if ev.fails and ev.fails > 0 then chips[#chips + 1] = { text = ('%d/%d failed'):format(ev.fails, Config.MaxFails), color = 'red' } end
-        if ev.laser then chips[#chips + 1] = { text = 'Laser', color = 'red' } end
-        chips[#chips + 1] = ev.photo and { text = 'Photographed', color = 'green' } or { text = 'No photo', color = 'yellow' }
-        if ev.dir then chips[#chips + 1] = { text = 'Trail heading ' .. compass(ev.dir), color = 'red' } end
+        chips[#chips + 1] = { text = L('chip_old', minutes(now - (ev.bornAt or now))) }
+        chips[#chips + 1] = { text = L('chip_left', minutes(math.max(0, (ev.endsAt or now) - now))) }
+        if ev.fails and ev.fails > 0 then chips[#chips + 1] = { text = L('chip_failed', ev.fails, Config.MaxFails), color = 'red' } end
+        if ev.laser then chips[#chips + 1] = { text = L('chip_laser'), color = 'red' } end
+        chips[#chips + 1] = ev.photo and { text = L('chip_photo'), color = 'green' } or { text = L('chip_no_photo'), color = 'yellow' }
+        if ev.dir then chips[#chips + 1] = { text = L('chip_trail', compass(ev.dir)), color = 'red' } end
     end
     return { no = ev.no and tostring(ev.no) or nil, title = WhipEvidence.label(ev.kind), color = st.color, dist = metres(dist), chips = chips }
 end
@@ -312,21 +349,21 @@ end
 -- Short line for the legend
 local function evidenceInfo(ev, police)
     local st = PHASE[ev.phase] or PHASE.yellow
-    if not police then return st.name end
+    if not police then return L(st.key) end
     local now = GetGameTimer()
-    local text = ('%s · %s old'):format(st.name, minutes(now - (ev.bornAt or now)))
-    if ev.laser then text = text .. ' · Laser' end
-    if ev.dir then text = text .. ' · trail ' .. compass(ev.dir) end
+    local text = L('legend_info', L(st.key), minutes(now - (ev.bornAt or now)))
+    if ev.laser then text = text .. ' · ' .. L('chip_laser') end
+    if ev.dir then text = text .. L('legend_trail', compass(ev.dir)) end
     return text
 end
 
 local function carParts(s, police)
     local parts = {}
-    if s.blood > 0 then parts[#parts + 1] = { text = 'Blood', color = 'red' } end
-    if s.casing > 0 then parts[#parts + 1] = { text = ('%d casing%s'):format(s.casing, s.casing > 1 and 's' or '') } end
-    if s.bullet > 0 then parts[#parts + 1] = { text = ('%d bullet hole%s'):format(s.bullet, s.bullet > 1 and 's' or '') } end
+    if s.blood > 0 then parts[#parts + 1] = { text = WhipEvidence.label('blood'), color = 'red' } end
+    if s.casing > 0 then parts[#parts + 1] = { text = ('%d× %s'):format(s.casing, WhipEvidence.label('casing')) } end
+    if s.bullet > 0 then parts[#parts + 1] = { text = L('car_bullet_holes', s.bullet) } end
     if s.gsr then parts[#parts + 1] = { text = 'GSR', color = 'yellow' } end
-    if s.prints and police then parts[#parts + 1] = { text = 'Possible prints' } end
+    if s.prints and police then parts[#parts + 1] = { text = L('possible_prints') } end
     return parts
 end
 
@@ -337,32 +374,51 @@ end
 
 -- Rebuilt every 500 ms: markers, focus card, car cards, trajectories, legend, summary, lasers
 -- Lasers are drawn for everyone (a real beam); usually there are none, then this costs nothing
+-- Rebuild reuses its tables (no new garbage twice a second): markers per evidence id, lists cleared and refilled
+local function clearFrom(t, n) for i = #t, n, -1 do t[i] = nil end end
+
+local laserBuf, laserRows = {}, {}
 local function collectLasers(pos)
-    local list = {}
+    local n = 0
     for _, ev in pairs(WhipEvidence.Ev.lasers()) do
         if ev.origin and #(ev.coords - pos) < 60.0 then
-            list[#list + 1] = { from = ev.origin + vector3(0.0, 0.0, 0.5), to = ev.coords }
+            n = n + 1
+            local row = laserRows[n] or {}
+            laserRows[n] = row
+            row.from, row.to = ev.origin + vector3(0.0, 0.0, 0.5), ev.coords
+            laserBuf[n] = row
         end
     end
+    clearFrom(laserBuf, n + 1)
+    return laserBuf
+end
+
+-- the digit pictures of a marker number, made once per number
+local digitCache = {}
+local function digitsOf(no)
+    local list = digitCache[no]
+    if list then return list end
+    list = {}
+    local text = tostring(no)
+    for i = 1, #text do
+        local d = tonumber(text:sub(i, i))
+        if d then list[#list + 1] = DIGIT_UV[d] end
+    end
+    digitCache[no] = list
     return list
 end
 
--- Everything a marker needs per frame, worked out here once (no strings or maths per frame)
+-- Everything a marker needs per frame, worked out here once (no strings per frame)
 local function markerGeometry(m, aspect)
     local w = math.max(0.011, math.min(0.024, 0.024 - m.dist * 0.0005)) * layout.tag
     local h = w * (80 / 64) * aspect
     m.w, m.h = w, h
-    local text = tostring(m.no)
-    local n = #text
+    m.digits = digitsOf(m.no)
+    local n = #m.digits
     local scale = n == 1 and 0.95 or (n == 2 and 0.72 or 0.55)
     local dw = w * 0.5 * scale
     m.dw, m.dh = dw, dw * 2 * aspect
-    local step = dw * 0.78
-    m.digits = {}
-    for i = 1, n do
-        local d = tonumber(text:sub(i, i))
-        if d then m.digits[#m.digits + 1] = { dx = (i - (n + 1) / 2) * step, uv = DIGIT_UV[d] } end
-    end
+    m.step = dw * 0.78
     m.line = m.dist < 18.0
     m.bw = w * 0.55
     m.ring = math.max(0.014, 0.03 - m.dist * 0.0006)
@@ -377,10 +433,13 @@ local function markerGeometry(m, aspect)
     end
 end
 
-local lastLayout = 0
+local foundBuf, markerBuf, picBuf, picIds, lineBuf, lineRows = {}, {}, {}, {}, {}, {}
+local casingOf, bulletOf, countBuf = {}, {}, {}
+local markerOf, rebuildNo = {}, 0
+local function byDist(a, b) return a.scanDist < b.scanDist end
 
 local function rebuild()
-    if scanning and GetGameTimer() - lastLayout > 3000 then
+    if scanning and GetGameTimer() - lastLayout > 10000 then
         lastLayout = GetGameTimer()
         readLayout()
     end
@@ -391,53 +450,81 @@ local function rebuild()
     end
     local police = WhipEvidence.isPoliceOnDuty()
     local aspect = GetAspectRatio(false)
-    local found = {}
+    local found, nFound = foundBuf, 0
     WhipEvidence.Ev.eachNear(pos, Config.SeeDistance, function(ev, dist)
-        if passes(ev.kind) then found[#found + 1] = { ev = ev, dist = dist } end
+        if passes(ev.kind) then
+            nFound = nFound + 1
+            found[nFound] = ev
+            ev.scanDist = dist
+        end
     end)
+    clearFrom(found, nFound + 1)
     local laserList = collectLasers(pos)
-    table.sort(found, function(a, b) return a.dist < b.dist end)
+    table.sort(found, byDist)
 
-    local counts = { green = 0, yellow = 0, red = 0 }
+    local counts = countBuf
+    counts.green, counts.yellow, counts.red = 0, 0, 0
     local photographed = 0
-    local list, inPicture, shots = {}, {}, {}
+    local list, inPicture, nList, nPic = markerBuf, picBuf, 0, 0
+    for k in pairs(casingOf) do casingOf[k] = nil end
+    for k in pairs(bulletOf) do bulletOf[k] = nil end
     local best, bestScore
-    for i, f in ipairs(found) do
-        local ev = f.ev
+    rebuildNo = rebuildNo + 1
+    for i = 1, nFound do
+        local ev = found[i]
         counts[ev.phase] = (counts[ev.phase] or 0) + 1
         if ev.photo then photographed = photographed + 1 end
         if i <= MAX_MARKERS then
-            local m = { id = ev.id, ev = ev, pos = ev.coords, dist = f.dist, no = ev.no or 0, phase = (PHASE[ev.phase] or PHASE.yellow).i,
-                        photo = ev.photo == true }
+            local m = markerOf[ev.id]
+            if not m or m.ev ~= ev then
+                m = { id = ev.id, ev = ev }
+                markerOf[ev.id] = m
+            end
+            m.seen, m.pos, m.dist, m.no = rebuildNo, ev.coords, ev.scanDist, ev.no or 0
+            m.phase, m.photo = (PHASE[ev.phase] or PHASE.yellow).i, ev.photo == true
             markerGeometry(m, aspect)
-            list[#list + 1] = m
+            nList = nList + 1
+            list[nList] = m
             local on, sx, sy = onScreen(ev.coords + vector3(0.0, 0.0, TAG_LIFT))
             if on then
-                inPicture[#inPicture + 1] = m
+                nPic = nPic + 1
+                inPicture[nPic] = m
                 local dx, dy = sx - 0.5, (sy - 0.5) / aspect
                 local score = dx * dx + dy * dy
                 if score < 0.006 and (not bestScore or score < bestScore) then best, bestScore = m, score end
             end
         end
-        if police and ev.shot and (ev.kind == 'casing' or ev.kind == 'bullet') then
-            shots[ev.shot] = shots[ev.shot] or {}
-            shots[ev.shot][ev.kind] = ev.coords
+        if police and ev.shot then
+            if ev.kind == 'casing' then casingOf[ev.shot] = ev.coords
+            elseif ev.kind == 'bullet' then bulletOf[ev.shot] = ev.coords end
+        end
+    end
+    clearFrom(list, nList + 1)
+    clearFrom(inPicture, nPic + 1)
+    -- markers of evidence out of range for a while are let go
+    if rebuildNo % 20 == 0 then
+        for id, m in pairs(markerOf) do
+            if rebuildNo - m.seen > 20 then markerOf[id] = nil end
         end
     end
 
     -- the aimed-at one gets a card (cell 0)
-    if best then
-        paint(0, evidenceCard(best.ev, best.dist, police))
-        focus = { m = best }
-    else
-        focus = nil
-    end
+    if best then paint(0, evidenceCard(best.ev, best.dist, police)) end
+    focus = best
 
     -- shot trajectories (police): casing -> bullet of the same shot
-    local lineList = {}
-    for _, s in pairs(shots) do
-        if s.casing and s.bullet and #lineList < MAX_LINES then lineList[#lineList + 1] = { from = s.casing, to = s.bullet } end
+    local lineList, nLines = lineBuf, 0
+    for shot, from in pairs(casingOf) do
+        local to = bulletOf[shot]
+        if to and nLines < MAX_LINES then
+            nLines = nLines + 1
+            local row = lineRows[nLines] or {}
+            lineRows[nLines] = row
+            row.from, row.to = from, to
+            lineList[nLines] = row
+        end
     end
+    clearFrom(lineList, nLines + 1)
 
     -- cars with traces (cells 1-3), named V1, V2, ...
     local carList, carRows, carNets = {}, {}, {}
@@ -453,12 +540,12 @@ local function rebuild()
                     if #parts > 0 then
                         local tag = 'V' .. (#carList + 1)
                         local cell = 1 + #carList
-                        paint(cell, { no = tag, car = true, title = 'Vehicle', dist = metres(dist), chips = parts })
+                        paint(cell, { no = tag, car = true, title = L('vehicle'), dist = metres(dist), chips = parts })
                         carList[#carList + 1] = { cell = cell, ent = ent, dist = dist }
                         if onScreen(cpos + vector3(0.0, 0.0, 1.0)) then
                             local texts = {}
                             for _, p in ipairs(parts) do texts[#texts + 1] = p.text end
-                            carRows[#carRows + 1] = { no = tag, car = true, title = 'Vehicle', info = table.concat(texts, ', '), dist = metres(dist) }
+                            carRows[#carRows + 1] = { no = tag, car = true, title = L('vehicle'), info = table.concat(texts, ', '), dist = metres(dist) }
                             carNets[#carNets + 1] = net
                         end
                     end
@@ -469,10 +556,11 @@ local function rebuild()
 
     markers, cars, lines, lasers = list, carList, lineList, laserList
 
-    -- what a photo would show
-    local ids = {}
-    for _, m in ipairs(inPicture) do ids[#ids + 1] = m.id end
-    picture = { ids = ids, cars = carNets }
+    -- what a photo would show (takePhoto copies it)
+    local ids = picIds
+    for i = 1, nPic do ids[i] = inPicture[i].id end
+    clearFrom(ids, nPic + 1)
+    picture.ids, picture.cars = ids, carNets
 
     if not scanning then return end
 
@@ -484,7 +572,7 @@ local function rebuild()
         for _, m in ipairs(inPicture) do
             if #rows >= LEGEND_ROWS then break end
             rows[#rows + 1] = { no = tostring(m.no), title = WhipEvidence.label(m.ev.kind), info = evidenceInfo(m.ev, police),
-                                color = m.ev.phase, dist = metres(m.dist), photo = m.photo }
+                                color = (PHASE[m.ev.phase] or PHASE.yellow).color, dist = metres(m.dist), photo = m.photo }
         end
         for _, r in ipairs(carRows) do
             if #rows >= LEGEND_ROWS then break end
@@ -492,9 +580,9 @@ local function rebuild()
         end
         local total = #inPicture + #carRows
         paint('legend', {
-            label = 'CRIME SCENE', street = WhipEvidence.street(pos),
-            sub = ('%02d:%02d · %d in the picture · %d/%d photographed'):format(GetClockHours(), GetClockMinutes(), total, photographed, #found),
-            rows = rows, more = total > #rows and (total - #rows) or nil, hint = hint(),
+            label = L('crime_scene'), street = WhipEvidence.street(pos),
+            sub = L('legend_sub', GetClockHours(), GetClockMinutes(), total, photographed, #found),
+            rows = rows, more = total > #rows and L('legend_more', total - #rows) or nil, hint = hint(), empty = L('legend_nothing'),
         })
         if lastSummary then
             lastSummary = nil
@@ -503,9 +591,8 @@ local function rebuild()
         return
     end
 
-    local summary = ('Evidence nearby: %d | %d ready · %d too fresh · %d gone soon | %d/%d photographed')
-        :format(#found, counts.yellow, counts.green, counts.red, photographed, #found)
-    if #carList > 0 then summary = summary .. (' | %d vehicle(s) with traces'):format(#carList) end
+    local summary = L('summary', #found, counts.yellow, counts.green, counts.red, photographed, #found)
+    if #carList > 0 then summary = summary .. L('summary_cars', #carList) end
     summary = summary .. ' | ' .. hint()
     if summary ~= lastSummary then
         lastSummary = summary
@@ -517,6 +604,7 @@ local function stopScan()
     scanning, legendOn = false, false
     markers, focus, cars, lines = {}, nil, {}, {}
     picture = { ids = {}, cars = {} }
+    markerBuf, lineBuf, picIds, markerOf = markers, lines, picture.ids, {}
     if lastSummary then
         lastSummary = nil
         Whip.core:HideText()
@@ -548,9 +636,9 @@ local function drawMarker(m, x, y, aspect)
     local cy = y - m.h / 2
     sprite(x, cy, m.w, m.h, TAG_UV[m.phase])
     local dy, digits = cy - m.h * 0.11, m.digits
-    for i = 1, #digits do
-        local d = digits[i]
-        sprite(x + d.dx, dy, m.dw, m.dh, d.uv)
+    local n, step = #digits, m.step
+    for i = 1, n do
+        sprite(x + (i - (n + 1) / 2) * step, dy, m.dw, m.dh, digits[i])
     end
     local top = cy - m.h / 2
     if m.photo then sprite(x + m.w * 0.45, top + m.bw * aspect * 0.15, m.bw, m.bw * aspect, BADGE_UV) end
@@ -576,7 +664,7 @@ end
 local function drawFrame(aspect)
     if shooting then HideHudAndRadarThisFrame() end
     if up and not worldHidden then
-        local focused = not shooting and focus and focus.m
+        local focused = not shooting and focus
         local now = GetGameTimer()
         for i = 1, #markers do
             local m = markers[i]
@@ -658,6 +746,7 @@ CreateThread(function()
         elseif scanning then
             stopScan()
         end
+        padActions(scanning, scanning and cameraUp)
         if hasData then rebuild() elseif #lasers > 0 then lasers = {} end
         if #markers > 0 or #cars > 0 or #lasers > 0 or legendOn then
             drawFor500ms()

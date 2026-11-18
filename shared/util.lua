@@ -1,5 +1,5 @@
 -- Shared helpers (client and server)
-WhipEvidence = {}
+WhipEvidence = WhipEvidence or {}   -- shared/locale.lua already added L()
 
 local RES = GetCurrentResourceName()
 WhipEvidence.Res = RES
@@ -52,7 +52,10 @@ function WhipEvidence.isIgnoredWeapon(item)
     return false
 end
 
+-- Name of an evidence type in the server's language (locales: kind_<type>), else the config label
 function WhipEvidence.label(kind)
+    local text = L('kind_' .. tostring(kind))
+    if text ~= 'kind_' .. tostring(kind) then return text end
     local p = Config.Props[kind]
     return p and p.label or kind
 end

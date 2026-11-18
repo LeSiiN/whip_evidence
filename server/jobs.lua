@@ -84,4 +84,5 @@ function WhipEvidence.req(permission, extra)
     return r
 end
 
+-- (kept for other code; the texts come from L('not_allowed'))
 WhipEvidence.NOT_ALLOWED = 'Your rank is not allowed to do that.'

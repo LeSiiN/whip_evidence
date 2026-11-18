@@ -15,14 +15,14 @@ local function setGsrPrompt(on)
     local function here() return WhipEvidence.street(GetEntityCoords(PlayerPedId())) end
     Whip.core:AddAction({
         id = GSR_ID, at = { aimBox = 'ped' },
-        label = 'Forensics', icon = 'target', reach = 2.0,
+        label = L('forensics'), icon = 'target', reach = 2.0,
         require = { job = Config.PoliceJobs, onDuty = true, item = WhipEvidence.Items.kit },
         canInteract = function(ctx) return ctx.player ~= nil end,
         options = {
-            { id = 'gsr', label = 'GSR test', icon = 'target',
+            { id = 'gsr', label = L('gsr_test'), icon = 'target',
               canInteract = function(ctx) return ctx.player ~= nil and not ctx.player.isDead and WhipEvidence.can('evidence_gsr') end,
               onSelect = function(ctx) TriggerServerEvent('whip_evidence:gsrTest', ctx.player.serverId, here()) end },
-            { id = 'swab', label = 'Swab clothes for blood', icon = 'target',
+            { id = 'swab', label = L('opt_swab'), icon = 'target',
               canInteract = function(ctx) return ctx.player ~= nil and WhipEvidence.can('evidence_collect') end,
               onSelect = function(ctx) TriggerServerEvent('whip_evidence:bloodSwab', ctx.player.serverId, here()) end },
         },
@@ -88,27 +88,27 @@ end
 -- Everything photographed: one question. Some without a photo: choose, and a second, louder question for "everything".
 local function releaseScene()
     local list = nearby()
-    if #list == 0 then return WhipEvidence.notify('Nothing to clear here.', 'info') end
+    if #list == 0 then return WhipEvidence.notify(L('nothing_to_clear'), 'info') end
     local missing = {}
     for _, ev in ipairs(list) do if not ev.photo then missing[#missing + 1] = ev end end
     local done = #list - #missing
 
     if #missing == 0 then
         local yes = Whip.core:Confirm({
-            title = 'Release crime scene',
-            message = ('%d trace(s) within %d m, all photographed. Clear them away?'):format(#list, math.floor(Config.ReleaseRadius)),
-            yes = 'Release', no = 'Cancel',
+            title = L('release_scene'),
+            message = L('release_all_photo', #list, math.floor(Config.ReleaseRadius)),
+            yes = L('release'), no = L('cancel'),
         })
         if yes then TriggerServerEvent('whip_evidence:release', 'photo') end
         return
     end
 
     local options = {}
-    if done > 0 then options[#options + 1] = { value = 'photo', label = ('Clear the %d photographed, keep the rest'):format(done) } end
-    options[#options + 1] = { value = 'show', label = 'Show me what has no photo (they blink)' }
-    options[#options + 1] = { value = 'all', label = ('Clear all %d, also without photo'):format(#list) }
-    local r = Whip.core:Input(('%d of %d traces have no photo'):format(#missing, #list), {
-        { label = 'No photo yet: ' .. numbers(missing), type = 'select', options = options, default = options[1].value },
+    if done > 0 then options[#options + 1] = { value = 'photo', label = L('release_opt_photo', done) } end
+    options[#options + 1] = { value = 'show', label = L('release_opt_show') }
+    options[#options + 1] = { value = 'all', label = L('release_opt_all', #list) }
+    local r = Whip.core:Input(L('release_missing', #missing, #list), {
+        { label = L('no_photo_yet', numbers(missing)), type = 'select', options = options, default = options[1].value },
     })
     local choice = r and r[1]
     if choice == 'photo' then
@@ -117,12 +117,12 @@ local function releaseScene()
         local ids = {}
         for _, ev in ipairs(missing) do ids[#ids + 1] = ev.id end
         WhipEvidence.Scan.highlight(ids, 60)
-        WhipEvidence.notify(('No photo yet: %s. They blink in the scan for a minute.'):format(numbers(missing)), 'info')
+        WhipEvidence.notify(L('release_blink', numbers(missing)), 'info')
     elseif choice == 'all' then
         local sure = Whip.core:Confirm({
-            title = ('Destroy %d unphotographed trace(s)?'):format(#missing),
-            message = ('%s will be gone for good and nothing proves they were ever here. Release anyway?'):format(numbers(missing)),
-            yes = 'Release everything', no = 'Back',
+            title = L('release_destroy_title', #missing),
+            message = L('release_destroy_msg', numbers(missing)),
+            yes = L('release_everything'), no = L('back'),
         })
         if sure then TriggerServerEvent('whip_evidence:release', 'all') end
     end
@@ -136,8 +136,8 @@ Whip.register(function()
 
     Whip.core:AddAction({
         id = 'release_scene', at = { radial = true }, icon = 'target',
-        label = 'Release crime scene',
-        description = 'Clear away the evidence around you',
+        label = L('release_scene'),
+        description = L('release_desc'),
         require = { job = Config.PoliceJobs, onDuty = true },
         canInteract = function()
             return WhipEvidence.can('evidence_release') and WhipEvidence.Ev.near(GetEntityCoords(PlayerPedId()), Config.ReleaseRadius)
@@ -147,13 +147,13 @@ Whip.register(function()
 
     for _, part in ipairs({ 'door_dside_f', 'door_pside_f' }) do
         Whip.core:AddAction({
-            id = 'veh_' .. part, at = { vehiclePart = part }, label = 'Traces',
+            id = 'veh_' .. part, at = { vehiclePart = part }, label = L('traces'),
             options = {
-                { id = 'collect', label = 'Collect traces', icon = 'target', press = true,
+                { id = 'collect', label = L('collect_traces'), icon = 'target', press = true,
                   require = { job = Config.PoliceJobs, onDuty = true, item = WhipEvidence.Items.kit },
                   canInteract = function() return WhipEvidence.can('evidence_vehicle') end,
                   onSelect = function(ctx) vehicleAction('whip_evidence:collectVehicle', ctx.entity) end },
-                { id = 'wipe', label = 'Clean interior', icon = 'fail', press = true,
+                { id = 'wipe', label = L('clean_interior'), icon = 'fail', press = true,
                   require = { item = WhipEvidence.Items.wipe },
                   onSelect = function(ctx) vehicleAction('whip_evidence:wipeVehicle', ctx.entity) end },
             },
@@ -171,20 +171,20 @@ Whip.register(function()
                 -- in the order they are used: unload, analyse, upload
                 options = {
                     -- every bag from your evidence case into this lab's storage
-                    { id = 'unload', label = 'Unload evidence case', icon = 'pickup', holdMs = 1000, press = true,
+                    { id = 'unload', label = L('unload_case'), icon = 'pickup', holdMs = 1000, press = true,
                       canInteract = function()
                           return WhipEvidence.can('evidence_lab') and Whip.core:HasItem(WhipEvidence.Items.case)
                       end,
                       onSelect = function() TriggerServerEvent('whip_evidence:labUnload', id) end },
-                    { id = 'analyse', label = 'Analyse evidence', icon = 'timer', holdMs = 1000, press = true,
+                    { id = 'analyse', label = L('analyse'), icon = 'timer', holdMs = 1000, press = true,
                       canInteract = function() return WhipEvidence.can('evidence_lab') end,
                       onSelect = function() TriggerServerEvent('whip_evidence:analyse', id) end },
                     -- everything analysed in this lab's storage goes into a case's locker
-                    { id = 'upload', label = 'Upload to a case', icon = 'pickup', holdMs = 1000, press = true,
+                    { id = 'upload', label = L('upload_case'), icon = 'pickup', holdMs = 1000, press = true,
                       canInteract = function() return WhipEvidence.can('evidence_upload') end,
                       onSelect = function()
-                          local r = Whip.core:Input('Upload to a case', {
-                              { label = 'Case ID (must exist in the MDT)', type = 'text', required = true },
+                          local r = Whip.core:Input(L('upload_case'), {
+                              { label = L('case_id_mdt'), type = 'text', required = true },
                           })
                           local caseId = r and r[1] and tostring(r[1]):gsub('^%s*#?', ''):gsub('%s+$', '')
                           if caseId and caseId ~= '' then TriggerServerEvent('whip_evidence:labUpload', id, caseId) end
@@ -199,13 +199,13 @@ Whip.register(function()
         if locker.id and locker.coords then
             Whip.core:AddAction({
                 id = 'locker:' .. locker.id, at = { coords = WhipEvidence.vec(locker.coords) },
-                label = locker.label or 'Evidence lockers', icon = 'pickup', reach = 2.0, press = true,
+                label = locker.label or L('evidence_lockers'), icon = 'pickup', reach = 2.0, press = true,
                 require = { job = Config.PoliceJobs, onDuty = true },
                 canInteract = function() return WhipEvidence.can('evidence_locker') end,
                 onSelect = function()
                     CreateThread(function()
-                        local r = Whip.core:Input('Open case locker', {
-                            { label = 'Case ID', type = 'text', required = true },
+                        local r = Whip.core:Input(L('open_locker'), {
+                            { label = L('case_id'), type = 'text', required = true },
                         })
                         local caseId = r and r[1] and tostring(r[1]):gsub('^%s*#?', ''):gsub('%s+$', '')
                         if caseId and caseId ~= '' then TriggerServerEvent('whip_evidence:openLocker', caseId) end

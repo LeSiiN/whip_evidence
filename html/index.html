@@ -101,8 +101,12 @@
                background: rgba(18, 20, 28, .92); border: 1px solid rgba(255,255,255,.12); border-radius: 10px;
                padding: 14px 18px; color: #f3f3f3; font-family: 'Barlow', sans-serif; box-shadow: 0 14px 40px rgba(0,0,0,.45); }
         #fit.open { display: block; }
+        #fit .padkeys { display: none; max-width: 460px; font-size: 13px; line-height: 1.6; color: rgba(255,255,255,.8); }
+        #fit.pad .keys { display: none; }
+        #fit.pad .padkeys { display: block; }
         #fit h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
         #fit .keys { display: grid; grid-template-columns: auto auto; gap: 5px 18px; font-size: 13px; color: rgba(255,255,255,.8); }
+        #fit i { font-style: normal; }
         #fit kbd { display: inline-block; min-width: 22px; padding: 1px 6px; margin-right: 3px; border-radius: 4px; text-align: center;
                    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.18); font: 600 12px 'Barlow', sans-serif; color: #fff; }
     </style>
@@ -112,7 +116,7 @@
 
     <div id="viewer">
         <div class="polaroid">
-            <div class="tape"><span>EVIDENCE</span></div>
+            <div class="tape"><span data-t="nui_tape">EVIDENCE</span></div>
             <div class="shot" id="shot"></div>
             <div class="caption">
                 <div class="left">
@@ -124,27 +128,40 @@
             </div>
         </div>
         <div class="log">
-            <header><h2>EVIDENCE IN THE PICTURE</h2><div class="scene" id="scene"></div></header>
+            <header><h2 data-t="nui_in_picture">EVIDENCE IN THE PICTURE</h2><div class="scene" id="scene"></div></header>
             <div class="rows" id="rows"></div>
             <div class="custody" id="custody"></div>
         </div>
-        <div class="close" id="close" data-probe-press>Close · Esc</div>
+        <div class="close" id="close" data-probe-press data-t="nui_close">Close · Esc</div>
     </div>
     <div id="zoom"><img id="zoomImg" alt=""><div class="bar" id="zoomBar"></div></div>
 
+    <script>
+        // Texts in the server's language (locales/): asked once from client/main.lua, English until then
+        window.TEXTS = window.TEXTS || {};
+        window.T = (k, fallback) => (window.TEXTS[k] != null ? window.TEXTS[k] : fallback);
+        window.applyTexts = () => document.querySelectorAll('[data-t]').forEach((el) => {
+            const t = window.TEXTS[el.dataset.t]; if (t != null) el.textContent = t;
+        });
+        fetch(`https://${typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'whip_evidence'}/texts`,
+            { method: 'POST', body: '{}' }).then((r) => r.json()).then((t) => { if (t && typeof t === 'object') { window.TEXTS = t; window.applyTexts(); } })
+            .catch(() => {});
+    </script>
     <script src="games.js"></script>
     <div id="fit">
-        <h3>Fine-tune the lab screen</h3>
+        <h3 data-t="fit_title">Fine-tune the lab screen</h3>
         <div class="keys">
-            <span><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>W</kbd><kbd>S</kbd> into / out of the monitor</span>
-            <span><kbd>Wheel</kbd> or <kbd>+</kbd><kbd>-</kbd> size</span><span><kbd>Shift</kbd> slower</span>
-            <span><kbd>R</kbd> pick the corners again</span><span><kbd>Enter</kbd> save &nbsp;<kbd>Esc</kbd> cancel</span>
+            <span><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> <i data-t="fit_move">move</i></span><span><kbd>W</kbd><kbd>S</kbd> <i data-t="fit_depth">into / out of the monitor</i></span>
+            <span><kbd data-t="fit_wheel">Wheel</kbd> / <kbd>+</kbd><kbd>-</kbd> <i data-t="fit_size">size</i></span><span><kbd>Shift</kbd> <i data-t="fit_slower">slower</i></span>
+            <span><kbd>R</kbd> <i data-t="fit_redo">pick the corners again</i></span><span><kbd>Enter</kbd> <i data-t="fit_save">save</i> &nbsp;<kbd>Esc</kbd> <i data-t="fit_cancel">cancel</i></span>
         </div>
+        <div class="padkeys" data-t="fit_pad">Left stick: move  ·  Right stick: into / out of the monitor  ·  RT / LT: size  ·  hold X: slower  ·  Y: corners again  ·  A: save  ·  B: cancel</div>
     </div>
 
     <script>
         const RES = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'whip_evidence';
         const $ = (id) => document.getElementById(id);
+        let PAD = false;   // photo viewer opened with a controller: hints show its buttons
         const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
         // Clipboard. CEF: navigator.clipboard does not work, execCommand('copy') does
@@ -168,8 +185,8 @@
             const has = image && /^data:image\//.test(image);
             current = has ? image : null;
             $('shot').innerHTML = has
-                ? `<img src="${image}" alt=""><div class="zoomhint">Click to zoom</div>`
-                : `<div class="none" id="shotNone">${loading ? 'Loading picture...' : 'No picture (only the list was kept)'}</div>`;
+                ? `<img src="${image}" alt=""><div class="zoomhint"${PAD ? ' style="opacity:1"' : ''}>${esc(PAD ? T('nui_zoom_hint_pad', 'A: zoom') : T('nui_zoom_hint', 'Click to zoom'))}</div>`
+                : `<div class="none" id="shotNone">${esc(loading ? T('nui_loading', 'Loading picture...') : T('nui_no_picture', 'No picture (only the list was kept)'))}</div>`;
             const img = $('shot').querySelector('img');
             if (img) img.onload = () => { if (img.naturalHeight) $('shot').style.setProperty('--ar', String(img.naturalWidth / img.naturalHeight)); };
             $('shot').insertAdjacentHTML('beforeend', `<div class="stamp">${esc(stampText)}</div>`);
@@ -192,22 +209,22 @@
             setImage(null, loading);
             $('street').textContent = d.street || '?';
             $('meta').textContent = `${d.time || '?'} · ${d.taken_by || '?'}`;
-            $('casestamp').textContent = d.case ? '#' + d.case : 'NO CASE';
-            $('kicker').textContent = `CRIME SCENE PHOTO · ${d.photo_id || ''}`;
+            $('casestamp').textContent = d.case ? '#' + d.case : T('nui_no_case', 'NO CASE');
+            $('kicker').textContent = `${T('nui_kicker', 'CRIME SCENE PHOTO')} · ${d.photo_id || ''}`;
             $('scene').textContent = d.scene || '';
 
             const rows = (Array.isArray(d.entries) ? d.entries : []).map((e) => `<div class="row">
                 <span class="no">${esc(e.n)}</span>
-                <div class="what"><div class="t">${esc(e.t)}</div>${e.s ? `<div class="i">${esc(e.s)} · ${esc(e.a || 0)} min old</div>` : ''}</div>
+                <div class="what"><div class="t">${esc(e.t)}</div>${e.s ? `<div class="i">${esc(e.s)} · ${esc(T('nui_min_old', '%d min old').replace('%d', e.a || 0))}</div>` : ''}</div>
                 <span class="d">${esc(e.d || 0)} m</span></div>`);
             (Array.isArray(d.cars) ? d.cars : []).forEach((c, i) => rows.push(`<div class="row car">
                 <span class="no">V${i + 1}</span>
                 <div class="what"><div class="t">${esc(c.p)}</div><div class="i">${esc(c.t)}</div></div></div>`));
-            $('rows').innerHTML = rows.join('') || '<div class="row"><div class="what"><div class="i">Nothing listed.</div></div></div>';
+            $('rows').innerHTML = rows.join('') || `<div class="row"><div class="what"><div class="i">${esc(T('nui_nothing_listed', 'Nothing listed.'))}</div></div></div>`;
 
             const steps = typeof d.custody === 'string' && d.custody ? d.custody.split(' → ') : [];
             $('custody').innerHTML = steps.length
-                ? '<h3>CHAIN OF CUSTODY</h3>' + steps.map((s) => `<div class="step">${esc(s)}</div>`).join('') : '';
+                ? `<h3>${esc(T('nui_custody', 'CHAIN OF CUSTODY'))}</h3>` + steps.map((s) => `<div class="step">${esc(s)}</div>`).join('') : '';
             $('custody').style.display = steps.length ? '' : 'none';
 
             const v = $('viewer');
@@ -220,7 +237,8 @@
         const Z = { s: 1, x: 0, y: 0, min: 1, drag: null, moved: false };
         function applyZoom() {
             $('zoomImg').style.transform = `translate(${Z.x}px, ${Z.y}px) scale(${Z.s})`;
-            $('zoomBar').textContent = `${Math.round(Z.s * 100)} %  ·  wheel: zoom  ·  drag: move  ·  Esc: back`;
+            $('zoomBar').textContent = `${Math.round(Z.s * 100)} %  ·  ${PAD ? T('nui_zoom_pad', 'LB / RB: zoom  ·  right stick: move  ·  B: back')
+                : T('nui_zoom_keys', 'wheel: zoom  ·  drag: move  ·  Esc: back')}`;
         }
         function clamp() {
             const img = $('zoomImg'), w = img.naturalWidth * Z.s, h = img.naturalHeight * Z.s;
@@ -239,6 +257,13 @@
             $('zoom').classList.add('open');
         }
         function closeZoom() { $('zoom').classList.remove('open'); }
+        function zoomBy(f, cx = innerWidth / 2, cy = innerHeight / 2) {
+            const old = Z.s;
+            Z.s = Math.min(4, Math.max(Z.min, Z.s * f));
+            Z.x = cx - (cx - Z.x) * (Z.s / old);
+            Z.y = cy - (cy - Z.y) * (Z.s / old);
+            clamp(); applyZoom();
+        }
         $('shot').addEventListener('click', openZoom);
         $('zoom').addEventListener('wheel', (e) => {
             e.preventDefault();
@@ -272,6 +297,25 @@
         }
 
         $('close').addEventListener('click', () => closePhoto(true));
+
+        // controller buttons and the right stick (client/photo.lua)
+        window.addEventListener('message', (e) => {
+            const d = e.data || {};
+            const zoomed = $('zoom').classList.contains('open');
+            if (d.action === 'photoPad') {
+                if (!$('viewer').classList.contains('open')) return;
+                if (d.cmd === 'b') { if (zoomed) closeZoom(); else closePhoto(true); }
+                else if (d.cmd === 'a') { if (zoomed) closeZoom(); else openZoom(); }
+                else if (d.cmd === 'rb') { if (!zoomed) openZoom(); else zoomBy(1.2); }
+                else if (d.cmd === 'lb' && zoomed) zoomBy(1 / 1.2);
+                else if (d.cmd === 'up' || d.cmd === 'down') {
+                    const log = document.querySelector('.log .rows') || document.querySelector('.log');
+                    if (log) log.scrollBy({ top: d.cmd === 'up' ? -80 : 80, behavior: 'smooth' });
+                }
+            } else if (d.action === 'photoStick' && zoomed) {
+                Z.x -= d.dx * 22; Z.y -= d.dy * 22; clamp(); applyZoom();
+            }
+        });
         document.addEventListener('keydown', (e) => {
             if (e.key !== 'Escape' && e.key !== 'Backspace') return;
             if ($('zoom').classList.contains('open')) closeZoom();
@@ -309,11 +353,21 @@
 
         window.addEventListener('message', (e) => {
             const d = e.data || {};
-            if (d.action === 'fit') fitShow(d.open === true);
+            if (d.action === 'fit') { fitShow(d.open === true); $('fit').classList.toggle('pad', d.pad === true); }
+            if (d.action === 'padDevice' && $('viewer').classList.contains('open')) {
+                PAD = d.pad === true;
+                $('close').textContent = PAD ? T('nui_close_pad', 'Close · B') : T('nui_close', 'Close · Esc');
+                if ($('zoom').classList.contains('open')) applyZoom();
+            }
+            if (d.action === 'fitPad') $('fit').classList.toggle('pad', d.pad === true);
             if (d.action === 'copy' && typeof d.text === 'string') copy(d.text);
-            else if (d.action === 'photo') openPhoto(d.data || {}, d.loading === true, d.ui);
+            else if (d.action === 'photo') {
+                PAD = d.pad === true;
+                $('close').textContent = PAD ? T('nui_close_pad', 'Close · B') : T('nui_close', 'Close · Esc');
+                openPhoto(d.data || {}, d.loading === true, d.ui);
+            }
             else if (d.action === 'photoImage') setImage(d.image, false);
-            else if (d.action === 'photoLoading' && $('shotNone')) $('shotNone').textContent = `Loading picture... ${Math.round(d.done / d.total * 100)} %`;
+            else if (d.action === 'photoLoading' && $('shotNone')) $('shotNone').textContent = `${T('nui_loading', 'Loading picture...')} ${Math.round(d.done / d.total * 100)} %`;
             else if (d.action === 'photoClose') closePhoto(false);
         });
     </script>

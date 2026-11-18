@@ -35,9 +35,24 @@ local function summary(tr)
     return s
 end
 
+-- Changed cars go out together every 500 ms (shots from inside a car change it every shot)
+local pushQueue = {}
 local function push(tr)
-    TriggerClientEvent('whip_evidence:client:vehicleTraces', -1, tr.net, summary(tr))
+    pushQueue[tr] = true
 end
+
+CreateThread(function()
+    while true do
+        Wait(500)
+        if next(pushQueue) then
+            local q = pushQueue
+            pushQueue = {}
+            for tr in pairs(q) do
+                TriggerClientEvent('whip_evidence:client:vehicleTraces', -1, tr.net, summary(tr))
+            end
+        end
+    end
+end)
 
 local function traceOf(ent, create)
     local key, plate = keyOf(ent)
@@ -141,7 +156,7 @@ local function collect(source, player, tr, street)
         time         = os.date('%Y-%m-%d %H:%M:%S'),
         street       = street,
         collected_by = WhipEvidence.officerLabel(source, player),
-        tested_on    = 'Vehicle ' .. (tr.plate or '?'),
+        tested_on    = L('vehicle_plate', tr.plate or '?'),
     }
     local queries, made, lost = {}, 0, 0
 
@@ -150,7 +165,7 @@ local function collect(source, player, tr, street)
         for k, v in pairs(stamp) do meta[k] = v end
         meta.evidence_id, meta.kind, meta.type = WhipEvidence.Data.newId(), kind, typeLabel
         for k, v in pairs(extra or {}) do meta[k] = v end
-        meta.custody = WhipEvidence.custody(nil, 'Collected', stamp.collected_by)
+        meta.custody = WhipEvidence.custody(nil, L('custody_collected'), stamp.collected_by)
         local secret = WhipEvidence.Evidence.secretFor(kind, data, meta)
         if not WhipEvidence.useEmptyBag(source) then
             lost = lost + 1
@@ -167,12 +182,12 @@ local function collect(source, player, tr, street)
 
     for charId in pairs(tr.prints) do
         local traits = WhipEvidence.Data.traits(charId)
-        if traits then give('fingerprint', 'Fingerprint (vehicle)', { fingerprint = traits.fingerprint }) end
+        if traits then give('fingerprint', L('type_fp_vehicle'), { fingerprint = traits.fingerprint }) end
     end
-    for _, b in pairs(tr.blood) do give('blood', 'Blood (vehicle)', b.data) end
-    for _, c in pairs(tr.casing) do give('casing', ('Casing x%d (vehicle)'):format(c.n), c.data) end
-    for _, b in pairs(tr.bullet) do give('bullet', ('Bullet x%d (bullet hole)'):format(b.n), b.data) end
-    if tr.gsr then give('gsr', 'GSR (vehicle interior)', {}, { gsr = 'POSITIVE' }) end
+    for _, b in pairs(tr.blood) do give('blood', L('type_blood_vehicle'), b.data) end
+    for _, c in pairs(tr.casing) do give('casing', L('type_casing_vehicle', c.n), c.data) end
+    for _, b in pairs(tr.bullet) do give('bullet', L('type_bullet_vehicle', b.n), b.data) end
+    if tr.gsr then give('gsr', L('type_gsr_vehicle'), {}, { gsr = 'POSITIVE' }) end
 
     WhipEvidence.Data.saveBags(queries)
     return made, lost
@@ -197,33 +212,33 @@ function WhipEvidence.Vehicles.register()
         near = vehicleNear(5.0),
     }, function(source, player, net, street)
         local ent = entityOf(net)
-        if not ent then return false, 'Vehicle not found.' end
-        if not WhipEvidence.isPolice(source) then return false, 'Only on-duty police can collect evidence.' end
-        if not WhipEvidence.can(source, 'evidence_vehicle') then return false, WhipEvidence.NOT_ALLOWED end
-        if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, 'You need a forensics kit.' end
-        if not WhipEvidence.hasEmptyBags(source) then return false, 'You have no empty evidence bags.' end
-        if not isEmpty(ent) then return false, 'The vehicle must be empty!' end
-        if #(GetEntityVelocity(ent)) > 0.5 then return false, 'The vehicle must stand still!' end
+        if not ent then return false, L('vehicle_not_found') end
+        if not WhipEvidence.isPolice(source) then return false, L('police_only_collect') end
+        if not WhipEvidence.can(source, 'evidence_vehicle') then return false, L('not_allowed') end
+        if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, L('need_kit') end
+        if not WhipEvidence.hasEmptyBags(source) then return false, L('no_empty_bags') end
+        if not isEmpty(ent) then return false, L('vehicle_not_empty') end
+        if #(GetEntityVelocity(ent)) > 0.5 then return false, L('vehicle_moving') end
 
-        local done = examine(source, ent, 'Examining vehicle...')
+        local done = examine(source, ent, L('examining'))
         TriggerClientEvent('whip_evidence:client:vehicleDone', source, net)
         if not done then return false end
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
         ent = entityOf(net)
-        if not ent then return false, 'Vehicle not found.' end
+        if not ent then return false, L('vehicle_not_found') end
 
         WhipEvidence.wear(source, WhipEvidence.Items.kit)
         local tr = traceOf(ent, false)
-        if not tr or not summary(tr) then return false, 'No traces found.' end
+        if not tr or not summary(tr) then return false, L('no_traces') end
         traces[tr.key] = nil
         TriggerClientEvent('whip_evidence:client:vehicleTraces', -1, tr.net, nil)
 
         local made, lost = collect(source, player, tr, street)
         exports.whip_core:LogActivity(source, 'evidence_vehicle_traces', { detail = ('%s: %d'):format(tr.plate or '?', made) })
         if lost > 0 then
-            exports.whip_core:NotifyPlayer(source, ('%d trace(s) collected, %d lost: not enough empty bags.'):format(made, lost), 'warning')
+            exports.whip_core:NotifyPlayer(source, L('traces_lost', made, lost), 'warning')
         else
-            exports.whip_core:NotifyPlayer(source, ('%d trace(s) collected.'):format(made), 'success')
+            exports.whip_core:NotifyPlayer(source, L('traces_collected', made), 'success')
         end
     end)
 
@@ -234,11 +249,11 @@ function WhipEvidence.Vehicles.register()
         near = vehicleNear(5.0),
     }, function(source, player, net)
         local ent = entityOf(net)
-        if not ent then return false, 'Vehicle not found.' end
-        if not exports.whip_core:HasItem(source, WhipEvidence.Items.wipe) then return false, 'You need a cleaning cloth.' end
+        if not ent then return false, L('vehicle_not_found') end
+        if not exports.whip_core:HasItem(source, WhipEvidence.Items.wipe) then return false, L('need_cloth') end
 
         local done = exports.whip_core:Progress(source, {
-            label = 'Cleaning the interior...', duration = 8000, icon = 'car',
+            label = L('cleaning_interior'), duration = 8000, icon = 'car',
             anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 1 },
             disable = { move = true, combat = true, car = true },
             near = { coords = GetEntityCoords(ent), range = 6.0 },
@@ -251,12 +266,12 @@ function WhipEvidence.Vehicles.register()
 
         local tr = traceOf(ent, false)
         if not tr or (not next(tr.prints) and not next(tr.blood) and not next(tr.casing) and not tr.gsr) then
-            return false, 'There is nothing to clean!?'
+            return false, L('nothing_to_clean_car')
         end
         tr.prints, tr.blood, tr.casing, tr.gsr = {}, {}, {}, nil
         push(tr)
         if not summary(tr) then traces[tr.key] = nil end
         exports.whip_core:LogActivity(source, 'evidence_vehicle_cleaned')
-        exports.whip_core:NotifyPlayer(source, 'The interior is clean.', 'success')
+        exports.whip_core:NotifyPlayer(source, L('interior_clean'), 'success')
     end)
 end

@@ -2,6 +2,7 @@
 -- Values saved in /whip win over this file.
 Config = {
     Debug = false,
+    Locale = 'en',   -- language: 'en' or 'de' (files in locales/)
 
     -- Jobs that collect evidence, run GSR tests and use the labs (on duty)
     PoliceJobs = { 'police', 'bcso', 'sahp' },
@@ -202,7 +203,7 @@ Config = {
     -- Evidence lockers: where officers open the locker of a case (case ID asked).
     -- Every case's locker opens at every one of these places. Set the spot in /whip -> Forensics.
     Lockers = {
-        { id = 'mrpd', label = 'Evidence Lockers', coords = vector3(-1108.6, -832.9, 31.27) },
+        { id = 'mrpd', label = 'Evidence Lockers', coords = vector3(452.37, -980.04, 30.69) },
     },
     CaseSlots = 50,        -- slots per case locker
 

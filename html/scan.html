@@ -138,8 +138,8 @@
                 <div class="label">${esc(d.label || 'CRIME SCENE')}</div>
                 <div class="street">${esc(d.street)}</div>
                 <div class="sub">${esc(d.sub || '')}</div>
-                <div class="rows">${rows || '<div class="more">Nothing in the picture.</div>'}</div>
-                ${d.more ? `<div class="more">+ ${esc(d.more)} more</div>` : ''}
+                <div class="rows">${rows || `<div class="more">${esc(d.empty || 'Nothing in the picture.')}</div>`}</div>
+                ${d.more ? `<div class="more">${esc(d.more)}</div>` : ''}
                 ${d.hint ? `<div class="hint">${esc(d.hint)}</div>` : ''}</div>`;
         }
 

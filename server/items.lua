@@ -51,7 +51,7 @@ function WhipEvidence.wear(source, item)
     if left <= 0 then
         exports.whip_core:StoreTake(found.addr, 1, { reason = 'worn out' })
         local def = exports.whip_core:GetItemDef(item)
-        exports.whip_core:NotifyPlayer(source, ((def and def.name) or item) .. ' is worn out.', 'warning')
+        exports.whip_core:NotifyPlayer(source, L('worn_out', (def and def.name) or item), 'warning')
     else
         exports.whip_core:SetItemMetadata(found.addr, { durability = math.floor(left * 10 + 0.5) / 10 })
     end
@@ -77,41 +77,41 @@ end
 
 -- Values the lab reveals, in the order "Copy data" looks for them
 local COPY_FIELDS = {
-    { 'weapon_serial', 'Serial number' },
-    { 'fingerprint', 'Fingerprint' },
-    { 'blood_type', 'Blood type' },
-    { 'paint', 'Paint' },
+    { 'weapon_serial', L('f_serial') },
+    { 'fingerprint', L('f_fingerprint') },
+    { 'blood_type', L('f_blood_type') },
+    { 'paint', L('f_paint') },
 }
 
 function WhipEvidence.ItemDefs.register()
     Whip.core:RegisterItem(I.bag, {
-        name = 'Evidence Bag', desc = 'A sealed evidence bag holding one piece of evidence.',
+        name = L('item_bag'), desc = L('item_bag_desc'),
         weight = 0.005, type = 'evidence', stack = false, usable = false,
         prop = 'prop_paper_bag_small',
         -- picture per type: html/img/items/bag_casing.webp, bag_bullet.webp, ... (no type = empty bag picture)
         images = { { image = 'html/img/items/bag_{kind}.webp' } },
         metaFields = {
-            { key = 'case',          label = 'Case' },
-            { key = 'type',          label = 'Type' },
-            { key = 'time',          label = 'Time' },
-            { key = 'street',        label = 'Street' },
-            { key = 'ammo',          label = 'Ammunition' },
-            { key = 'weapon_serial', label = 'Serial number' },
-            { key = 'fingerprint',   label = 'Fingerprint' },
-            { key = 'blood_type',    label = 'Blood type' },
-            { key = 'paint',         label = 'Paint' },
-            { key = 'gsr',           label = 'GSR' },
-            { key = 'ballistics',    label = 'Ballistics' },
-            { key = 'tested_on',     label = 'Tested on' },
-            { key = 'marker',        label = 'Marker' },
-            { key = 'age',           label = 'Age at collection' },
-            { key = 'photographed',  label = 'Photographed' },
-            { key = 'collected_by',  label = 'Collected by' },
-            { key = 'custody',       label = 'Chain of custody' },
+            { key = 'case',          label = L('f_case') },
+            { key = 'type',          label = L('f_type') },
+            { key = 'time',          label = L('f_time') },
+            { key = 'street',        label = L('f_street') },
+            { key = 'ammo',          label = L('f_ammo') },
+            { key = 'weapon_serial', label = L('f_serial') },
+            { key = 'fingerprint',   label = L('f_fingerprint') },
+            { key = 'blood_type',    label = L('f_blood_type') },
+            { key = 'paint',         label = L('f_paint') },
+            { key = 'gsr',           label = L('f_gsr') },
+            { key = 'ballistics',    label = L('f_ballistics') },
+            { key = 'tested_on',     label = L('f_tested_on') },
+            { key = 'marker',        label = L('f_marker') },
+            { key = 'age',           label = L('f_age') },
+            { key = 'photographed',  label = L('f_photographed') },
+            { key = 'collected_by',  label = L('f_collected_by') },
+            { key = 'custody',       label = L('f_custody') },
         },
         contextOptions = {
-            { action = ACT_COPY, label = 'Copy data', order = 1, anywhere = true },
-            { action = ACT_SIGN, label = 'Sign for evidence', order = 3, anywhere = true,
+            { action = ACT_COPY, label = L('opt_copy'), order = 1, anywhere = true },
+            { action = ACT_SIGN, label = L('opt_sign'), order = 3, anywhere = true,
               require = WhipEvidence.req('evidence_sign') },
         },
     })
@@ -119,31 +119,31 @@ function WhipEvidence.ItemDefs.register()
     WhipEvidence.Photo.registerItem(ACT_SIGN)
 
     Whip.core:RegisterItem(I.kit, {
-        name = 'Forensics Kit', desc = 'Everything needed to collect evidence and run GSR tests.',
+        name = L('item_kit'), desc = L('item_kit_desc'),
         weight = 3.0, type = 'tool', stack = false, usable = false,
-        metaFields = { { key = 'durability', label = 'Condition (%)', value = '100' } },
+        metaFields = { { key = 'durability', label = L('f_condition'), value = '100' } },
         settings = wearSetting(2.5),
     })
 
     Whip.core:RegisterItem(I.pliers, {
-        name = 'Pliers', desc = 'Sturdy pliers. Essential when it counts.',
+        name = L('item_pliers'), desc = L('item_pliers_desc'),
         weight = 0.75, type = 'tool', stack = false, usable = false,
-        metaFields = { { key = 'durability', label = 'Condition (%)', value = '100' } },
+        metaFields = { { key = 'durability', label = L('f_condition'), value = '100' } },
         settings = wearSetting(1.0),
     })
 
     Whip.core:RegisterItem(I.empty, {
-        name = 'Empty Evidence Bag', desc = 'A clean, sealable evidence bag.',
+        name = L('item_empty'), desc = L('item_empty_desc'),
         weight = 0.005, type = 'tool', stack = true, maxStack = 50, usable = false,
     })
 
     Whip.core:RegisterItem(I.laser, {
-        name = 'Laser Pointer', desc = 'Shows the path of a bullet from its hole.',
+        name = L('item_laser'), desc = L('item_laser_desc'),
         weight = 0.5, type = 'tool', stack = true, maxStack = 10, usable = false,
     })
 
     Whip.core:RegisterItem(I.wipe, {
-        name = 'Cleaning Cloth', desc = 'Wipes away fingerprints, blood and other traces.',
+        name = L('item_wipe'), desc = L('item_wipe_desc'),
         weight = 0.05, type = 'tool', stack = true, maxStack = 20, usable = false,
     })
 
@@ -160,19 +160,19 @@ function WhipEvidence.ItemDefs.register()
                 return
             end
         end
-        return false, 'Nothing on this bag has been analysed yet.'
+        return false, L('copy_nothing')
     end)
 
     -- Right-click "Sign for evidence": the officer who takes it over signs the chain of custody
     Whip.core:RegisterContextAction(ACT_SIGN, function(source, player, slotData, addr)
-        if not WhipEvidence.can(source, 'evidence_sign') then return false, 'Only on-duty police with the right rank can sign for evidence.' end
+        if not WhipEvidence.can(source, 'evidence_sign') then return false, L('sign_not_allowed') end
         local who = WhipEvidence.officerLabel(source, player)
         local old = slotData.metadata and slotData.metadata.custody
-        if type(old) == 'string' and old:sub(-#who) == who then return false, 'You are already the last one who signed.' end
-        local ok, why = exports.whip_core:SetItemMetadata(addr, { custody = WhipEvidence.custody(old, 'Received', who) })
+        if type(old) == 'string' and old:sub(-#who) == who then return false, L('sign_already') end
+        local ok, why = exports.whip_core:SetItemMetadata(addr, { custody = WhipEvidence.custody(old, L('custody_received'), who) })
         if not ok then return false, why end
         exports.whip_core:LogActivity(source, 'evidence_signed', { detail = who, slotData = addr })
-        exports.whip_core:NotifyPlayer(source, 'You signed for this evidence.', 'success')
+        exports.whip_core:NotifyPlayer(source, L('signed'), 'success')
     end)
 
 end

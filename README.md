@@ -5,6 +5,8 @@ ballistics, gunshot residue, vehicle and weapon traces, an evidence case and cas
 
 Version 4.0.0 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
 
+<img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/Czztofsedr9H.jpg" alt="Camera scan with numbered markers and the crime scene legend" width="880" height="478">
+
 ## Requires
 
 - `whip_core` (1.0+), `oxmysql`
@@ -70,20 +72,48 @@ If another resource owns one of these jobs, the permissions can't be added: the 
 
 Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per use".
 
+**Getting the items:** whip_evidence sells nothing by itself. Put the items into your shops in `/whip` → Economy → Shops
+(or `Config.Shops` in whip_core), for example:
+
+| Shop | Items |
+|---|---|
+| Police (station, job only) | `whip_evidence_kit`, `whip_evidence_case`, `whip_evidence_laser`, `whip_evidence_empty_bag`*, plus `camera` and `gunny_torch` |
+| Hardware / general store | `whip_evidence_wipe`, `whip_evidence_pliers` |
+
+\* only needed with `Config.NeedEmptyBag = true`. Bags and photos are made in game, never sold.
+
 ## A case, step by step
 
 1. **Scan.** On-duty police aim a flashlight (`gunny_torch`) or hold the `camera`. Every trace gets a numbered marker
    (same number for everyone). Colour: green = ready, red = gone soon (blue = too fresh, only if you turn on a wait in `Aging.Fresh`).
    Trajectories link a casing to its bullet. Blood trails show which way the person walked.
-   **G** changes the filter, the camera shows a legend. Bullet holes: place a laser pointer now, so it is on the photo.
-2. **Photo.** **H** with the camera takes a real screenshot. The photo item lists every marker in it.
+   **G** changes the filter, the camera shows a legend (controller: LB + D-pad left). Bullet holes: place a laser pointer now, so it is on the photo.
+
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/8NgqmZlteT1z.jpg" alt="Flashlight scan: every trace gets a number" width="434" height="236"> 
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/mDFubMtx3fpS.jpg" alt="Blood trail: arrows show the way the person walked" width="434" height="236">
+
+2. **Photo.** **H** with the camera takes a real screenshot (controller: LB + D-pad right). The photo item lists every marker in it.
    Right-click → "View photo" (polaroid, click to zoom) or "Copy as text". Photographed markers get a camera badge.
+
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/gAeGhnzQELkS.jpg" alt="Crime scene photo with the list of evidence in the picture" width="880" height="478">
+
 3. **Collect.** "Collect" → minigame → the bag goes into your evidence case. Three fails ruin the trace.
    Vehicles: at a front door. Weapons: right-click → "Dust for prints". People: aim → "GSR test" / "Swab clothes for blood".
+   Each trace has its own minigame (mouse or controller):
+
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/IcqnrAH21Dcj.jpg" alt="Collect prompt with the trace card" width="616" height="335">
+
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/RNkChaXrRvhq.png" alt="Tweezers: casings" width="285" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/1O3ENQkCA3rt.png" alt="Swab: blood" width="272" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/m2buOqwYfmc3.png" alt="Dust: fingerprints" width="295" height="240">
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/WjfnTXHaUbI4.png" alt="Pull: bullets" width="290" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/oNTR0p5FZIhD.png" alt="Shards: vehicle fragments" width="286" height="240">
+
 4. **Clean up.** "Clear away" on a marker, or F1 → "Release crime scene". Unphotographed traces need a confirmation.
 5. **Lab.** At the lab device: "Unload evidence case", then "Analyse evidence" (5–10 min, storage locked).
    A gun in the storage gets test-fired: a reference casing and "Ballistic match" on matching casings.
    The lab also tells how old a trace was when it was collected. The monitor shows progress and results.
+
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/2VJQuOwDvb39.jpg" alt="Lab monitor: ready" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/BW41f7UoPAXL.jpg" alt="Lab monitor while the analysis runs" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/vibnK5MP95eC.jpg" alt="Lab monitor with the results" width="288" height="156">
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/NEyj9cEYW5yv.png" alt="Analysed blood bag" width="465" height="260"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/OubKPwuVIkVf.png" alt="Analysed fingerprint bag" width="312" height="260">
+
 6. **Case.** Upload analysed items to a case in your MDT (or at the lab device: "Upload to a case").
    They move into that case's locker. Open it at any evidence locker by typing the case ID.
 
@@ -116,17 +146,30 @@ Each pair keeps its own wear; another pair starts fresh.
 - **Fingerprints**: sitting in a car or drawing a weapon without gloves.
 - Evidence ages and disappears; rain speeds it up. It survives restarts.
 
+## Controller
+
+Everything works with a controller. Scan filter and photo sit on LB + D-pad left / right (movable in the pause menu → Controller). Photo viewer: A zoom, LB/RB zoom, right stick moves, B back. Minigames: right stick + A, B gives up.
+
 ## Settings
 
 - Admins: `/whip` → Settings → Forensics (overrides `config/config.lua`).
 - Officers: pause menu → Settings → Server Settings → Forensics (legend, marker and card size, photo viewer).
 - Keys: Settings → Key Bindings → FiveM.
-- Lab monitor: pick any prop per lab (`screenModel`, `none` = a monitor already in the map). To put the picture exactly on the screen: `/w` → Forensics → "Fit the lab screen", then aim at the top left, top right and bottom left corner of the monitor's glass and click each (tilted monitors and any shape work). Then fine-tune: arrows move, W/S into/out of the monitor, mouse wheel size, R picks the corners again, Enter saves. Logo: your PNG at `html/img/screen/logo.png`. Clock and date are the player's real time.
+- Language: English or German for everything players see (`Config.Locale`, or `/whip` → Forensics → General → Language, applies after a restart).
+  Own language: copy `locales/en.lua` to `locales/xx.lua`, rename `Locales.en` to `Locales.xx`, translate the texts,
+  add the file to `fxmanifest.lua` and set `Config.Locale = 'xx'`. Admin pages and logs stay English.
+- Lab monitor: pick any prop per lab (`screenModel`, `none` = a monitor already in the map). To put the picture exactly on the screen: `/w` → Forensics → "Fit the lab screen", then aim at the top left, top right and bottom left corner of the monitor's glass and click each (tilted monitors and any shape work). Then fine-tune: arrows move, W/S into/out of the monitor, mouse wheel size, R picks the corners again, Enter saves. Works with a controller too (hints show on screen). Logo: your PNG at `html/img/screen/logo.png`. Clock and date are the player's real time.
+
+<img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/Ra2NucBGY5Ho.png" alt="Admin settings in /whip" width="434" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/sRZJm0jIbIy0.png" alt="Player settings in the pause menu" width="434" height="239">
+
+<img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/WwMoXUemvHr5.png" alt="Lab screen fitted onto a monitor that is already in the map (fit tool)" width="440" height="439">
 
 ## Admins
 
 `/w` → Forensics: remove evidence, test kit, place test evidence, make it ready, finish lab analyses,
 analyse your bags, fit the lab screen, manage case lockers (open, close, reopen, delete). Console: `clearevidence`.
+
+<img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/7v6xjfYUgcgk.png" alt="Forensics dev tools in /w" width="260" height="638">
 
 ## For other scripts
 
@@ -279,3 +322,7 @@ exports.whip_evidence:CreateEvidence('fingerprint', coords, { source = src })
 -- Minigames in your own scripts
 exports.whip_core:SkillCheck(source, 'easy', { game = 'whip_evidence.dust' })
 ```
+
+## License
+
+GPL-3.0, see `LICENSE`. You may use, change and share it; changed versions you share must stay open source under GPL-3.0.

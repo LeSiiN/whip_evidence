@@ -24,21 +24,21 @@ end
 
 local function dust(source, player, slotData, addr)
     local serial = slotData.metadata and slotData.metadata.serial
-    if not serial then return false, 'This weapon has no serial number.' end
-    if not WhipEvidence.can(source, 'evidence_dust') then return false, WhipEvidence.NOT_ALLOWED end
-    if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, 'You need a forensics kit.' end
-    if not WhipEvidence.hasEmptyBags(source) then return false, 'You have no empty evidence bags.' end
+    if not serial then return false, L('no_serial') end
+    if not WhipEvidence.can(source, 'evidence_dust') then return false, L('not_allowed') end
+    if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, L('need_kit') end
+    if not WhipEvidence.hasEmptyBags(source) then return false, L('no_empty_bags') end
 
     local passed, res = WhipEvidence.minigame(source, 'dust')
     if not passed then
-        if res == 'busy' then return false, 'Finish what you are doing first.' end
+        if res == 'busy' then return false, L('busy') end
         if res == 'cancelled' or res == 'not started' then return false end
-        return false, 'The powder smeared. Try again.'
+        return false, L('powder_smeared')
     end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
 
     local done = exports.whip_core:Progress(source, {
-        label = 'Dusting for prints...', duration = 6000, icon = 'target',
+        label = L('dusting'), duration = 6000, icon = 'target',
         anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 49 },
         disable = { move = true, combat = true, car = true },
     })
@@ -47,7 +47,7 @@ local function dust(source, player, slotData, addr)
 
     WhipEvidence.wear(source, WhipEvidence.Items.kit)
     local charIds = WhipEvidence.Data.weaponPrints(serial)
-    if #charIds == 0 then return false, 'No usable prints on this weapon.' end
+    if #charIds == 0 then return false, L('no_prints') end
 
     local name = weaponName(slotData)
     local queries = {}
@@ -57,14 +57,14 @@ local function dust(source, player, slotData, addr)
             local meta = {
                 evidence_id  = WhipEvidence.Data.newId(),
                 kind         = 'fingerprint',
-                type         = 'Fingerprint (weapon)',
+                type         = L('type_fp_weapon'),
                 time         = os.date('%Y-%m-%d %H:%M:%S'),
                 street       = '-',
                 collected_by = WhipEvidence.officerLabel(source, player),
                 tested_on    = ('%s (%s)'):format(name, serial),
                 fingerprint  = '???',
             }
-            meta.custody = WhipEvidence.custody(nil, 'Collected', meta.collected_by)
+            meta.custody = WhipEvidence.custody(nil, L('custody_collected'), meta.collected_by)
             if WhipEvidence.useEmptyBag(source) then
                 if WhipEvidence.giveBag(source, meta, 'Weapon prints ' .. serial) then
                     queries[#queries + 1] = WhipEvidence.Data.bagQuery(meta.evidence_id, 'fingerprint', { fingerprint = traits.fingerprint })
@@ -76,15 +76,15 @@ local function dust(source, player, slotData, addr)
     end
     WhipEvidence.Data.saveBags(queries)
     exports.whip_core:LogActivity(source, 'evidence_weapon_dusted', { detail = ('%s: %d'):format(serial, #queries), slotData = addr })
-    exports.whip_core:NotifyPlayer(source, ('%d print(s) lifted from the weapon.'):format(#queries), 'success')
+    exports.whip_core:NotifyPlayer(source, L('prints_lifted', #queries), 'success')
 end
 
 local function wipe(source, player, slotData, addr)
     local serial = slotData.metadata and slotData.metadata.serial
     if not serial then return false end
-    if not exports.whip_core:HasItem(source, WhipEvidence.Items.wipe) then return false, 'You need a cleaning cloth.' end
+    if not exports.whip_core:HasItem(source, WhipEvidence.Items.wipe) then return false, L('need_cloth') end
     local done = exports.whip_core:Progress(source, {
-        label = 'Wiping the weapon...', duration = 4000, icon = 'fail',
+        label = L('wiping_weapon'), duration = 4000, icon = 'fail',
         anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 49 },
         disable = { move = true, combat = true, car = true },
     })
@@ -95,7 +95,7 @@ local function wipe(source, player, slotData, addr)
         if key:sub(1, #serial + 1) == serial .. ':' then written[key] = nil end
     end
     exports.whip_core:LogActivity(source, 'evidence_weapon_wiped', { slotData = addr })
-    exports.whip_core:NotifyPlayer(source, 'You wiped the weapon clean.', 'success')
+    exports.whip_core:NotifyPlayer(source, L('weapon_wiped'), 'success')
 end
 
 function WhipEvidence.Weapons.register()
@@ -117,9 +117,9 @@ function WhipEvidence.Weapons.register()
 
     local hasSerial = { serial = { empty = false } }
     local function addOptions(item)
-        Whip.core:AddItemOption(item, { action = ACT_DUST, label = 'Dust for prints', anywhere = true, when = hasSerial,
-            require = WhipEvidence.req('evidence_dust'), whyNot = 'This weapon has no serial number.' })
-        Whip.core:AddItemOption(item, { action = ACT_WIPE, label = 'Wipe prints', when = hasSerial,
+        Whip.core:AddItemOption(item, { action = ACT_DUST, label = L('opt_dust'), anywhere = true, when = hasSerial,
+            require = WhipEvidence.req('evidence_dust'), whyNot = L('no_serial') })
+        Whip.core:AddItemOption(item, { action = ACT_WIPE, label = L('opt_wipe_prints'), when = hasSerial,
             require = { item = WhipEvidence.Items.wipe } })
     end
     for item in pairs(Config.Calibers) do addOptions(item) end

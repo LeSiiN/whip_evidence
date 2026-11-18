@@ -142,7 +142,10 @@ local function condNow(source)
     return math.max(0, statOf(source, GLOVES) - 1)
 end
 
-function WhipEvidence.Body.gloveWear(source, amount)
+-- Wear adds up and is written at most every 2 s (an automatic weapon fires 10 times a second)
+local pendingWear = {}
+
+local function applyWear(source, amount)
     local c = condNow(source)
     if not c or not amount or amount <= 0 then return end
     local n = math.max(0, c - amount)
@@ -150,10 +153,27 @@ function WhipEvidence.Body.gloveWear(source, amount)
     exports.whip_core:SetStat(source, GLOVES, n + 1, 'wear')
     condsOf(source)[worn[source]] = n
     dirty[source] = true
-    if c > 0 and n == 0 then exports.whip_core:NotifyPlayer(source, 'Your gloves are torn.', 'warning') end
+    if c > 0 and n == 0 then exports.whip_core:NotifyPlayer(source, L('gloves_torn'), 'warning') end
 end
 
+function WhipEvidence.Body.gloveWear(source, amount)
+    if not worn[source] or not amount or amount <= 0 then return end
+    pendingWear[source] = (pendingWear[source] or 0) + amount
+end
+
+CreateThread(function()
+    while true do
+        Wait(2000)
+        if next(pendingWear) then
+            local q = pendingWear
+            pendingWear = {}
+            for source, amount in pairs(q) do applyWear(source, amount) end
+        end
+    end
+end)
+
 function WhipEvidence.Body.forget(source)
+    if pendingWear[source] then applyWear(source, pendingWear[source]); pendingWear[source] = nil end
     save(source)
     worn[source], conds[source], dirty[source] = nil, nil, nil
 end
@@ -208,7 +228,7 @@ function WhipEvidence.Body.register()
         rateLimit = 5000, sheet = 'light',
     }, function(source)
         if WhipEvidence.Body.clearBlood(source, 'changed clothes') then
-            exports.whip_core:NotifyPlayer(source, 'Fresh clothes: no more blood on you.', 'info')
+            exports.whip_core:NotifyPlayer(source, L('clothes_fresh'), 'info')
         end
     end)
 
@@ -217,16 +237,16 @@ function WhipEvidence.Body.register()
         rateLimit = 3000,
         params = { { 'target', 'player', { range = 3.0 } }, { 'street', 'string', 80, 'Unknown' } },
     }, function(source, player, target, street)
-        if not WhipEvidence.isPolice(source) then return false, 'Only on-duty police can do this.' end
-        if not WhipEvidence.can(source, 'evidence_collect') then return false, WhipEvidence.NOT_ALLOWED end
-        if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, 'You need a forensics kit.' end
-        if not WhipEvidence.hasEmptyBags(source) then return false, 'You have no empty evidence bags.' end
+        if not WhipEvidence.isPolice(source) then return false, L('police_only') end
+        if not WhipEvidence.can(source, 'evidence_collect') then return false, L('not_allowed') end
+        if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, L('need_kit') end
+        if not WhipEvidence.hasEmptyBags(source) then return false, L('no_empty_bags') end
 
         local passed, res = WhipEvidence.minigame(source, 'blood')
-        if not passed then return false, res == 'busy' and 'Finish what you are doing first.' or nil end
-        exports.whip_core:NotifyPlayer(target.source, 'Your clothes are being swabbed.', 'info')
+        if not passed then return false, res == 'busy' and L('busy') or nil end
+        exports.whip_core:NotifyPlayer(target.source, L('being_swabbed'), 'info')
         local done = exports.whip_core:Progress(source, {
-            label = 'Swabbing the clothes...', duration = 3000, icon = 'target',
+            label = L('swabbing'), duration = 3000, icon = 'target',
             anim = { dict = 'creatures@rottweiler@tricks@', clip = 'petting_franklin', flag = 0 },
             disable = { move = true, combat = true, car = true },
             near = { coords = GetEntityCoords(GetPlayerPed(target.source)), range = 3.5 },
@@ -238,7 +258,7 @@ function WhipEvidence.Body.register()
         local donors = WhipEvidence.Body.donors(target.source)
         exports.whip_core:LogActivity(source, 'evidence_blood_swab', { detail = ('%s: %d sample(s)'):format(target.fullName, #donors) })
         if #donors == 0 then
-            exports.whip_core:NotifyPlayer(source, 'No blood on the clothes.', 'info')
+            exports.whip_core:NotifyPlayer(source, L('no_blood_clothes'), 'info')
             return
         end
         local officer = WhipEvidence.officerLabel(source, player)
@@ -249,11 +269,11 @@ function WhipEvidence.Body.register()
                 local meta = {
                     evidence_id  = WhipEvidence.Data.newId(),
                     kind         = 'blood',
-                    type         = 'Blood (clothing)',
+                    type         = L('type_blood_clothing'),
                     time         = os.date('%Y-%m-%d %H:%M:%S'),
                     street       = street,
                     collected_by = officer,
-                    custody      = WhipEvidence.custody(nil, 'Collected', officer),
+                    custody      = WhipEvidence.custody(nil, L('custody_collected'), officer),
                     tested_on    = target.fullName,
                 }
                 local secret = WhipEvidence.Evidence.secretFor('blood', { blood = traits.blood }, meta)
@@ -266,6 +286,6 @@ function WhipEvidence.Body.register()
             end
         end
         WhipEvidence.Data.saveBags(queries)
-        exports.whip_core:NotifyPlayer(source, ('Blood found: %d sample(s) bagged.'):format(made), 'warning')
+        exports.whip_core:NotifyPlayer(source, L('blood_found', made), 'warning')
     end)
 end

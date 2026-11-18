@@ -43,8 +43,8 @@ Whip.register(function()
 
     Whip.core:AddAction({
         id = 'wash', at = { radial = true }, icon = 'info',
-        label = 'Wash yourself',
-        description = 'Wash gunshot residue and blood off in the water',
+        label = L('wash_self'),
+        description = L('wash_self_desc'),
         canInteract = function()
             return (WhipEvidence.Client.gsr or WhipEvidence.Client.bloody) and IsEntityInWater(PlayerPedId())
         end,

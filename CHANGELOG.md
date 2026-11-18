@@ -17,13 +17,17 @@
 - **Blood on clothes**: own blood when hurt, others' when close by or carrying them. HUD ring, police can swab clothes, washing or new clothes remove it.
 - **Blood trail** lasts a while after a hit (longer for heavy hits), thins out, stops when healed; critical injuries keep bleeding.
 - **Glove wear**: HUD ring, worn gloves let more prints through.
+- **Less garbage while scanning**: the overlay reuses its tables (about 45 KB → 2 KB per rebuild), prompts check rank permissions once instead of every frame and don't flicker on and off at the edge of their range.
+- **Controller support** everywhere: scan filter and photo on WHIP's pad buttons, photo viewer, minigames and the lab screen fit tool.
+- README with screenshot slots, where to get the items, GPL-3.0 `LICENSE`. Default evidence locker at Mission Row.
 - **MDT guide** in the README: step-by-step integration with examples and a checklist.
 - Item pictures for everything, a bag colour per evidence type.
 - Update notices: whip_core tells you when a new release is on GitHub (`whip_updates`).
+- **Languages**: English and German (`Config.Locale`), every text players see. Add your own in `locales/`.
 - Player settings for the scan and photo layout. Admin dev tools and case management in `/w` → Forensics.
 
 ### Changed
-- **Performance**: much lower resmon (spatial grid, painted overlay, idle back-off, chunked transfers).
+- **Performance**: much lower resmon (spatial grid, painted overlay, idle back-off, chunked transfers). Lab screens only send changes, vehicle traces and glove wear are batched, the lab monitor works out its corners once.
 - Prompts: hold to confirm risky actions (clear away, lab device), press for the rest.
 - The default lab is now called "Police Lab".
 - No more waiting before collecting (`Aging.Fresh = 0`, can be turned back on). Marker colours: green = ready, red = gone soon (blue = too fresh). Laser pointer and clearing away work on fresh evidence too.

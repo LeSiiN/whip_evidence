@@ -105,7 +105,7 @@ local function signContents(source)
             local m = type(s.metadata) == 'table' and s.metadata or nil
             local old = m and m.custody
             if m and (s.item == I.bag or s.item == I.photo) and not (type(old) == 'string' and old:sub(-#who) == who) then
-                m.custody = WhipEvidence.custody(old, 'Received (evidence case)', who)
+                m.custody = WhipEvidence.custody(old, L('custody_received_case'), who)
                 changed = true
             end
         end
@@ -115,14 +115,14 @@ end
 
 function WhipEvidence.Briefcase.register()
     Whip.core:RegisterItem(I.case, {
-        name = 'Evidence Case', desc = ('Holds up to %d evidence bags and photos. New bags go in here first.'):format(SLOTS),
+        name = L('item_case'), desc = L('item_case_desc', SLOTS),
         weight = 2.0, type = 'tool', stack = false, usable = false,
         prop = 'prop_ld_case_01',
         defaultAction = ACT_OPEN,
-        contextOptions = { { action = ACT_OPEN, label = 'Open', order = 1 } },
+        contextOptions = { { action = ACT_OPEN, label = L('opt_open'), order = 1 } },
     })
     local ok, why = Whip.core:RegisterPanelItem(I.case, {
-        slots = SLOTS, label = 'Evidence Case', action = ACT_OPEN,
+        slots = SLOTS, label = L('item_case'), action = ACT_OPEN,
         allowedItems = { I.bag, I.photo, I.empty },
     })
     if not ok then Whip.startProblem('evidence case: %s', tostring(why)) end

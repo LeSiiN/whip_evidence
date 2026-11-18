@@ -67,7 +67,7 @@ local function entryOf(item, m)
             paint = m.paint, gsr = m.gsr, ballistics = m.ballistics, age = m.age,
         }
     elseif item == I.photo then
-        e.kind, e.type = 'photo', 'Crime scene photo'
+        e.kind, e.type = 'photo', L('type_photo')
         e.photo_id, e.time, e.street, e.scene, e.taken_by = m.photo_id, m.time, m.street, m.scene, m.taken_by
         e.entries, e.cars = m.entries, m.cars
     else
@@ -112,12 +112,12 @@ local function afterMove(h, ctx)
         local who = player and WhipEvidence.officerLabel(src, player) or ('ID ' .. src)
         local ref = refOf(ctx.item, ctx.metadata)
         if ctx.direction == 'out' and ctx.other and ctx.other.slot then
-            exports.whip_core:SetItemMetadata(ctx.other, { custody = WhipEvidence.custody((ctx.metadata or {}).custody, 'Taken from case locker ' .. c.id, who) })
+            exports.whip_core:SetItemMetadata(ctx.other, { custody = WhipEvidence.custody((ctx.metadata or {}).custody, L('custody_taken_locker', c.id), who) })
             if ref then c.taken[ref] = { by = who, at = os.time(), what = entryOf(ctx.item, ctx.metadata).type } end
             exports.whip_core:LogActivity(src, 'evidence_locker_take', { detail = ('case %s: %s'):format(c.id, ref or ctx.item) })
         elseif ctx.direction == 'in' then
             exports.whip_core:SetItemMetadata({ kind = KIND, id = c.id, slot = ctx.slot },
-                { custody = WhipEvidence.custody((ctx.metadata or {}).custody, 'Returned to case locker ' .. c.id, who) })
+                { custody = WhipEvidence.custody((ctx.metadata or {}).custody, L('custody_returned_locker', c.id), who) })
             if ref then c.taken[ref] = nil end
             exports.whip_core:LogActivity(src, 'evidence_locker_return', { detail = ('case %s: %s'):format(c.id, ref or ctx.item) })
         end
@@ -133,7 +133,7 @@ local function registerKind()
             return id and Cases[id] and { id = id } or nil
         end,
         instanceId = function(key, h) return KIND .. ':' .. h.id end,
-        label = function(key, h) return 'Case ' .. h.id end,
+        label = function(key, h) return L('case_label', h.id) end,
         slots = function(h)
             local top = Config.CaseSlots or 50
             for slot in pairs(Cases[h.id] and Cases[h.id].slots or {}) do if slot > top then top = slot end end
@@ -158,15 +158,15 @@ local function registerKind()
         end,
         allows = function(h, item)
             if allowedItem(item) then return true end
-            return false, 'Only evidence of this case goes in here.'
+            return false, L('locker_wrong_case')
         end,
         beforeMove = function(h, ctx)
             local c = Cases[h.id]
-            if not c then return false, 'Case not found.' end
-            if c.closed then return false, 'This case is closed.' end
+            if not c then return false, L('case_not_found') end
+            if c.closed then return false, L('case_closed') end
             if ctx.direction == 'in' then
                 local m = ctx.metadata or {}
-                if tostring(m.case or '') ~= c.id then return false, 'This does not belong to case ' .. c.id .. '.' end
+                if tostring(m.case or '') ~= c.id then return false, L('not_this_case', c.id) end
             end
         end,
         afterMove = afterMove,
@@ -256,20 +256,20 @@ local function uploadItems(source, who, items, id)
         local m = f.metadata or {}
         local r = { ref = f.ref or refOf(f.item, m), ok = false }
         if not f.addr and not f.caseAddr then
-            r.why = 'Not in your pockets.'
+            r.why = L('not_in_pockets')
         elseif not analysed(f.item, m) then
-            r.why = 'Not analysed yet.'
+            r.why = L('not_analysed')
         elseif m.case and tostring(m.case) ~= id then
-            r.why = 'Already belongs to case ' .. tostring(m.case) .. '.'
+            r.why = L('other_case', tostring(m.case))
         else
             ensureCase(id)
-            local custody = WhipEvidence.custody(m.custody, 'Uploaded to case ' .. id, who)
+            local custody = WhipEvidence.custody(m.custody, L('custody_uploaded', id), who)
             local ok, why
             if f.caseAddr then
                 -- inside an evidence case: out of the case first, then into the locker (back into the case if that fails)
                 local out = WhipEvidence.Briefcase.take(f.caseAddr, { [f.caseSlot] = m.evidence_id or m.photo_id })
                 if not out then
-                    ok, why = false, 'No longer in your evidence case.'
+                    ok, why = false, L('not_in_case_anymore')
                 else
                     local copy = copyOf(m)
                     copy.case, copy.custody = id, custody
@@ -292,7 +292,7 @@ local function uploadItems(source, who, items, id)
                 r.ok, r.entry = true, entryOf(f.item, m)
                 moved = moved + 1
             else
-                r.why = why or 'Could not be moved into the locker.'
+                r.why = why or L('locker_move_failed')
             end
         end
         results[#results + 1] = r
@@ -306,9 +306,9 @@ end
 
 local function uploadCheck(source, caseId)
     local id = validId(caseId)
-    if not id then return false, 'Invalid case ID.' end
-    if not WhipEvidence.can(source, 'evidence_upload') then return false, WhipEvidence.NOT_ALLOWED end
-    if Cases[id] and Cases[id].closed then return false, 'This case is closed.' end
+    if not id then return false, L('invalid_case') end
+    if not WhipEvidence.can(source, 'evidence_upload') then return false, L('not_allowed') end
+    if Cases[id] and Cases[id].closed then return false, L('case_closed') end
     local player = exports.whip_core:GetPlayer(source)
     if not player then return false, 'Player not loaded' end
     return id, WhipEvidence.officerLabel(source, player)
@@ -335,10 +335,10 @@ function WhipEvidence.Cases.uploadFromLab(source, labId, caseId)
     local id, who = uploadCheck(source, caseId)
     if not id then return false, who end
     -- the lab knows no cases: the MDT has to say this one exists
-    if not caseCheck then return false, 'No MDT is connected: upload from the MDT.' end
+    if not caseCheck then return false, L('no_mdt') end
     local okCall, exists = pcall(caseCheck, id, source)
-    if not okCall then return false, 'The MDT could not check the case.' end
-    if not exists then return false, ('Case %s does not exist in the MDT.'):format(id) end
+    if not okCall then return false, L('mdt_check_failed') end
+    if not exists then return false, L('case_not_in_mdt', id) end
     local containerId, why = WhipEvidence.Lab.storage(labId)
     if not containerId then return false, why end
     local stash = exports.whip_core:StoreRead({ kind = 'container', id = containerId })
@@ -354,7 +354,7 @@ function WhipEvidence.Cases.uploadFromLab(source, labId, caseId)
         end
     end
     if #items == 0 then
-        return false, waiting > 0 and 'Nothing analysed in this lab yet: run the analysis first.' or 'Nothing in this lab to upload.'
+        return false, waiting > 0 and L('lab_nothing_analysed') or L('lab_nothing')
     end
     local _, moved = uploadItems(source, who, items, id)
     return moved, waiting
@@ -377,10 +377,10 @@ end
 -- CloseCase(caseId, source?) / ReopenCase(caseId, source?): with a source the rank is checked
 function WhipEvidence.Cases.setClosed(caseId, closed, source)
     local c = Cases[validId(caseId) or '']
-    if not c then return false, 'No locker for that case.' end
+    if not c then return false, L('no_locker') end
     local who = 'MDT'
     if source then
-        if not WhipEvidence.can(source, 'evidence_case_close') then return false, WhipEvidence.NOT_ALLOWED end
+        if not WhipEvidence.can(source, 'evidence_case_close') then return false, L('not_allowed') end
         local player = exports.whip_core:GetPlayer(source)
         who = player and WhipEvidence.officerLabel(source, player) or who
     end
@@ -412,7 +412,7 @@ local function jobChanged(e)
     local src = type(e) == 'table' and tonumber(e.source)
     if src and openLockers[src] then
         closeFor(src)
-        exports.whip_core:NotifyPlayer(src, 'The case locker closed: your job or rank changed.', 'info')
+        exports.whip_core:NotifyPlayer(src, L('locker_closed_job'), 'info')
     end
 end
 AddEventHandler('whip_core:job:roleChanged', jobChanged)
@@ -431,12 +431,12 @@ end
 -- OpenLocker(source, caseId): only at an evidence locker; look-only without the take permission or when closed
 function WhipEvidence.Cases.open(source, caseId)
     local id = validId(caseId)
-    if not id then return false, 'Invalid case ID.' end
-    if not WhipEvidence.can(source, 'evidence_locker') then return false, WhipEvidence.NOT_ALLOWED end
+    if not id then return false, L('invalid_case') end
+    if not WhipEvidence.can(source, 'evidence_locker') then return false, L('not_allowed') end
     local locker = lockerNear(source)
-    if not locker then return false, 'You need to be at an evidence locker.' end
+    if not locker then return false, L('need_locker') end
     local c = Cases[id]
-    if not c then return false, 'There is no evidence for case ' .. id .. '.' end
+    if not c then return false, L('no_case_evidence', id) end
     local readOnly = c.closed or not WhipEvidence.can(source, 'evidence_locker_take')
     local ok, why = exports.whip_core:OpenStore(source, { kind = KIND, id = id },
         { coords = WhipEvidence.vec(locker.coords), range = 3.0, readOnly = readOnly })
@@ -444,7 +444,7 @@ function WhipEvidence.Cases.open(source, caseId)
     openLockers[source] = id
     exports.whip_core:LogActivity(source, 'evidence_locker_open', { detail = 'case ' .. id })
     if readOnly then
-        exports.whip_core:NotifyPlayer(source, c.closed and 'This case is closed: you can only look.' or 'Your rank can only look.', 'info')
+        exports.whip_core:NotifyPlayer(source, c.closed and L('case_closed_look') or L('rank_look'), 'info')
     end
     return true
 end
@@ -466,7 +466,7 @@ end
 -- Open any case's locker without standing at a locker
 function WhipEvidence.Cases.adminOpen(source, caseId)
     local id = validId(caseId)
-    if not id or not Cases[id] then return false, 'No locker for that case.' end
+    if not id or not Cases[id] then return false, L('no_locker') end
     local ok, why = exports.whip_core:OpenStore(source, { kind = KIND, id = id })
     if ok then openLockers[source] = id end
     return ok, why
@@ -476,7 +476,7 @@ end
 function WhipEvidence.Cases.delete(caseId, source)
     local id = validId(caseId)
     local c = id and Cases[id]
-    if not c then return false, 'No locker for that case.' end
+    if not c then return false, L('no_locker') end
     WhipEvidence.Cases.closeViewers(id)
     local n = 0
     for _ in pairs(c.slots) do n = n + 1 end
@@ -509,8 +509,8 @@ function WhipEvidence.Cases.register()
         local moved, waiting = WhipEvidence.Cases.uploadFromLab(source, labId, caseId)
         if not moved then return false, waiting end
         WhipEvidence.Lab.publish(labId)
-        local text = ('%d item(s) uploaded to case %s and moved to its locker.'):format(moved, validId(caseId))
-        if waiting > 0 then text = text .. (' %d not analysed yet stay in the lab.'):format(waiting) end
+        local text = L('lab_uploaded', moved, validId(caseId))
+        if waiting > 0 then text = text .. L('lab_upload_waiting', waiting) end
         exports.whip_core:NotifyPlayer(source, text, 'success')
     end)
 

@@ -11,7 +11,9 @@ Dev-Tools: `/w` → **Forensics**.
 - [ ] 0.3 Niedrigster Rang hat nur die Grundrechte, höhere Ränge mehr (Erst-Start-Vorbelegung).
 - [ ] 0.4 Lab-Monitor steht am Lab, zeigt den Win11-Desktop scharf und lesbar, Uhrzeit/Datum = echte Zeit.
 - [ ] 0.5 `/w` → Forensics → „Fit the lab screen“ → Ecken oben links, oben rechts, unten links anklicken → mit Pfeilen/W/S/Mausrad feinjustieren → Enter speichert. Bild sitzt auf dem Glas, Taskleiste sichtbar, auch nach Neustart.
+- [ ] 0.5b Fit-Tool mit Controller: RT/A wählt Ecke, B zurück. Feinjustieren: linker Stick bewegen, rechter Stick rein/raus, RT/LT Größe, X halten langsamer, A speichert, Y Ecken neu, B abbrechen.
 - [ ] 0.6 Anderes Modell in `/whip` (Labs → Screen model) → nach Neustart neues Modell, Bild passt sich an.
+- [ ] 0.7 `/whip` → Forensics → General → Language = Deutsch, Neustart → Prompts, Meldungen, Items, Minigames, Foto, Lab-Monitor auf Deutsch.
 
 ## 1. Spuren entstehen
 - [ ] 1.1 Als Zivi ein paar Schüsse auf Wand und Auto → Hülsen am Boden, Projektil in der Wand.
@@ -34,6 +36,7 @@ Dev-Tools: `/w` → **Forensics**.
 - [ ] 3.3 Fotografierte Marker zeigen das Kamera-Abzeichen.
 - [ ] 3.4 „Copy as text“ → Text im Clipboard (Strg+V im Chat/Notepad).
 - [ ] 3.5 Einstellungen (Settings-Menü) → Layout von Scan und Foto ändern → wird übernommen.
+- [ ] 3.6 Mit Controller: LB + Steuerkreuz links/rechts wechselt Filter / macht Foto (nur beim Scannen). Foto ansehen: A zoomt, LB/RB zoom, rechter Stick verschiebt, B zurück, Hinweise zeigen Pad-Tasten.
 
 ## 4. Einsammeln
 - [ ] 4.1 Frische Spur ist sofort grün und einsammelbar (kein Warten).
@@ -92,4 +95,14 @@ end)
 - [ ] 8.3 `whip_core` neu starten → Prompts, Koffer, Lab-Bildschirm funktionieren wie vorher, nichts doppelt.
 - [ ] 8.4 Regen → Spuren altern schneller, GSR ist weg.
 - [ ] 8.5 Minigames mit Gamepad durchspielen.
-- [ ] 8.6 resmon: idle ohne Kamera ~0.00 ms, Kamera an mit Spuren ≤ ~0.10 ms.
+- [ ] 8.6 Performance (F8 `resmon 1`, Spalte whip_evidence; Feinmessung im Dev-Modus mit `/whipcost`, Server-Konsole `whipcost 30`):
+
+| Situation | Ziel (CPU ms) |
+|---|---|
+| Zivi, keine Spuren in der Nähe | 0.00 |
+| Polizei im Dienst, 30+ Spuren in der Nähe, ohne Lampe/Kamera | ≤ 0.01 |
+| Taschenlampe auf 30+ Spuren | ≤ 0.12 |
+| Kamera mit Legende auf 30+ Spuren | ≤ 0.15 |
+| Am Lab-Monitor (unter 15 m) | ≤ 0.03 |
+| Minigame offen | ≤ 0.03 |
+| Server (`whipcost 30`), Schießerei mit 2–3 Spielern | ≤ 0.2 ms pro Tick |

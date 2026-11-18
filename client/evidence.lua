@@ -100,9 +100,9 @@ local function clearAway(id)
     if not ev then return end
     if ev.photo then return TriggerServerEvent('whip_evidence:clear', id, false) end
     local sure = Whip.core:Confirm({
-        title = ('#%s %s has no photo'):format(ev.no or '?', WhipEvidence.label(ev.kind)),
-        message = 'Once it is cleared away, nothing proves it was ever here. Take a photo with the camera first (marker gets a camera badge).',
-        yes = 'Clear anyway', no = 'Keep it',
+        title = L('clear_no_photo_title', ev.no or '?', WhipEvidence.label(ev.kind)),
+        message = L('clear_no_photo_msg'),
+        yes = L('clear_anyway'), no = L('keep_it'),
     })
     if sure then
         TriggerServerEvent('whip_evidence:clear', id, true)
@@ -128,7 +128,7 @@ local function civilianAction(ev)
         reach = Config.PickupDistance, seeFrom = CIV_RANGE, focusMode = 'near',
         options = {
             { id = 'destroy', icon = 'fail', require = { item = item }, press = true,
-              label = ev.kind == 'bullet' and 'Pull out the bullet' or 'Wipe away',
+              label = ev.kind == 'bullet' and L('opt_pull_bullet') or L('opt_wipe_away'),
               onSelect = function() TriggerServerEvent('whip_evidence:destroy', ev.id) end },
         },
     }
@@ -137,37 +137,37 @@ end
 local function actionFor(ev)
     if not WhipEvidence.isPoliceOnDuty() then return civilianAction(ev) end
     -- only collecting waits while it is too fresh; laser pointer and clearing away work at once
+    -- rank permissions are checked here, not per frame (WHIP would call back into this resource every pass);
+    -- the prompt loop rebuilds the prompts when they change
     local police = { job = Config.PoliceJobs, onDuty = true }
-    local options
-    if ev.phase == 'green' then
-        options = {
-            { id = 'fresh', label = 'Too fresh to collect', icon = 'timer',
-              onSelect = function(ctx) ctx.refuse('This evidence is still too fresh.') end },
-        }
-    else
-        options = {
-            { id = 'pickup', icon = 'pickup', require = police, press = true,
-              canInteract = function() return WhipEvidence.can('evidence_collect') end,
-              label = ev.fails > 0 and ('Collect (%d/%d failed)'):format(ev.fails, Config.MaxFails) or 'Collect',
-              onSelect = function() TriggerServerEvent('whip_evidence:pickup', ev.id, WhipEvidence.street(ev.coords)) end },
-        }
+    local options = {}
+    if WhipEvidence.can('evidence_collect') then
+        if ev.phase == 'green' then
+            options[1] = { id = 'fresh', label = L('too_fresh_collect'), icon = 'timer',
+                onSelect = function(ctx) ctx.refuse(L('too_fresh')) end }
+        else
+            options[1] = { id = 'pickup', icon = 'pickup', require = police, press = true,
+                label = ev.fails > 0 and L('collect_failed', ev.fails, Config.MaxFails) or L('collect'),
+                onSelect = function() TriggerServerEvent('whip_evidence:pickup', ev.id, WhipEvidence.street(ev.coords)) end }
+        end
     end
-    if ev.kind == 'bullet' and ev.origin then
+    if ev.kind == 'bullet' and ev.origin and WhipEvidence.can('evidence_laser') then
         options[#options + 1] = { id = 'laser', icon = 'target', require = police,
-            canInteract = function() return WhipEvidence.can('evidence_laser') end,
-            label = ev.laser and 'Remove laser pointer' or 'Place laser pointer',
+            label = ev.laser and L('laser_remove') or L('laser_place'),
             onSelect = function() TriggerServerEvent('whip_evidence:laser', ev.id) end }
     end
     -- hold to clear: 1 s, without a photo 2 s (and it still asks)
-    options[#options + 1] = { id = 'clear', icon = 'fail', require = police, holdMs = ev.photo and 1000 or 2000,
-        canInteract = function() return WhipEvidence.can('evidence_clear') end,
-        label = ev.photo and 'Clear away' or 'Clear away (no photo!)',
-        onSelect = function() CreateThread(function() clearAway(ev.id) end) end }
+    if WhipEvidence.can('evidence_clear') then
+        options[#options + 1] = { id = 'clear', icon = 'fail', require = police, holdMs = ev.photo and 1000 or 2000,
+            label = ev.photo and L('clear_away') or L('clear_away_no_photo'),
+            onSelect = function() CreateThread(function() clearAway(ev.id) end) end }
+    end
+    if #options == 0 then return nil end
 
     local tint = WhipEvidence.PhaseColor[ev.phase] or '#ffffff'
     return {
         id = 'ev:' .. ev.id, group = GROUP, at = { coords = ev.coords + vector3(0.0, 0.0, 0.15) },
-        label = ev.no and ('#%d %s'):format(ev.no, WhipEvidence.label(ev.kind)) or ('Evidence: ' .. WhipEvidence.label(ev.kind)),
+        label = ev.no and ('#%d %s'):format(ev.no, WhipEvidence.label(ev.kind)) or L('evidence_label', WhipEvidence.label(ev.kind)),
         reach = Config.PickupDistance, seeFrom = PROMPT_RANGE, focusMode = 'near',
         style = { tint = tint, labelTint = tint },
         options = options,
@@ -175,7 +175,9 @@ local function actionFor(ev)
 end
 
 local function show(ev)
-    local id, why = Whip.core:AddAction(actionFor(ev))
+    local action = actionFor(ev)
+    if not action then return end
+    local id, why = Whip.core:AddAction(action)
     if id then shown[ev.id] = true else WhipEvidence.debug('prompt %s: %s', ev.id, tostring(why)) end
 end
 
@@ -210,14 +212,26 @@ local function promptMode()
     return civTools and 'civ' or nil
 end
 
+-- which of the rank permissions the prompts were built with
+local function permsKey()
+    return (WhipEvidence.can('evidence_collect') and 'c' or '') .. (WhipEvidence.can('evidence_laser') and 'l' or '')
+        .. (WhipEvidence.can('evidence_clear') and 'x' or '')
+end
+
+-- A prompt goes up within range and only comes down 3 m further out: walking along the edge
+-- doesn't add and remove it over and over (each AddAction is a big call into whip_core).
+local HIDE_EXTRA = 3.0
+local nearBuf = {}
+
 CreateThread(function()
-    local lastPos, lastMode
+    local lastPos, lastMode, lastPerms
     while true do
         local wait = 1000
         local mode = count > 0 and promptMode() or nil
-        if mode ~= lastMode then
-            hideAll()   -- police and civilians get different prompts
-            lastMode, lastPos = mode, nil
+        local perms = mode == 'police' and permsKey() or nil
+        if mode ~= lastMode or perms ~= lastPerms then
+            hideAll()   -- police and civilians get different prompts; a rank change changes the options
+            lastMode, lastPerms, lastPos = mode, perms, nil
         end
         if mode then
             wait = 250
@@ -225,10 +239,11 @@ CreateThread(function()
             if dirty or not lastPos or #(pos - lastPos) > 1.5 then
                 lastPos, dirty = pos, false
                 local range = mode == 'civ' and CIV_RANGE or math.min(Config.SeeDistance, PROMPT_RANGE)
-                local near = {}
-                WhipEvidence.Ev.eachNear(pos, range, function(ev)
+                local near = nearBuf
+                for id in pairs(near) do near[id] = nil end
+                WhipEvidence.Ev.eachNear(pos, range + HIDE_EXTRA, function(ev, d)
                     near[ev.id] = true
-                    if not shown[ev.id] then show(ev) end
+                    if d <= range and not shown[ev.id] then show(ev) end
                 end)
                 for id in pairs(shown) do
                     if not near[id] then hide(id) end
@@ -274,6 +289,7 @@ RegisterNetEvent('whip_evidence:client:update', function(list)
     for _, patch in ipairs(list) do
         local ev = Evidence[patch.id]
         if ev then
+            local before = shown[ev.id] and ('%s|%s|%s|%s'):format(ev.phase, ev.fails, ev.laser, ev.photo)
             if patch.phase ~= nil then ev.phase = patch.phase end
             if patch.fails ~= nil then ev.fails = patch.fails end
             if patch.laser ~= nil then
@@ -283,7 +299,8 @@ RegisterNetEvent('whip_evidence:client:update', function(list)
             if patch.photo ~= nil then ev.photo = patch.photo end
             if patch.left ~= nil then ev.endsAt = GetGameTimer() + patch.left * 1000 end
             if patch.age ~= nil then ev.bornAt = GetGameTimer() - patch.age * 1000 end
-            if shown[ev.id] then show(ev) end
+            -- the prompt only changes with phase, fails, laser or photo (not with the age)
+            if before and before ~= ('%s|%s|%s|%s'):format(ev.phase, ev.fails, ev.laser, ev.photo) then show(ev) end
         end
     end
 end)

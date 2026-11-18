@@ -11,7 +11,7 @@ local labs = {}   -- [id] = { def, containerId, running = { ends, ids, guns, by 
 local LEGACY_KEYS = { WhipEvidence.Res .. ':lab' }
 
 local function busyName(def)
-    return (def.label or def.id) .. ' (analysis running)'
+    return (def.label or def.id) .. L('lab_busy_suffix')
 end
 
 local function keyOf(id)
@@ -98,6 +98,12 @@ local function publish(id)
             st.state = 'idle'
         end
     end
+    -- only when something changed (the clients count the time left themselves): no network traffic every 15 s
+    st.now = nil
+    local key = json.encode(st)
+    if key == lab.published then return end
+    lab.published = key
+    st.now = t
     GlobalState['whip_evidence:lab:' .. id] = st
 end
 
@@ -119,7 +125,7 @@ local function finish(id)
     local labName = lab.def.label or id
     for bagId, secret in pairs(WhipEvidence.Data.pendingSecrets(stillThere)) do
         local addr = addrOf(c.bags[bagId].slot)
-        secret.custody = WhipEvidence.custody(c.bags[bagId].meta.custody, 'Analysed: ' .. labName)
+        secret.custody = WhipEvidence.custody(c.bags[bagId].meta.custody, L('custody_analysed', labName))
         if Whip.core:SetItemMetadata(addr, secret) then
             done[#done + 1] = bagId
             for k, v in pairs(secret) do c.bags[bagId].meta[k] = v end
@@ -140,49 +146,49 @@ local function finish(id)
             local ok = Whip.core:StoreGive({ kind = 'container', id = lab.containerId }, WhipEvidence.Items.bag, 1, {
                 evidence_id   = WhipEvidence.Data.newId(),
                 kind          = 'reference',
-                type          = 'Reference casing',
+                type          = L('kind_reference'),
                 time          = os.date('%Y-%m-%d %H:%M:%S'),
                 street        = lab.def.label or id,
                 tested_on     = ('%s (%s)'):format(gunName(gun.item), gun.serial),
-                ammo          = Config.Calibers[gun.item] or 'Unknown',
+                ammo          = Config.Calibers[gun.item] or L('unknown'),
                 weapon_serial = gun.serial,
-                custody       = WhipEvidence.custody(nil, 'Test-fired: ' .. labName),
+                custody       = WhipEvidence.custody(nil, L('custody_testfired', labName)),
             }, 'test fired in ' .. labName)
             if ok then
                 refs = refs + 1
-                lines[#lines + 1] = { kind = 'reference', text = ('Reference casing · %s · %s'):format(gunName(gun.item), gun.serial) }
+                lines[#lines + 1] = { kind = 'reference', text = L('lab_line_reference', gunName(gun.item), gun.serial) }
             else
                 noRoom = noRoom + 1
             end
         end
         -- the gun counts as analysed now: it can be uploaded to a case (MDT)
-        if gun then Whip.core:SetItemMetadata(addrOf(gun.slot), { ballistics = 'Reference on file (' .. labName .. ')' }) end
+        if gun then Whip.core:SetItemMetadata(addrOf(gun.slot), { ballistics = L('ballistics_reference', labName) }) end
     end
     local matches = 0
     for _, bag in pairs(c.bags) do
         local m = bag.meta
         local gun = (m.kind == 'casing' or m.kind == 'bullet') and m.weapon_serial and guns[m.weapon_serial]
         if gun and m.ballistics == nil then
-            if Whip.core:SetItemMetadata(addrOf(bag.slot), { ballistics = 'Match: ' .. gunName(gun.item) }) then
+            if Whip.core:SetItemMetadata(addrOf(bag.slot), { ballistics = L('ballistics_match', gunName(gun.item)) }) then
                 matches = matches + 1
-                lines[#lines + 1] = { no = m.marker, kind = 'match', text = ('Ballistic match · %s %s · %s'):format(m.type or '', m.marker or '', gunName(gun.item)) }
+                lines[#lines + 1] = { no = m.marker, kind = 'match', text = L('lab_line_match', m.type or '', m.marker or '', gunName(gun.item)) }
             end
         end
     end
 
     lab.running = nil
     Whip.core:UpdateContainer(lab.containerId, { locked = false, name = lab.def.label or id })
-    local summary = ('%d bag(s) analysed'):format(#done)
-    if refs > 0 then summary = summary .. (' · %d reference casing(s)'):format(refs) end
-    if matches > 0 then summary = summary .. (' · %d ballistic match(es)'):format(matches) end
+    local summary = L('lab_sum_bags', #done)
+    if refs > 0 then summary = summary .. L('lab_sum_refs', refs) end
+    if matches > 0 then summary = summary .. L('lab_sum_matches', matches) end
     lab.result = { at = os.time(), lines = lines, summary = summary }
     publish(id)
 
     if online then
-        local text = ('%s: analysis finished. %d bag(s) analysed'):format(lab.def.label or id, #done)
-        if refs > 0 then text = text .. (', %d reference casing(s)'):format(refs) end
-        if matches > 0 then text = text .. (', %d ballistic match(es)'):format(matches) end
-        if noRoom > 0 then text = text .. (', no room for %d reference casing(s)'):format(noRoom) end
+        local text = L('lab_done_head', lab.def.label or id, #done)
+        if refs > 0 then text = text .. L('lab_done_refs', refs) end
+        if matches > 0 then text = text .. L('lab_done_matches', matches) end
+        if noRoom > 0 then text = text .. L('lab_done_noroom', noRoom) end
         Whip.core:NotifyPlayer(who.source, text .. '.', matches > 0 and 'warning' or 'success', 8000)
     end
 end
@@ -192,7 +198,7 @@ local function signLab(lab, ids, who)
     local want = {}
     for _, bagId in ipairs(ids) do want[bagId] = true end
     local c = contents(lab.containerId, function(addr) return exports.whip_core:StoreRead(addr) end)
-    local what = 'In lab: ' .. (lab.def.label or lab.def.id)
+    local what = L('custody_in_lab', lab.def.label or lab.def.id)
     for bagId, bag in pairs(c.bags) do
         if want[bagId] then
             exports.whip_core:SetItemMetadata({ kind = 'container', id = lab.containerId, slot = bag.slot },
@@ -302,8 +308,8 @@ end
 -- For the case upload at the device: the lab's storage, or nil while it analyses
 function WhipEvidence.Lab.storage(id)
     local lab = labs[id]
-    if not lab or not lab.containerId then return nil, 'Unknown lab.' end
-    if lab.running then return nil, 'An analysis is running: wait until it is done.' end
+    if not lab or not lab.containerId then return nil, L('unknown_lab') end
+    if lab.running then return nil, L('lab_running_wait') end
     return lab.containerId, lab.def
 end
 
@@ -324,16 +330,16 @@ function WhipEvidence.Lab.register()
             range = 3.0,
         },
     }, function(source, player, id)
-        if not WhipEvidence.can(source, 'evidence_lab') then return false, WhipEvidence.NOT_ALLOWED end
+        if not WhipEvidence.can(source, 'evidence_lab') then return false, L('not_allowed') end
         local containerId, why = WhipEvidence.Lab.storage(id)
         if not containerId then return false, why end
-        if #WhipEvidence.Briefcase.all(source) == 0 then return false, 'You have no evidence case.' end
+        if #WhipEvidence.Briefcase.all(source) == 0 then return false, L('no_evidence_case') end
         local moved, full = WhipEvidence.Briefcase.unloadInto(source, containerId)
-        if moved == 0 then return false, full and 'The lab storage is full.' or 'No bags in your evidence case.' end
+        if moved == 0 then return false, full and L('lab_full') or L('case_no_bags') end
         exports.whip_core:LogActivity(source, 'evidence_case_unloaded', { detail = ('%s: %d bag(s)'):format(id, moved) })
         publish(id)
-        exports.whip_core:NotifyPlayer(source, ('%d bag(s) put into the lab storage.%s'):format(moved,
-            full and ' The storage is full, the rest stays in the case.' or ''), 'success')
+        exports.whip_core:NotifyPlayer(source, L('lab_unloaded', moved,
+            full and L('lab_unload_full') or ''), 'success')
     end)
 
     Whip.core:SecureEvent('whip_evidence:analyse', {
@@ -345,29 +351,28 @@ function WhipEvidence.Lab.register()
         },
     }, function(source, player, id)
         local lab = labs[id]
-        if not lab then return false, 'This lab is not set up.' end
-        if not WhipEvidence.isPolice(source) then return false, 'Only on-duty police can use the lab.' end
-        if not WhipEvidence.can(source, 'evidence_lab') then return false, WhipEvidence.NOT_ALLOWED end
+        if not lab then return false, L('lab_not_set_up') end
+        if not WhipEvidence.isPolice(source) then return false, L('police_only_lab') end
+        if not WhipEvidence.can(source, 'evidence_lab') then return false, L('not_allowed') end
         if lab.running then
-            return false, ('An analysis is already running (about %d min left).'):format(math.max(1, math.ceil((lab.running.ends - os.time()) / 60)))
+            return false, L('lab_running_left', math.max(1, math.ceil((lab.running.ends - os.time()) / 60)))
         end
 
         local s = status(lab.containerId, function(addr) return exports.whip_core:StoreRead(addr) end)
-        if s.total == 0 and s.guns == 0 then return false, 'The lab storage is empty.' end
+        if s.total == 0 and s.guns == 0 then return false, L('lab_empty') end
         if #s.pending == 0 and #s.newGuns == 0 then
-            return false, ('Nothing to analyse: %d already analysed, %d without lab data (e.g. GSR tests), guns already test-fired.')
-                :format(s.analysed, s.nothing)
+            return false, L('lab_nothing_to_do', s.analysed, s.nothing)
         end
 
         local done = exports.whip_core:Progress(source, {
-            label = 'Starting device...', duration = math.random(3000, 5000), icon = 'timer',
+            label = L('starting_device'), duration = math.random(3000, 5000), icon = 'timer',
             anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 49 },
             disable = { move = true, combat = true, car = true },
             near = { coords = WhipEvidence.vec(lab.def.device), range = 3.0 },
         })
         if not done then return false end
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
-        if lab.running then return false, 'An analysis is already running.' end
+        if lab.running then return false, L('lab_running') end
 
         local lo = math.min(Config.LabMinMinutes, Config.LabMaxMinutes)
         local hi = math.max(Config.LabMinMinutes, Config.LabMaxMinutes)
@@ -391,9 +396,9 @@ function WhipEvidence.Lab.register()
             if labs[id] and labs[id].running and labs[id].running.token == token then finish(id) end
         end)
 
-        local what = ('%d bag(s)'):format(#s.pending)
-        if #s.newGuns > 0 then what = what .. (', %d gun(s) to test-fire'):format(#s.newGuns) end
+        local what = L('lab_what_bags', #s.pending)
+        if #s.newGuns > 0 then what = what .. L('lab_what_guns', #s.newGuns) end
         exports.whip_core:LogActivity(source, 'evidence_lab_started', { detail = (lab.def.label or id) .. ': ' .. what })
-        exports.whip_core:NotifyPlayer(source, ('Analysis started: %s, done in about %d minutes.'):format(what, minutes), 'success')
+        exports.whip_core:NotifyPlayer(source, L('lab_started', what, minutes), 'success')
     end)
 end

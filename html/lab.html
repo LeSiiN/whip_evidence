@@ -101,31 +101,31 @@
 
     <div class="win">
         <div class="bar">
-            <img class="logo" alt=""><span id="title">Forensic Analysis</span><span class="grow"></span>
+            <img class="logo" alt=""><span id="title" data-t="lab_app">Forensic Analysis</span><span class="grow"></span>
             <span class="ctl"><svg viewBox="0 0 10 10"><path d="M0 5h10" stroke="#fff" stroke-width="1"/></svg></span>
             <span class="ctl"><svg viewBox="0 0 10 10"><rect x=".5" y=".5" width="9" height="9" rx="1.5" fill="none" stroke="#fff"/></svg></span>
             <span class="ctl x"><svg viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" stroke="#fff" stroke-width="1"/></svg></span>
         </div>
         <div class="body">
             <div class="nav">
-                <div class="item on"><span class="ico" style="background:#60cdff"></span>Analysis</div>
-                <div class="item"><span class="ico" style="background:#fbbf24"></span>Storage</div>
-                <div class="item"><span class="ico" style="background:#4ade80"></span>Ballistics</div>
-                <div class="item"><span class="ico" style="background:#a78bfa"></span>Reports</div>
+                <div class="item on"><span class="ico" style="background:#60cdff"></span><span data-t="lab_nav_analysis">Analysis</span></div>
+                <div class="item"><span class="ico" style="background:#fbbf24"></span><span data-t="lab_nav_storage">Storage</span></div>
+                <div class="item"><span class="ico" style="background:#4ade80"></span><span data-t="lab_nav_ballistics">Ballistics</span></div>
+                <div class="item"><span class="ico" style="background:#a78bfa"></span><span data-t="lab_nav_reports">Reports</span></div>
             </div>
             <div class="main" id="main"></div>
         </div>
     </div>
 
     <div class="toast" id="toast">
-        <div class="h"><img class="logo" alt=""><span>Forensic Analysis</span></div>
-        <div class="t">Analysis complete</div>
+        <div class="h"><img class="logo" alt=""><span data-t="lab_app">Forensic Analysis</span></div>
+        <div class="t" data-t="lab_complete">Analysis complete</div>
         <div class="d" id="toastText"></div>
     </div>
 
     <div class="task">
         <div class="tb"><img class="logo" alt=""></div>
-        <div class="search"><svg viewBox="0 0 16 16" width="12"><circle cx="7" cy="7" r="5" fill="none" stroke="#fff" stroke-width="1.5"/><path d="M11 11l4 4" stroke="#fff" stroke-width="1.5"/></svg>Search</div>
+        <div class="search"><svg viewBox="0 0 16 16" width="12"><circle cx="7" cy="7" r="5" fill="none" stroke="#fff" stroke-width="1.5"/><path d="M11 11l4 4" stroke="#fff" stroke-width="1.5"/></svg><span data-t="lab_search">Search</span></div>
         <div class="tb"><span class="ico" style="background:linear-gradient(135deg,#ffd166,#f4a300)"></span></div>
         <div class="tb"><span class="ico" style="background:linear-gradient(135deg,#7dd3fc,#2563eb)"></span></div>
         <div class="tb on"><img class="logo" alt=""></div>
@@ -139,9 +139,17 @@
 
     <script>
         const $ = (id) => document.getElementById(id);
+        // texts in the server's language (client/labscreen.lua sends them), English until then
+        let TEXTS = {};
+        const T = (k, fallback) => (TEXTS[k] != null ? TEXTS[k] : fallback);
+        const F = (k, fallback, ...args) => { let i = 0; return T(k, fallback).replace(/%[ds]/g, () => String(args[i++] ?? '')); };
+        function applyTexts() {
+            document.querySelectorAll('[data-t]').forEach((el) => { const t = TEXTS[el.dataset.t]; if (t != null) el.textContent = t; });
+        }
         const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         const KIND = { casing: 'Casings', bullet: 'Bullets', blood: 'Blood', fingerprint: 'Fingerprints', vehicle_fragment: 'Vehicle fragments',
                        gsr: 'GSR', reference: 'Reference', other: 'Other' };
+        const kindName = (k) => T('lab_kind_' + k, KIND[k] || k);
         // fallback mark if the logo file is missing
         const MARK = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#2563eb"/><circle cx="10.5" cy="10.5" r="5" fill="none" stroke="#fff" stroke-width="2"/><path d="M14.5 14.5l5 5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>');
         let timer = 0, toastTimer = 0, lastDone = 0;
@@ -157,19 +165,19 @@
 
         function mmss(ms) {
             const m = Math.max(0, Math.ceil(ms / 60000));
-            return m <= 1 ? 'Less than a minute left' : `About ${m} min left`;
+            return m <= 1 ? T('lab_less_minute', 'Less than a minute left') : F('lab_min_left', 'About %d min left', m);
         }
 
         function render(d) {
             last = d;
             clearInterval(timer);
-            $('title').textContent = `Forensic Analysis — ${d.label || 'Lab'}`;
+            $('title').textContent = `${T('lab_app', 'Forensic Analysis')} — ${d.label || 'Lab'}`;
             const m = $('main');
             if (d.state === 'running') {
                 const total = Math.max(1, d.totalMs || 1), endsAt = Date.now() + (d.leftMs || 0);
-                const chips = Object.entries(d.kinds || {}).map(([k, n]) => `<span class="chip">${esc(KIND[k] || k)}: ${esc(n)}</span>`).join('');
-                m.innerHTML = `<h1>Analysing evidence…</h1>
-                    <div class="sub">${esc(d.count)} bag(s)${d.guns ? ` · ${esc(d.guns)} weapon(s) to test-fire` : ''} · started by ${esc(d.by || '?')}</div>
+                const chips = Object.entries(d.kinds || {}).map(([k, n]) => `<span class="chip">${esc(kindName(k))}: ${esc(n)}</span>`).join('');
+                m.innerHTML = `<h1>${esc(T('lab_running_title', 'Analysing evidence…'))}</h1>
+                    <div class="sub">${esc(F('lab_bags', '%d bag(s)', d.count))}${d.guns ? ` · ${esc(F('lab_guns', '%d weapon(s) to test-fire', d.guns))}` : ''} · ${esc(F('lab_started_by', 'started by %s', d.by || '?'))}</div>
                     <div class="prog"><b id="pb"></b></div>
                     <div class="row"><span id="pct">0 %</span><span id="left"></span></div>
                     <div class="chips">${chips}</div>
@@ -189,9 +197,9 @@
                 const shown = lines.slice(0, MAX_ROWS).map((r) => `<div class="res ${esc(r.kind || '')}">
                     <span class="no">${esc(r.no || '•')}</span><span class="tx">${esc(r.text)}</span></div>`).join('');
                 m.innerHTML = `<div class="ok"><span class="tick"><svg viewBox="0 0 16 16" width="18"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="#fff" stroke-width="2.2"/></svg></span>
-                    <div><h1>Analysis complete</h1><div class="sub" style="margin:0">${esc(d.summary || '')}</div></div></div>
-                    <div class="results">${shown || '<div class="res">No results.</div>'}</div>
-                    ${lines.length > MAX_ROWS ? `<div class="more">+ ${lines.length - MAX_ROWS} more in the evidence bags</div>` : ''}`;
+                    <div><h1>${esc(T('lab_complete', 'Analysis complete'))}</h1><div class="sub" style="margin:0">${esc(d.summary || '')}</div></div></div>
+                    <div class="results">${shown || `<div class="res">${esc(T('lab_no_results', 'No results.'))}</div>`}</div>
+                    ${lines.length > MAX_ROWS ? `<div class="more">${esc(F('lab_more', '+ %d more in the evidence bags', lines.length - MAX_ROWS))}</div>` : ''}`;
                 if (d.finished && d.finished !== lastDone) {
                     lastDone = d.finished;
                     $('toastText').textContent = d.summary || '';
@@ -200,14 +208,14 @@
                     toastTimer = setTimeout(() => $('toast').classList.remove('show'), 15000);
                 }
             } else {
-                m.innerHTML = `<h1>Ready</h1><div class="sub">${esc(d.label || 'Lab')} · Evidence analysis</div>
+                m.innerHTML = `<h1>${esc(T('lab_ready', 'Ready'))}</h1><div class="sub">${esc(d.label || 'Lab')} · ${esc(T('lab_ready_sub', 'Evidence analysis'))}</div>
                     <div class="cards">
-                        <div class="card"><div class="n">${esc(d.pending || 0)}</div><div class="l">Bags waiting for analysis</div></div>
-                        <div class="card"><div class="n">${esc(d.analysed || 0)}</div><div class="l">Analysed, in storage</div></div>
-                        <div class="card"><div class="n">${esc(d.newGuns || 0)}</div><div class="l">Weapons to test-fire</div></div>
+                        <div class="card"><div class="n">${esc(d.pending || 0)}</div><div class="l">${esc(T('lab_card_waiting', 'Bags waiting for analysis'))}</div></div>
+                        <div class="card"><div class="n">${esc(d.analysed || 0)}</div><div class="l">${esc(T('lab_card_analysed', 'Analysed, in storage'))}</div></div>
+                        <div class="card"><div class="n">${esc(d.newGuns || 0)}</div><div class="l">${esc(T('lab_card_guns', 'Weapons to test-fire'))}</div></div>
                     </div>
                     <div class="tip"><svg viewBox="0 0 16 16" width="15" style="flex:none"><circle cx="8" cy="8" r="7" fill="none" stroke="#60cdff"/><path d="M8 7v4M8 4.6v.1" stroke="#60cdff" stroke-width="1.6"/></svg>
-                        Put evidence into the storage, then start the analysis at the device.</div>`;
+                        ${esc(T('lab_tip', 'Put evidence into the storage, then start the analysis at the device.'))}</div>`;
             }
         }
 
@@ -225,7 +233,8 @@
         window.addEventListener('message', (e) => {
             const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
             if (!d) return;
-            if (d.action === 'paint') render(d);
+            if (d.action === 'texts') { TEXTS = d.t || {}; applyTexts(); if (last) render(last); }
+            else if (d.action === 'paint') render(d);
             else if (d.action === 'size') {
                 // the screen's shape: d.h page pixels high (zoom 1.6), more result rows on taller screens
                 const h = Math.max(225, Math.round(d.h / 1.6));

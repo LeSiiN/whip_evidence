@@ -46,7 +46,7 @@
     const root = document.createElement('div');
     root.id = 'mg';
     root.innerHTML = `<div class="panel">
-        <div class="top"><span class="kicker">FORENSICS</span><span class="title" id="mgTitle"></span><span class="strikes" id="mgStrikes"></span></div>
+        <div class="top"><span class="kicker" data-t="nui_forensics">FORENSICS</span><span class="title" id="mgTitle"></span><span class="strikes" id="mgStrikes"></span></div>
         <div class="hint" id="mgHint"></div>
         <canvas id="mgCanvas" width="${W * 2}" height="${H * 2}"></canvas>
         <div class="bars"><div class="bar prog"><b id="mgProg"></b></div><div class="bar time" id="mgTimeBar"><b id="mgTime"></b></div></div>
@@ -90,7 +90,7 @@
     function finish(passed, why, quiet) {
         if (!G || G.done) return;
         G.done = { passed, why, at: performance.now() };
-        if (!quiet) flash(passed ? 'Done' : (why === 'timeout' ? 'Out of time' : 'Failed'), passed ? '#4ade80' : '#f87171');
+        if (!quiet) flash(passed ? T('mg_done', 'Done') : (why === 'timeout' ? T('mg_timeout', 'Out of time') : T('mg_failed', 'Failed')), passed ? '#4ade80' : '#f87171');
         const token = G.token;
         setTimeout(() => {
             fetch(`https://${RES}/gameDone`, { method: 'POST', body: JSON.stringify({ token, passed, why }) }).catch(() => {});
@@ -206,7 +206,7 @@
                         g.smearAt = now + 700;
                         for (const c of g.cells) if (dist(c.x, c.y, input.x, input.y) < g.brushR * 1.6) c.rev *= 0.4;
                         g.maskDirty = true;
-                        strike('Too fast: smudged!');
+                        strike(T('mg_smudged', 'Too fast: smudged!'));
                         return;
                     }
                     let hit = false;
@@ -223,15 +223,15 @@
                 g.progress = sum / g.need / 0.82;
                 if (g.progress >= 1) {
                     g.phase = 'tape'; g.tape = 0; g.tapeDir = 1; g.zone = 26 / L;
-                    flash('Now press the tape on', '#fde047');
-                    $('mgHint').textContent = 'Click when the tape is right over the print.';
+                    flash(T('mg_tape_now', 'Now press the tape on'), '#fde047');
+                    $('mgHint').textContent = T('mg_tape_hint', 'Click when the tape is right over the print.');
                 }
             } else {
                 g.tape += g.tapeDir * dt * 2.6 * L;
                 if (g.tape > 200 || g.tape < -200) g.tapeDir *= -1;
                 if (input.pressed) {
                     if (Math.abs(g.tape) < g.zone) { g.progress = 1; finish(true); }
-                    else strike('Missed: try again');
+                    else strike(T('mg_missed', 'Missed: try again'));
                 }
             }
             for (const p of g.particles) { p.y += p.vy * dt; p.life -= 0.02 * dt; }
@@ -289,20 +289,20 @@
                 g.c.x = clamp(g.c.x, 40, 400); g.c.y = clamp(g.c.y, 40, H - 40);
                 if (input.pressed) {
                     const r = this.rim(g);
-                    if (dist(input.x, input.y, r.x, r.y) < g.grabR) { g.phase = 'carry'; flash('Got it: into the bag', '#4ade80'); }
+                    if (dist(input.x, input.y, r.x, r.y) < g.grabR) { g.phase = 'carry'; flash(T('mg_got_it', 'Got it: into the bag'), '#4ade80'); }
                     else if (this.nearBody(g, input.x, input.y)) {
                         g.c.vx = rand(-2, 2) * L; g.c.vy = rand(-2, 2) * L; g.c.va = rand(-0.08, 0.08);
                         setTimeout(() => { if (G === g) { g.c.vx *= 0.15; g.c.vy *= 0.15; g.c.va *= 0.2; } }, 400);
-                        strike('You knocked it!');
+                        strike(T('mg_knocked', 'You knocked it!'));
                     }
                 }
             } else {
                 const speed = dist(input.x, input.y, input.px, input.py) / dt;
                 g.c.x = input.x - Math.cos(g.c.a) * 22; g.c.y = input.y - Math.sin(g.c.a) * 22;
-                if (!input.down) { g.phase = 'grab'; g.c.vx = rand(-0.3, 0.3) * L; g.c.vy = rand(-0.3, 0.3) * L; flash('Dropped it'); }
+                if (!input.down) { g.phase = 'grab'; g.c.vx = rand(-0.3, 0.3) * L; g.c.vy = rand(-0.3, 0.3) * L; flash(T('mg_dropped', 'Dropped it')); }
                 else if (speed > g.maxSpeed) {
                     g.phase = 'grab'; g.c.vx = rand(-1, 1) * L; g.c.vy = rand(-1, 1) * L;
-                    strike('Too fast: it slipped!');
+                    strike(T('mg_slipped', 'Too fast: it slipped!'));
                 } else if (input.x > g.bag.x && input.x < g.bag.x + g.bag.w && input.y > g.bag.y + 20 && input.y < g.bag.y + g.bag.h) {
                     g.progress = 1; finish(true);
                 }
@@ -315,7 +315,7 @@
             ctx.fillStyle = 'rgba(220,232,240,.22)'; ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2;
             roundRect(b.x, b.y, b.w, b.h, 8); ctx.fill(); ctx.stroke();
             ctx.fillStyle = '#f59e0b'; ctx.fillRect(b.x + 10, b.y + 12, b.w - 20, 20);
-            text('EVIDENCE', b.x + b.w / 2, b.y + 27, 13, '#fff');
+            text(T('nui_tape', 'EVIDENCE'), b.x + b.w / 2, b.y + 27, 13, '#fff');
             ctx.save(); ctx.translate(g.c.x, g.c.y); ctx.rotate(g.c.a);
             const grd = ctx.createLinearGradient(0, -7, 0, 7);
             grd.addColorStop(0, '#fde68a'); grd.addColorStop(0.5, '#f59e0b'); grd.addColorStop(1, '#92400e');
@@ -354,7 +354,7 @@
                 g.lastA = null;
                 if (input.down && d >= g.r + 6) {
                     g.done2 = Math.max(0, g.done2 - 0.04 * dt * L);
-                    if (now > g.warnAt) { g.warnAt = now + 900; flash('Stay on the stain'); }
+                    if (now > g.warnAt) { g.warnAt = now + 900; flash(T('mg_stay', 'Stay on the stain')); }
                 }
             }
             g.progress = g.done2 / g.need;
@@ -391,10 +391,10 @@
             g.zc = 0.55 + Math.sin(g.noise * 0.6) * 0.14;
             const push = (Math.sin(g.noise * 2.3) + Math.sin(g.noise * 3.7)) * 0.0028 * L;
             g.t = clamp(g.t + (input.down ? 0.011 : -0.012) * dt + push * dt, 0, 1);
-            if (g.t > 0.95) { g.t = 0.35; strike('Too hard: it broke off!'); return; }
+            if (g.t > 0.95) { g.t = 0.35; strike(T('mg_broke', 'Too hard: it broke off!')); return; }
             const inZone = Math.abs(g.t - g.zc) < g.zone / 2;
             if (inZone) g.prog += 0.0055 * dt;
-            else if (g.t < g.zc) { g.prog = Math.max(0, g.prog - 0.002 * dt); if (input.down === false && now > g.warnAt && g.prog > 0) { g.warnAt = now + 1200; flash('It slips back'); } }
+            else if (g.t < g.zc) { g.prog = Math.max(0, g.prog - 0.002 * dt); if (input.down === false && now > g.warnAt && g.prog > 0) { g.warnAt = now + 1200; flash(T('mg_slips_back', 'It slips back')); } }
             g.progress = g.prog;
             if (g.prog >= 1) finish(true);
         },
@@ -419,7 +419,7 @@
             ctx.fillRect(mx - 10, my + mh * (1 - g.zc - g.zone / 2), 20, mh * g.zone);
             const ny = my + mh * (1 - g.t);
             ctx.fillStyle = '#fff'; roundRect(mx - 16, ny - 3, 32, 6, 3); ctx.fill();
-            text('PULL', mx, my + mh + 30, 12, 'rgba(255,255,255,.6)');
+            text(T('mg_pull_label', 'PULL'), mx, my + mh + 30, 12, 'rgba(255,255,255,.6)');
         },
     };
 
@@ -440,7 +440,7 @@
             for (const s of g.shards) { s.glint += 0.03 * dt; if (s.got) s.got = Math.min(1, s.got + 0.08 * dt); }
             if (input.pressed) {
                 const s = g.shards.find((o) => !o.got && dist(o.x, o.y, input.x, input.y) < g.hitR);
-                if (s) { s.got = 0.01; flash('Fragment bagged', '#4ade80'); } else strike('Nothing there');
+                if (s) { s.got = 0.01; flash(T('mg_fragment', 'Fragment bagged'), '#4ade80'); } else strike(T('mg_nothing', 'Nothing there'));
             }
             const got = g.shards.filter((s) => s.got).length;
             g.progress = got / g.shards.length;
@@ -484,7 +484,7 @@
                 s.hold += dt;
                 if (s.hold >= g.holdNeed) {
                     g.i++;
-                    if (g.i === 3) flash('Now the left hand', '#4ade80');
+                    if (g.i === 3) flash(T('mg_left_hand', 'Now the left hand'), '#4ade80');
                     if (g.i >= g.spots.length) { g.progress = 1; finish(true); return; }
                 }
             } else s.hold = Math.max(0, s.hold - dt * 2);
@@ -548,9 +548,10 @@
         input.x = input.px = W / 2; input.y = input.py = H / 2; input.down = false;
         def.start(G, G.L);
         const [title, hint] = TITLES[msg.game];
-        $('mgTitle').textContent = title;
-        $('mgHint').textContent = hint;
-        $('mgKeys').textContent = msg.pad ? 'Right stick: move  ·  A: hold / grab  ·  B: give up' : 'Mouse: move  ·  Left button: hold / grab  ·  Esc: give up';
+        root.querySelector('.kicker').textContent = T('nui_forensics', 'FORENSICS');
+        $('mgTitle').textContent = T('mg_' + msg.game, title);
+        $('mgHint').textContent = T('mg_' + msg.game + '_hint', hint);
+        $('mgKeys').textContent = msg.pad ? T('mg_keys_pad', 'Right stick: move  ·  A: hold / grab  ·  B: give up') : T('mg_keys_mouse', 'Mouse: move  ·  Left button: hold / grab  ·  Esc: give up');
         drawStrikes();
         root.classList.add('open');
         cancelAnimationFrame(raf);

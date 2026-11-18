@@ -16,10 +16,9 @@ local ACT_VIEW = WhipEvidence.Res .. ':photoview'
 local ACT_TEXT = WhipEvidence.Res .. ':phototext'
 local MAX_ENTRIES, MAX_CARS = 60, 6
 
-local function plural(n, word)
-    local last = word:sub(-1)
-    if n == 1 or last == 'd' or last == 's' then return ('%d %s'):format(n, word:lower()) end
-    return ('%d %ss'):format(n, word:lower())
+-- "3× Casing" (works in every language)
+local function count(n, word)
+    return ('%d× %s'):format(n, word)
 end
 
 -- "12 traces: 5 casings, 3 blood, 2 bullets · 1 vehicle"
@@ -30,57 +29,57 @@ local function sceneText(entries, cars)
         counts[e.t] = counts[e.t] + 1
     end
     local parts = {}
-    for _, t in ipairs(order) do parts[#parts + 1] = plural(counts[t], t) end
-    local text = ('%d trace%s'):format(#entries, #entries == 1 and '' or 's')
+    for _, t in ipairs(order) do parts[#parts + 1] = count(counts[t], t) end
+    local text = L('scene_traces', #entries)
     if #parts > 0 then text = text .. ': ' .. table.concat(parts, ', ') end
-    if #cars > 0 then text = text .. (' · %d vehicle%s'):format(#cars, #cars == 1 and '' or 's') end
+    if #cars > 0 then text = text .. L('scene_vehicles', #cars) end
     return text
 end
 
 -- What a car shows on the photo: "Blood, 2 casings, GSR"
 local function carText(s)
     local parts = {}
-    if s.blood > 0 then parts[#parts + 1] = 'Blood' end
-    if s.casing > 0 then parts[#parts + 1] = plural(s.casing, 'casing') end
-    if s.bullet > 0 then parts[#parts + 1] = plural(s.bullet, 'bullet hole') end
+    if s.blood > 0 then parts[#parts + 1] = WhipEvidence.label('blood') end
+    if s.casing > 0 then parts[#parts + 1] = count(s.casing, WhipEvidence.label('casing')) end
+    if s.bullet > 0 then parts[#parts + 1] = L('car_bullet_holes', s.bullet) end
     if s.gsr then parts[#parts + 1] = 'GSR' end
-    if s.prints then parts[#parts + 1] = 'Possible prints' end
+    if s.prints then parts[#parts + 1] = L('possible_prints') end
     return table.concat(parts, ', ')
 end
 
 -- Text for the clipboard (MDT reports)
 local function photoText(m)
     local lines = {
-        ('Crime scene photo %s | Case %s'):format(m.photo_id or '?', m.case or '-'),
-        ('%s | %s | Taken by %s'):format(m.street or '?', m.time or '?', m.taken_by or '?'),
+        L('photo_text_head', m.photo_id or '?', m.case or '-'),
+        L('photo_text_sub', m.street or '?', m.time or '?', m.taken_by or '?'),
     }
     for _, e in ipairs(type(m.entries) == 'table' and m.entries or {}) do
         local line = ('#%s %s'):format(e.n or '?', e.t or '?')
-        if e.s then line = line .. (' (%s, %d min old)'):format(e.s, e.a or 0) end
+        if e.s then line = line .. L('photo_text_age', e.s, e.a or 0) end
         lines[#lines + 1] = line .. (' · %d m'):format(e.d or 0)
     end
     for _, c in ipairs(type(m.cars) == 'table' and m.cars or {}) do
-        lines[#lines + 1] = ('Vehicle %s: %s'):format(c.p or '?', c.t or '')
+        lines[#lines + 1] = L('photo_text_car', c.p or '?', c.t or '')
     end
     return table.concat(lines, '\n')
 end
 
 function WhipEvidence.Photo.registerItem(actSign)
     Whip.core:RegisterItem(I.photo, {
-        name = 'Crime Scene Photo', desc = 'A photo of a crime scene. Every marker in the picture is listed.',
+        name = L('item_photo'), desc = L('item_photo_desc'),
         weight = 0.01, type = 'evidence', stack = false, usable = false,
         metaFields = {
-            { key = 'case',     label = 'Case' },
-            { key = 'street',   label = 'Street' },
-            { key = 'time',     label = 'Time' },
-            { key = 'scene',    label = 'In the picture' },
-            { key = 'taken_by', label = 'Taken by' },
-            { key = 'custody',  label = 'Chain of custody' },
+            { key = 'case',     label = L('f_case') },
+            { key = 'street',   label = L('f_street') },
+            { key = 'time',     label = L('f_time') },
+            { key = 'scene',    label = L('f_scene') },
+            { key = 'taken_by', label = L('f_taken_by') },
+            { key = 'custody',  label = L('f_custody') },
         },
         contextOptions = {
-            { action = ACT_VIEW, label = 'View photo', order = 1, anywhere = true },
-            { action = ACT_TEXT, label = 'Copy as text', order = 2, anywhere = true },
-            { action = actSign, label = 'Sign for evidence', order = 4, anywhere = true,
+            { action = ACT_VIEW, label = L('opt_view'), order = 1, anywhere = true },
+            { action = ACT_TEXT, label = L('opt_text'), order = 2, anywhere = true },
+            { action = actSign, label = L('opt_sign'), order = 4, anywhere = true,
               require = WhipEvidence.req('evidence_sign') },
         },
     })
@@ -106,7 +105,7 @@ function WhipEvidence.Photo.registerItem(actSign)
     end)
 
     Whip.core:RegisterContextAction(ACT_TEXT, function(source, player, slotData)
-        TriggerClientEvent('whip_evidence:client:copy', source, photoText(slotData.metadata or {}), 'Photo')
+        TriggerClientEvent('whip_evidence:client:copy', source, photoText(slotData.metadata or {}), L('photo'))
     end)
 end
 
@@ -120,8 +119,8 @@ function WhipEvidence.Photo.register()
             { 'picture', 'bool', false },   -- the client has a screenshot to send
         },
     }, function(source, player, ids, cars, street, picture)
-        if not WhipEvidence.can(source, 'evidence_photo') then return false, 'Only on-duty police with the right rank take crime scene photos.' end
-        if exports.whip_core:GetHeldPropsTag(source) ~= 'camera' then return false, 'You need the camera in your hands.' end
+        if not WhipEvidence.can(source, 'evidence_photo') then return false, L('photo_not_allowed') end
+        if exports.whip_core:GetHeldPropsTag(source) ~= 'camera' then return false, L('need_camera') end
         local pos = GetEntityCoords(GetPlayerPed(source))
         local range = Config.SeeDistance + 10.0
         local now = os.time()
@@ -148,7 +147,7 @@ function WhipEvidence.Photo.register()
                 if s then carList[#carList + 1] = { p = plate or '?', t = carText(s) } end
             end
         end
-        if #entries == 0 and #carList == 0 then return false, 'There is no evidence in the picture.' end
+        if #entries == 0 and #carList == 0 then return false, L('photo_nothing') end
 
         local takenBy = WhipEvidence.officerLabel(source, player)
         local meta = {
@@ -160,7 +159,7 @@ function WhipEvidence.Photo.register()
             entries  = entries,
             cars     = carList,
         }
-        meta.custody = WhipEvidence.custody(nil, 'Taken', takenBy)
+        meta.custody = WhipEvidence.custody(nil, L('custody_taken'), takenBy)
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
         local ok, why = exports.whip_core:AddItem(source, I.photo, 1, meta, 'Crime scene photo')
         if not ok then return false, why end
@@ -170,7 +169,7 @@ function WhipEvidence.Photo.register()
             TriggerClientEvent('whip_evidence:client:photoUpload', source, meta.photo_id)
         end
         exports.whip_core:LogActivity(source, 'evidence_photo', { detail = street .. ': ' .. meta.scene })
-        exports.whip_core:NotifyPlayer(source, 'Photo taken: ' .. meta.scene .. '.', 'success')
+        exports.whip_core:NotifyPlayer(source, L('photo_taken', meta.scene), 'success')
     end)
 
     -- The screenshot itself, in parts, right after the photo item was made.
@@ -183,7 +182,7 @@ function WhipEvidence.Photo.register()
         if not want or want.id ~= photoId or want.charId ~= player.charId then return false end
         if bytes > (Config.Photo.MaxKB or 2500) * 1024 or parts ~= math.ceil(bytes / CHUNK) then
             pending[source] = nil
-            return false, 'The picture was too big to keep (the photo item still lists everything).'
+            return false, L('photo_too_big')
         end
         want.parts, want.bytes, want.list = parts, bytes, {}
     end)
@@ -204,7 +203,7 @@ function WhipEvidence.Photo.register()
         local image = table.concat(want.list)
         if #image ~= want.bytes or not image:find(PICTURE) then return false end
         WhipEvidence.Data.savePhoto(photoId, player.charId, image)
-        exports.whip_core:NotifyPlayer(source, 'Photo saved.', 'success', 2500)
+        exports.whip_core:NotifyPlayer(source, L('photo_saved'), 'success', 2500)
     end)
 end
 

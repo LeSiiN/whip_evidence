@@ -13,6 +13,8 @@ Whip.configPage({
     groups = {
         { label = 'General', settings = {
             { key = 'Debug', type = 'bool', label = 'Debug prints' },
+            restart({ key = 'Locale', type = 'enum', label = 'Language', help = 'Texts for players (locales/).',
+              options = { { value = 'en', label = 'English' }, { value = 'de', label = 'Deutsch' } } }),
             restart({ key = 'UsePermissions', type = 'bool', label = 'Rank permissions',
               help = 'On: each rank needs the evidence permission (toggles in /whip -> Jobs). Off: every on-duty officer may do everything.' }),
             restart({ key = 'PoliceJobs', type = 'list', item = { type = 'string', maxLen = 40 }, label = 'Police jobs',

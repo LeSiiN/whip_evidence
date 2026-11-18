@@ -1,6 +1,21 @@
 -- Client: viewing a crime scene photo item (html/index.html shows it as a polaroid with the evidence log)
 
 local open = false
+
+-- Controller (Whip.padScreen): A zoom, B back, LB/RB zoom out/in, D-pad up/down scroll the list, right stick moves the zoomed picture
+local screen = Whip.padScreen({
+    buttons = { 'a', 'b', 'up', 'down', 'lb', 'rb' },
+    stick = false,
+    onButton = function(cmd, down, rep)
+        if down then SendNUIMessage({ action = 'photoPad', cmd = cmd }) end
+    end,
+    onFrame = function()
+        local dx, dy = GetDisabledControlNormal(0, 1), GetDisabledControlNormal(0, 2)
+        if math.abs(dx) > 0.08 or math.abs(dy) > 0.08 then
+            SendNUIMessage({ action = 'photoStick', dx = dx, dy = dy })
+        end
+    end,
+})
 local incoming = nil   -- { id, parts, list }: the picture arriving in parts
 local waiting = nil    -- a picture that was complete before the viewer was up
 
@@ -8,7 +23,7 @@ local function close(tellPage)
     if not open then return end
     open = false
     incoming, waiting = nil, nil
-    SetNuiFocus(false, false)
+    screen:close()
     Whip.core:SetScreenOpen(false, 'photo')
     if tellPage then SendNUIMessage({ action = 'photoClose' }) end
 end
@@ -40,9 +55,9 @@ RegisterNetEvent('whip_evidence:client:viewPhoto', function(data, parts)
             Wait(150)
         end
         open = true
-        SetNuiFocus(true, true)
         Whip.core:SetScreenOpen(true, 'photo')
-        SendNUIMessage({ action = 'photo', data = data, loading = parts > 0, ui = {
+        local pad = screen:open()
+        SendNUIMessage({ action = 'photo', data = data, loading = parts > 0, pad = pad == true, ui = {
             size = tonumber(WhipEvidence.ui('viewerSize')) or 62,
             log = WhipEvidence.ui('viewerLog') or 'right',
             stamp = WhipEvidence.ui('viewerStamp') ~= false,

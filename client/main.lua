@@ -60,7 +60,7 @@ function WhipEvidence.street(coords)
     local main = GetStreetNameFromHashKey(h1)
     local cross = h2 ~= 0 and GetStreetNameFromHashKey(h2) or ''
     if cross ~= '' then return main .. ', ' .. cross end
-    return main ~= '' and main or 'Unknown'
+    return main ~= '' and main or L('unknown')
 end
 
 -- Optional: no evidence while in FFA mode (lsl-ffa)
@@ -107,5 +107,10 @@ RegisterNetEvent('whip_evidence:client:copy', function(text, what)
     SendNUIMessage({ action = 'copy', text = text })
     -- long texts (a photo's list) only by name in the notification
     local short = text:find('\n') and '' or (': ' .. (#text > 60 and text:sub(1, 57) .. '...' or text))
-    WhipEvidence.notify(('%s copied%s'):format(what or 'Text', short), 'success')
+    WhipEvidence.notify(L('copied', what or L('text'), short), 'success')
+end)
+
+-- The NUI page asks for its texts once (locales/, server language)
+RegisterNUICallback('texts', function(_, cb)
+    cb(WhipEvidence.texts())
 end)

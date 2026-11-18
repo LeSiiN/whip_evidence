@@ -75,10 +75,10 @@ local function clean(source, player, slotData, addr)
     if not c then return false end
     local gsr, blood = WhipEvidence.Gsr.has(source), c.blood == true and WhipEvidence.Body.bloody(source)
     if not gsr and not blood then
-        return false, c.blood and 'There is nothing on you to clean off.' or 'You have no gunshot residue.'
+        return false, c.blood and L('nothing_to_clean') or L('no_gsr')
     end
     local done = exports.whip_core:Progress(source, {
-        label = 'Cleaning yourself...', duration = math.max(1, tonumber(c.seconds) or 10) * 1000, icon = 'info',
+        label = L('cleaning_self'), duration = math.max(1, tonumber(c.seconds) or 10) * 1000, icon = 'info',
         anim = { dict = 'missheist_agency3aig_23', clip = 'urinal_sink_loop', flag = 49 },
         disable = { combat = true }, canCancel = true,
     })
@@ -86,7 +86,7 @@ local function clean(source, player, slotData, addr)
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
     -- the item must still be there (it may have been dropped or given away meanwhile)
     local now = exports.whip_core:GetItemAt(addr)
-    if not now or now.item ~= item then return false, 'The item is gone.' end
+    if not now or now.item ~= item then return false, L('item_gone') end
     if c.use == 'remove' then
         exports.whip_core:StoreTake(addr, 1, { reason = 'Cleaned off gunshot residue' })
     elseif c.use == 'wear' then
@@ -95,7 +95,7 @@ local function clean(source, player, slotData, addr)
     WhipEvidence.Gsr.clear(source, 'item:' .. item)
     if c.blood then WhipEvidence.Body.clearBlood(source, 'item:' .. item) end
     exports.whip_core:LogActivity(source, 'evidence_gsr_washed', { detail = item })
-    exports.whip_core:NotifyPlayer(source, blood and 'You cleaned yourself up.' or 'You cleaned off the gunshot residue.', 'success')
+    exports.whip_core:NotifyPlayer(source, blood and L('cleaned_self') or L('cleaned_gsr'), 'success')
 end
 
 function WhipEvidence.Gsr.register()
@@ -104,8 +104,8 @@ function WhipEvidence.Gsr.register()
     Whip.core:RegisterContextAction(ACT_CLEAN, clean)
     for _, c in ipairs(Config.GsrCleaners or {}) do
         if type(c.item) == 'string' and c.item ~= '' then
-            Whip.core:AddItemOption(c.item, { action = ACT_CLEAN, label = c.blood and 'Clean off residue and blood'
-                or 'Clean off gunshot residue', anywhere = false })
+            Whip.core:AddItemOption(c.item, { action = ACT_CLEAN, label = c.blood and L('opt_clean_both')
+                or L('opt_clean_gsr'), anywhere = false })
         end
     end
 
@@ -118,13 +118,13 @@ function WhipEvidence.Gsr.register()
             if not WhipEvidence.Gsr.has(source) or not WhipEvidence.Evidence.isRaining() then return end
             if GetVehiclePedIsIn(GetPlayerPed(source), false) ~= 0 then return false end
             WhipEvidence.Gsr.clear(source, 'rain')
-            exports.whip_core:NotifyPlayer(source, 'The rain washed off the gunshot residue.', 'info')
+            exports.whip_core:NotifyPlayer(source, L('rain_washed'), 'info')
             return
         end
         -- swimming: residue and blood
         local a = WhipEvidence.Gsr.clear(source, 'swimming')
         local b = WhipEvidence.Body.clearBlood(source, 'swimming')
-        if a or b then exports.whip_core:NotifyPlayer(source, 'The water washed you clean.', 'info') end
+        if a or b then exports.whip_core:NotifyPlayer(source, L('water_washed'), 'info') end
     end)
 
     -- Police tests a player (target comes from the aimBox prompt)
@@ -132,20 +132,20 @@ function WhipEvidence.Gsr.register()
         rateLimit = 3000,
         params = { { 'target', 'player', { range = 3.0 } }, { 'street', 'string', 80, 'Unknown' } },
     }, function(source, player, target, street)
-        if not WhipEvidence.isPolice(source) then return false, 'Only on-duty police can run this test.' end
-        if not WhipEvidence.can(source, 'evidence_gsr') then return false, WhipEvidence.NOT_ALLOWED end
-        if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, 'You need a forensics kit.' end
-        if not WhipEvidence.hasEmptyBags(source) then return false, 'You have no empty evidence bags.' end
-        if exports.whip_core:IsPlayerDead(target.source) then return false, 'The person must be conscious.' end
+        if not WhipEvidence.isPolice(source) then return false, L('police_only_test') end
+        if not WhipEvidence.can(source, 'evidence_gsr') then return false, L('not_allowed') end
+        if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, L('need_kit') end
+        if not WhipEvidence.hasEmptyBags(source) then return false, L('no_empty_bags') end
+        if exports.whip_core:IsPlayerDead(target.source) then return false, L('must_be_conscious') end
 
         local passed, res = WhipEvidence.minigame(source, 'gsr')
         if not passed then
-            return false, res == 'busy' and 'Finish what you are doing first.' or nil
+            return false, res == 'busy' and L('busy') or nil
         end
 
-        exports.whip_core:NotifyPlayer(target.source, 'You are being tested for gunshot residue.', 'info')
+        exports.whip_core:NotifyPlayer(target.source, L('being_tested'), 'info')
         local done = exports.whip_core:Progress(source, {
-            label = 'Testing for gunshot residue...', duration = 3000, icon = 'target',
+            label = L('testing_gsr'), duration = 3000, icon = 'target',
             anim = { dict = 'creatures@rottweiler@tricks@', clip = 'petting_franklin', flag = 0 },
             disable = { move = true, combat = true, car = true },
             near = { coords = GetEntityCoords(GetPlayerPed(target.source)), range = 3.5 },
@@ -161,25 +161,25 @@ function WhipEvidence.Gsr.register()
         exports.whip_core:LogActivity(target.source, 'evidence_gsr_tested', { detail = result })
 
         if not positive then
-            exports.whip_core:NotifyPlayer(source, 'Result: NEGATIVE. No gunshot residue.', 'info')
+            exports.whip_core:NotifyPlayer(source, L('gsr_negative'), 'info')
             return
         end
 
-        exports.whip_core:NotifyPlayer(source, level >= 50 and 'Result: POSITIVE. A lot of gunshot residue.'
-            or 'Result: POSITIVE. Weak traces of gunshot residue.', 'warning')
+        exports.whip_core:NotifyPlayer(source, level >= 50 and L('gsr_positive_strong')
+            or L('gsr_positive_weak'), 'warning')
         local officer = WhipEvidence.officerLabel(source, player)
-        if not WhipEvidence.useEmptyBag(source) then return false, 'Positive, but you have no empty bag for the swab.' end
+        if not WhipEvidence.useEmptyBag(source) then return false, L('gsr_no_bag') end
         WhipEvidence.giveBag(source, {
             evidence_id  = WhipEvidence.Data.newId(),
             kind         = 'gsr',
-            type         = 'GSR test',
+            type         = L('gsr_test'),
             time         = os.date('%Y-%m-%d %H:%M:%S'),
             street       = street,
             collected_by = officer,
-            custody      = WhipEvidence.custody(nil, 'Collected', officer),
+            custody      = WhipEvidence.custody(nil, L('custody_collected'), officer),
             tested_on    = target.fullName,
-            gsr          = level >= 50 and 'POSITIVE (strong)' or 'POSITIVE (weak traces)',
-        }, 'GSR test')
+            gsr          = level >= 50 and L('gsr_strong') or L('gsr_weak'),
+        }, L('gsr_test'))
     end)
 
     -- Wash it off in water (the client only offers this in water)
@@ -187,7 +187,7 @@ function WhipEvidence.Gsr.register()
         rateLimit = 3000,
     }, function(source, player)
         if not WhipEvidence.Gsr.has(source) and not WhipEvidence.Body.bloody(source) then
-            return false, 'There is nothing on you to wash off.'
+            return false, L('nothing_to_wash')
         end
         if washing[source] then return false end
 
@@ -195,19 +195,19 @@ function WhipEvidence.Gsr.register()
         local w = { tag = tag, aborted = false }
         washing[source] = w
         local done = exports.whip_core:Progress(source, {
-            label = 'Washing...', duration = Config.WashSeconds * 1000, icon = 'info', canCancel = true,
+            label = L('washing'), duration = Config.WashSeconds * 1000, icon = 'info', canCancel = true,
             disable = { move = false, combat = true }, tag = tag,
         })
         washing[source] = nil
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
         if not done then
-            if w.aborted then return false, 'You left the water too early. Some residue is still there.' end
+            if w.aborted then return false, L('wash_aborted') end
             return false
         end
         WhipEvidence.Gsr.clear(source, 'washed in water')
         WhipEvidence.Body.clearBlood(source, 'washed in water')
         exports.whip_core:LogActivity(source, 'evidence_gsr_washed', { detail = 'water' })
-        exports.whip_core:NotifyPlayer(source, 'You washed yourself clean.', 'success')
+        exports.whip_core:NotifyPlayer(source, L('washed_clean'), 'success')
     end)
 
     -- The client reports: out of the water, stop washing

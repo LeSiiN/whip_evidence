@@ -38,6 +38,7 @@ local function ensureDui()
         for _, m in ipairs(waiting) do SendDuiMessage(dui, json.encode(m)) end
         waiting = {}
     end)
+    send({ action = 'texts', t = WhipEvidence.texts() })
     send({ action = 'logo', src = Config.LabScreenLogo })
 end
 
@@ -127,8 +128,24 @@ local function drawQuad(tl, tr, bl)
     tri(tl, tr, br, 0, 0, 1, 0, 1, v)
 end
 
+-- The corners of each lab's picture, worked out once (GlobalState is not read every frame).
+-- Recomputed when a fit is saved; while fitting, the live values are used.
+local cornerCache = {}
+AddStateBagChangeHandler(FITS, 'global', function() cornerCache = {} end)
+
 local function drawScreen(lab)
-    drawQuad(corners(lab, fitFor(lab)))
+    if editing and editing.lab == lab.id and editing.fit then
+        drawQuad(corners(lab, editing.fit))
+        return
+    end
+    local c = cornerCache[lab.id]
+    if not c then
+        local tl, tr, bl = corners(lab, fitFor(lab))
+        c = { tl, tr, bl }
+        -- keep it once the prop is there (the model's size is known then)
+        if props[lab.id] ~= nil then cornerCache[lab.id] = c end
+    end
+    drawQuad(c[1], c[2], c[3])
 end
 
 ---------------------------------------------------------------- Props
@@ -186,9 +203,16 @@ end
 local function drawLoop()
     CreateThread(function()
         while active do
-            local lab = labById(active)
-            if lab and up and not hidden then drawScreen(lab) end
-            Wait(0)
+            local id = active
+            local lab = labById(id)
+            while active == id do
+                if lab and up and not hidden then
+                    local t = WhipCost and WhipCost.start()
+                    drawScreen(lab)
+                    if t then WhipCost.stop('evidence: lab screen', t) end
+                end
+                Wait(0)
+            end
         end
     end)
 end
@@ -245,7 +269,7 @@ end)
 -- Aim at the corners of the monitor's picture area and click: top left, top right, bottom left.
 -- Works for any monitor, tilted or not, any shape. Mouse: left click picks, right... is aiming, so
 -- Backspace takes the last corner back, Esc (or Backspace with none) cancels.
-local STEPS = { 'TOP LEFT', 'TOP RIGHT', 'BOTTOM LEFT' }
+local STEPS = { 'fit_top_left', 'fit_top_right', 'fit_bottom_left' }
 
 local function aimPoint()
     local from = GetFinalRenderedCamCoord()
@@ -282,17 +306,46 @@ RegisterNUICallback('fitKeys', function(data, cb)
 end)
 
 -- bigger / smaller around the middle, keeps the shape
-RegisterNUICallback('fitSize', function(data, cb)
+local function scaleFit(k)
     local f = editing and editing.fit
-    if f and type(data) == 'table' then
+    if not f then return end
+    local tl, tr, bl = V(f.tl), V(f.tr), V(f.bl)
+    local c = (tr + bl) / 2
+    f.tl, f.tr, f.bl = T(c + (tl - c) * k), T(c + (tr - c) * k), T(c + (bl - c) * k)
+end
+
+RegisterNUICallback('fitSize', function(data, cb)
+    if type(data) == 'table' then
         local k = data.slow and 1.004 or 1.02
-        if data.dir ~= 1 then k = 1 / k end
-        local tl, tr, bl = V(f.tl), V(f.tr), V(f.bl)
-        local c = (tr + bl) / 2
-        f.tl, f.tr, f.bl = T(c + (tl - c) * k), T(c + (tr - c) * k), T(c + (bl - c) * k)
+        scaleFit(data.dir == 1 and k or 1 / k)
     end
     cb('ok')
 end)
+
+-- Controller: left stick move, right stick up/down into/out of the monitor, RT/LT size,
+-- hold X slower, A save, Y corners again, B cancel. The page takes the keyboard (Whip.padScreen owns the focus).
+local fitPad = {}
+local fitScreen = Whip.padScreen({
+    buttons = { 'a', 'b', 'x', 'y' },
+    stick = false,
+    releases = { x = true },
+    onButton = function(cmd, down)
+        if cmd == 'x' then fitPad.slow = down; return end
+        if not down or fitDone then return end
+        fitDone = (cmd == 'a' and 'save') or (cmd == 'y' and 'redo') or 'cancel'
+    end,
+    onDevice = function(pad)
+        fitPad = {}
+        SendNUIMessage({ action = 'fitPad', pad = pad == true })
+    end,
+    onFrame = function()
+        fitPad.mx, fitPad.my = GetDisabledControlNormal(0, 30), GetDisabledControlNormal(0, 31)
+        fitPad.depth = GetDisabledControlNormal(0, 2)
+        fitPad.size = GetDisabledControlNormal(0, 24) - GetDisabledControlNormal(0, 25)   -- RT bigger, LT smaller
+    end,
+})
+
+local function axis(v) v = tonumber(v) or 0.0; return math.abs(v) > 0.12 and v or 0.0 end
 
 RegisterNUICallback('fitDone', function(data, cb)
     local how = type(data) == 'table' and data.how
@@ -301,10 +354,10 @@ RegisterNUICallback('fitDone', function(data, cb)
 end)
 
 local function fineTune()
-    fitKeys, fitDone = {}, nil
-    SetNuiFocus(true, false)
+    fitKeys, fitDone, fitPad = {}, nil, {}
     Whip.core:SetScreenOpen(true, 'fit')
-    SendNUIMessage({ action = 'fit', open = true })
+    local pad = fitScreen:open()
+    SendNUIMessage({ action = 'fit', open = true, pad = pad == true })
     while editing and editing.fit and fitDone == nil do
         local f = editing.fit
         local tl, tr, bl = V(f.tl), V(f.tr), V(f.bl)
@@ -317,11 +370,17 @@ local function fineTune()
         if fitKeys.down then d = d + down * step end
         if fitKeys.w then d = d - out * step * 0.5 end   -- into the monitor
         if fitKeys.s then d = d + out * step * 0.5 end   -- out of it
+        if fitScreen:isPad() then
+            local ps = (fitPad.slow and 0.02 or 0.10) * GetFrameTime()
+            d = d + right * (axis(fitPad.mx) * ps) + down * (axis(fitPad.my) * ps) + out * (axis(fitPad.depth) * ps * 0.5)
+        end
         if #d > 0 then f.tl, f.tr, f.bl = T(tl + d), T(tr + d), T(bl + d) end
+        local size = fitScreen:isPad() and axis(fitPad.size) or 0.0
+        if size ~= 0.0 then scaleFit(1.0 + size * (fitPad.slow and 0.05 or 0.25) * GetFrameTime()) end
         Wait(0)
     end
     SendNUIMessage({ action = 'fit', open = false })
-    SetNuiFocus(false, false)
+    fitScreen:close()
     Whip.core:SetScreenOpen(false, 'fit')
     return fitDone or 'cancel'
 end
@@ -336,8 +395,9 @@ local function pickCorners(lab)
         DrawRect(0.5, 0.5, 0.0025, 0.004, 255, 255, 255, 230)   -- crosshair
         if p then dot(p, 74, 222, 128) end
         for _, q in ipairs(picked) do dot(q, 250, 204, 21) end
-        help(('Aim at the ~y~%s~s~ corner of the picture area and click (or E).~n~Backspace: back · Esc: cancel'):format(STEPS[#picked + 1]))
-        if (IsDisabledControlJustPressed(0, 24) or IsDisabledControlJustPressed(0, 38)) and p then
+        local pad = Whip.core:IsControllerActive()
+        help(L(pad and 'fit_aim_pad' or 'fit_aim', L(STEPS[#picked + 1])))
+        if (IsDisabledControlJustPressed(0, 24) or IsDisabledControlJustPressed(0, 38) or Whip.core:IsAcceptPressed()) and p then
             picked[#picked + 1] = p
             if #picked == 3 then
                 -- in local coordinates, just in front of the glass (towards where you stand)
@@ -349,7 +409,7 @@ local function pickCorners(lab)
                 editing.fit = { tl = T(l[1] + n * 0.004), tr = T(l[2] + n * 0.004), bl = T(l[3] + n * 0.004) }
                 done = true
             end
-        elseif IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 194) then
+        elseif IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 194) or Whip.core:IsCancelPressed() then
             if #picked == 0 then done = false else picked[#picked] = nil end
         elseif IsDisabledControlJustPressed(0, 200) or IsDisabledControlJustPressed(0, 202) or IsDisabledControlJustPressed(0, 322) then
             done = false
@@ -370,7 +430,7 @@ function WhipEvidence.fitScreen()
         end
     end
     if not lab then
-        WhipEvidence.notify(('No lab screen within %d m.'):format(math.floor(DRAW)), 'error')
+        WhipEvidence.notify(L('fit_no_lab', math.floor(DRAW)), 'error')
         return
     end
     editing = { lab = lab.id }
@@ -391,14 +451,14 @@ function WhipEvidence.fitScreen()
         if result == 'save' and fit then
             TriggerServerEvent('whip_evidence:screenFit', lab.id, { tl = fit.tl, tr = fit.tr, bl = fit.bl })
         else
-            WhipEvidence.notify('Screen not changed.', 'info')
+            WhipEvidence.notify(L('fit_unchanged'), 'info')
         end
     end)
 end
 
 AddEventHandler('onResourceStop', function(res)
     if res ~= WhipEvidence.Res then return end
-    if editing and editing.fit then SetNuiFocus(false, false) end
+    if editing and editing.fit then fitScreen:close() end
     active, editing = nil, nil
     for id in pairs(props) do deleteProp(id) end
     releaseDui()
