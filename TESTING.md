@@ -7,8 +7,8 @@ Dev-Tools: `/w` → **Forensics**.
 
 ## 0. Start
 - [ ] 0.1 Server-Konsole beim Start: keine roten Fehler, Zeile `lab mrpd: container #…` erscheint.
-- [ ] 0.2 `/whip` → Jobs → Polizei-Job → Rang öffnen: 15 Schalter „Evidence: …“ sind da.
-- [ ] 0.3 Niedrigster Rang hat nur die Grundrechte, höhere Ränge mehr (Erst-Start-Vorbelegung).
+- [ ] 0.2 Es wird kein Job angelegt. Fehlt ein Job aus „Police jobs“, steht er in der Konsole („does not exist (yet)“).
+- [ ] 0.3 `/whip` → Settings → Forensics → „Lowest rank level“: 16 Einträge. Rang mit Level 1: scannen geht, einsammeln nicht („not allowed“). „Collect evidence“ auf 1 stellen → einsammeln geht (spätestens nach 10 s).
 - [ ] 0.4 Lab-Monitor steht am Lab, zeigt den Win11-Desktop scharf und lesbar, Uhrzeit/Datum = echte Zeit.
 - [ ] 0.5 `/w` → Forensics → „Fit the lab screen“ → Ecken oben links, oben rechts, unten links anklicken → mit Pfeilen/W/S/Mausrad feinjustieren → Enter speichert. Bild sitzt auf dem Glas, Taskleiste sichtbar, auch nach Neustart.
 - [ ] 0.5b Fit-Tool mit Controller: RT/A wählt Ecke, B zurück. Feinjustieren: linker Stick bewegen, rechter Stick rein/raus, RT/LT Größe, X halten langsamer, A speichert, Y Ecken neu, B abbrechen.

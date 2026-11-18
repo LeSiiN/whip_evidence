@@ -26,7 +26,7 @@ function WhipEvidence.isPoliceOnDuty()
     return WhipEvidence.isPoliceJob(LocalPlayer.state.whipJob)
 end
 
--- Client hint of the rank permission (the server checks again). Asked often (prompts, scan):
+-- Client hint of the rank level (the server checks again). Asked often (prompts, scan):
 -- the answer is kept until the job, rank or duty changes, or 10 s pass.
 local canCache, canJob, canAt = {}, nil, 0
 
@@ -45,7 +45,8 @@ function WhipEvidence.can(permission)
     end
     local v = canCache[permission]
     if v == nil then
-        v = Whip.core:HasJobPermission(job, permission) == true
+        local info = Whip.core:GetPlayerJob()
+        v = info ~= nil and info.key == job and WhipEvidence.levelAllows(info.roleLevel, permission)
         canCache[permission] = v
     end
     return v

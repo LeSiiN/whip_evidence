@@ -2,12 +2,16 @@
 
 ## 4.1.0
 
+### Changed
+- **Jobs are only listened to**: `Config.PoliceJobs` names jobs from your job scripts; nothing is created or changed (no more conflicts with the script that owns the job).
+- **Rank permissions by level**: "Lowest rank level" per action in `/whip` → Settings → Forensics, the same for every police job (no more toggles in the Job Manager).
+
 ### New
 - **Bodies**: players and pedestrians killed by a player can be examined (time of death, wounds, body parts), bullets taken out for the lab, blood sample and GSR test on the hands. Card "L1" in the scan, respawn held while police examine, pedestrian bodies don't despawn. Dev tools: test pedestrians and a stand-in with your blood.
 - Findings sheet per body (cause of death, wounds per body part, shot distance, bullets in the body or through, defence wounds, weapon in hand, moved after death), copy as text, controller.
 - Every body gets its own purple marker ("L1", "L2", ...) like evidence, the card shows for the one you aim at. Bodies are listed on crime scene photos. Every pedestrian works, also ones only your game knows. The prompt sits on the chest.
 - Fix: blood, casings and fragments landed on top of awnings, balconies or roofs above the spot. The floor is now found straight below.
-- Rank permission "Evidence: examine bodies", settings group "Bodies" in `/whip`.
+- Settings group "Bodies" in `/whip`, rank level for "Examine bodies".
 
 ## 4.0.0
 

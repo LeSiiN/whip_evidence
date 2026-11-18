@@ -6,7 +6,7 @@ lua54 'yes'
 name 'whip_evidence'
 author 'LeSiiN'
 description 'Forensics for WHIP: evidence, GSR, vehicle traces, weapon prints, labs'
-version '4.1.0'
+version '4.1.1'
 
 dependencies {
     'whip_core',
@@ -22,8 +22,8 @@ shared_scripts {
     'locales/en.lua',
     'locales/de.lua',
     'shared/locale.lua',
-    'shared/settings.lua',
     'shared/util.lua',
+    'shared/settings.lua',
     'shared/games.lua',
 }
 

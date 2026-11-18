@@ -15,10 +15,19 @@ Whip.configPage({
             { key = 'Debug', type = 'bool', label = 'Debug prints' },
             restart({ key = 'Locale', type = 'enum', label = 'Language', help = 'Texts for players (locales/).',
               options = { { value = 'en', label = 'English' }, { value = 'de', label = 'Deutsch' } } }),
-            restart({ key = 'UsePermissions', type = 'bool', label = 'Rank permissions',
-              help = 'On: each rank needs the evidence permission (toggles in /whip -> Jobs). Off: every on-duty officer may do everything.' }),
             restart({ key = 'PoliceJobs', type = 'list', item = { type = 'string', maxLen = 40 }, label = 'Police jobs',
-              help = 'These jobs (on duty) collect evidence, run GSR tests and use the labs. Missing jobs are created.' }),
+              help = 'Job keys from your job scripts or /whip -> Jobs. On duty they collect evidence, run GSR tests and use the labs. Nothing is created.' }),
+            { key = 'UsePermissions', type = 'bool', label = 'Rank permissions',
+              help = 'On: each action needs the rank level below. Off: every on-duty officer may do everything.' },
+            { key = 'Permissions', type = 'record', label = 'Lowest rank level',
+              help = 'The level of the rank in /whip -> Jobs (1-100), the same for every police job.',
+              fields = (function()
+                  local list = {}
+                  for _, p in ipairs(WhipEvidence.PERMISSIONS) do
+                      list[#list + 1] = { key = p[1], type = 'int', min = 1, max = 100, label = p[2] }
+                  end
+                  return list
+              end)() },
         } },
         { label = 'Evidence', settings = {
             { key = 'MaxEvidence', type = 'int', min = 10, max = 2000, label = 'Max evidence at once' },

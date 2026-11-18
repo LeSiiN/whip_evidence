@@ -4,67 +4,30 @@ Config = {
     Debug = false,
     Locale = 'en',   -- language: 'en' or 'de' (files in locales/)
 
-    -- Jobs that collect evidence, run GSR tests and use the labs (on duty)
+    -- Jobs that collect evidence, run GSR tests and use the labs (on duty).
+    -- Only listened to: the jobs come from your job scripts or /whip -> Jobs, nothing is created.
     PoliceJobs = { 'police', 'bcso', 'sahp' },
 
-    -- Rank permissions. Each one shows up as a toggle on every role in /whip -> Jobs.
-    -- level: on the first start every role at this level or higher gets it (later you decide in /whip).
+    -- Rank permissions: the lowest rank level (1-100, the level of the rank in /whip -> Jobs) that may do it.
     -- UsePermissions = false: every on-duty officer may do everything.
     UsePermissions = true,
     Permissions = {
-        evidence_scan        = { level = 1,  label = 'Evidence: scan (flashlight, camera)' },
-        evidence_photo       = { level = 1,  label = 'Evidence: take crime scene photos' },
-        evidence_collect     = { level = 20, label = 'Evidence: collect evidence' },
-        evidence_gsr         = { level = 20, label = 'Evidence: GSR tests' },
-        evidence_vehicle     = { level = 20, label = 'Evidence: collect vehicle traces' },
-        evidence_laser       = { level = 20, label = 'Evidence: laser pointer' },
-        evidence_sign        = { level = 20, label = 'Evidence: sign for evidence' },
-        evidence_clear       = { level = 20, label = 'Evidence: clear away single traces' },
-        evidence_upload      = { level = 20, label = 'Evidence: upload to a case (MDT)' },
-        evidence_locker      = { level = 20, label = 'Evidence: open case lockers' },
-        evidence_dust        = { level = 40, label = 'Evidence: dust weapons for prints' },
-        evidence_release     = { level = 40, label = 'Evidence: release crime scenes' },
-        evidence_lab         = { level = 40, label = 'Evidence: run lab analyses' },
-        evidence_locker_take = { level = 40, label = 'Evidence: take items out of case lockers' },
-        evidence_case_close  = { level = 60, label = 'Evidence: close cases' },
-        evidence_body        = { level = 20, label = 'Evidence: examine bodies' },
-    },
-
-    -- Created on start if a job above does not exist yet (existing jobs only get the permissions).
-    Jobs = {
-        police = {
-            name = 'Los Santos Police Department', icon = 'shield',
-            roles = {
-                { name = 'Chief of Police', level = 100 },
-                { name = 'Captain',    level = 80, permissions = { canHire = true, canFire = true, canPromote = true, canDemote = true, bankAccess = 'withdraw' } },
-                { name = 'Lieutenant', level = 60, permissions = { canHire = true, canPromote = true, bankAccess = 'view' } },
-                { name = 'Sergeant',   level = 40, permissions = { bankAccess = 'view' } },
-                { name = 'Officer',    level = 20 },
-                { name = 'Cadet',      level = 1 },
-            },
-        },
-        bcso = {
-            name = "Blaine County Sheriff's Office", icon = 'shield',
-            roles = {
-                { name = 'Sheriff',      level = 100 },
-                { name = 'Undersheriff', level = 80, permissions = { canHire = true, canFire = true, canPromote = true, canDemote = true, bankAccess = 'withdraw' } },
-                { name = 'Lieutenant',   level = 60, permissions = { canHire = true, canPromote = true, bankAccess = 'view' } },
-                { name = 'Sergeant',     level = 40, permissions = { bankAccess = 'view' } },
-                { name = 'Deputy',       level = 20 },
-                { name = 'Cadet',        level = 1 },
-            },
-        },
-        sahp = {
-            name = 'San Andreas Highway Patrol', icon = 'shield',
-            roles = {
-                { name = 'Commissioner', level = 100 },
-                { name = 'Captain',      level = 80, permissions = { canHire = true, canFire = true, canPromote = true, canDemote = true, bankAccess = 'withdraw' } },
-                { name = 'Lieutenant',   level = 60, permissions = { canHire = true, canPromote = true, bankAccess = 'view' } },
-                { name = 'Sergeant',     level = 40, permissions = { bankAccess = 'view' } },
-                { name = 'Trooper',      level = 20 },
-                { name = 'Cadet',        level = 1 },
-            },
-        },
+        evidence_scan        = 1,    -- scan (flashlight, camera)
+        evidence_photo       = 1,    -- crime scene photos
+        evidence_collect     = 20,   -- collect evidence
+        evidence_gsr         = 20,   -- GSR tests
+        evidence_vehicle     = 20,   -- collect vehicle traces
+        evidence_laser       = 20,   -- laser pointer
+        evidence_sign        = 20,   -- sign for evidence
+        evidence_clear       = 20,   -- clear away single traces
+        evidence_upload      = 20,   -- upload to a case (MDT)
+        evidence_locker      = 20,   -- open case lockers
+        evidence_body        = 20,   -- examine bodies
+        evidence_dust        = 40,   -- dust weapons for prints
+        evidence_release     = 40,   -- release crime scenes
+        evidence_lab         = 40,   -- run lab analyses
+        evidence_locker_take = 40,   -- take items out of case lockers (without: look only)
+        evidence_case_close  = 60,   -- close cases
     },
 
     -- Evidence

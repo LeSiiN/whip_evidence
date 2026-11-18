@@ -31,10 +31,27 @@ function WhipEvidence.debug(fmt, ...)
     print(('[%s] %s'):format(RES, ok and text or tostring(fmt)))
 end
 
--- Rank permissions are in force when Config.UsePermissions is on and every police job declared them
--- (the server sets this after start; see server/jobs.lua)
+-- Rank permissions: the lowest rank level in Config.Permissions (server/jobs.lua checks, the client hints)
+WhipEvidence.PERMISSIONS = {
+    { 'evidence_scan', 'Scan (flashlight, camera)' }, { 'evidence_photo', 'Crime scene photos' },
+    { 'evidence_collect', 'Collect evidence' }, { 'evidence_gsr', 'GSR tests' },
+    { 'evidence_vehicle', 'Collect vehicle traces' }, { 'evidence_laser', 'Laser pointer' },
+    { 'evidence_sign', 'Sign for evidence' }, { 'evidence_clear', 'Clear away single traces' },
+    { 'evidence_upload', 'Upload to a case (MDT)' }, { 'evidence_locker', 'Open case lockers' },
+    { 'evidence_body', 'Examine bodies' }, { 'evidence_dust', 'Dust weapons for prints' },
+    { 'evidence_release', 'Release crime scenes' }, { 'evidence_lab', 'Run lab analyses' },
+    { 'evidence_locker_take', 'Take items out of case lockers' }, { 'evidence_case_close', 'Close cases' },
+}
+
 function WhipEvidence.permsActive()
-    return GlobalState['whip_evidence:perms'] == true
+    return Config.UsePermissions ~= false
+end
+
+-- may a rank of this level do it?
+function WhipEvidence.levelAllows(level, permission)
+    if not WhipEvidence.permsActive() then return true end
+    local need = tonumber((Config.Permissions or {})[permission]) or 1
+    return (tonumber(level) or 0) >= need
 end
 
 function WhipEvidence.isPoliceJob(key)

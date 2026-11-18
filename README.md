@@ -21,7 +21,7 @@ Version 4.0.0 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `
    ensure whip_evidence_assets
    ensure whip_evidence
    ```
-3. Start the server. Tables, items and missing police jobs are made automatically.
+3. Start the server. Tables and items are made automatically. The police jobs come from your job script.
 4. In game, `/whip` → Settings → Forensics: set the lab, its monitor and the evidence locker with "here".
 
 **Updates:** whip_core checks the GitHub releases every 12 hours and tells you when a newer version is out
@@ -31,11 +31,11 @@ Restart only `whip_evidence`. Leave `whip_evidence_assets` running (unloading pr
 
 ## Jobs and ranks
 
-Jobs in `Config.PoliceJobs` (`police`, `bcso`, `sahp`) that don't exist yet are created from `Config.Jobs`.
-Existing jobs keep their name and ranks.
+The script only listens to the jobs in `Config.PoliceJobs` (`police`, `bcso`, `sahp`). It creates or changes no job:
+make them in your job script or `/whip` → Jobs. A missing job is named in the console on start.
 
-Each permission below shows up as a toggle on every rank in `/whip` → Jobs. On the first start it is switched on
-from its `level` up. After that you decide. `Config.UsePermissions = false`: every on-duty officer may do everything.
+Permissions go by rank level (the level of a rank in `/whip` → Jobs, 1–100), the same for every police job.
+Change them in `/whip` → Settings → Forensics → "Lowest rank level". `Config.UsePermissions = false`: every on-duty officer may do everything.
 
 | Permission | Allows | From level |
 |---|---|---|
@@ -49,13 +49,12 @@ from its `level` up. After that you decide. `Config.UsePermissions = false`: eve
 | `evidence_clear` | Clear away single traces | 20 |
 | `evidence_upload` | Upload evidence to a case (MDT) | 20 |
 | `evidence_locker` | Open case lockers | 20 |
+| `evidence_body` | Examine bodies | 20 |
 | `evidence_dust` | Dust weapons for prints | 40 |
 | `evidence_release` | Release crime scenes | 40 |
 | `evidence_lab` | Run lab analyses | 40 |
 | `evidence_locker_take` | Take items out of case lockers (without: look only) | 40 |
 | `evidence_case_close` | Close cases | 60 |
-
-If another resource owns one of these jobs, the permissions can't be added: the console says so and every on-duty officer may do everything.
 
 ## Items
 
