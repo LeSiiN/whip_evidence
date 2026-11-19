@@ -3,7 +3,7 @@
 Forensics for WHIP: evidence at crime scenes, real crime scene photos, minigames, labs with a monitor,
 ballistics, gunshot residue, vehicle and weapon traces, an evidence case and case lockers for your MDT.
 
-Version 4.2.3 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
+Version 4.2.0 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
 
 <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/Czztofsedr9H.jpg" alt="Camera scan with numbered markers and the crime scene legend" width="880" height="478">
 
@@ -120,7 +120,7 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
    A dead player can't respawn while being examined (up to 10 min, `BodyHoldMinutes`). "Release the body" ends it.
    Pedestrian bodies don't despawn and are taken away after 30 min.
 
-   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/D7F9WTlt9SJb.png" alt="Body card in the scan: time of death, wounds, bullets" width="434" height="236">
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/rG625dbl4LE4.png" alt="Body card in the scan: time of death, wounds, bullets" width="434" height="236">
 
 4. **Clean up.** "Clear away" on a marker, or F1 → "Release crime scene". Unphotographed traces need a confirmation.
 5. **Lab.** At the lab device: "Unload evidence case", then "Analyse evidence" (storage locked). Each bag takes time by its age
@@ -310,7 +310,7 @@ after `Config.Photo.KeepDays` (photos in a case locker are never deleted).
 
 "Examine the body" gives the officer a **post-mortem report** (bag `kind = 'autopsy'`). It goes into a case like any
 other bag; `entry.report` holds the whole report: `wounds`, `bullets`, `details` (`hits`, `byPart`, `ranges`, `through`,
-`defense`, `fatal`, `sex`, `armed`, `moved`, `marks` = every hit `{ p part, w wound, i bullet inside, f fatal }`),
+`defense`, `fatal`, `sex`, `armed`, `moved`, `marks` = every hit `{ p part, s spot, w wound, i bullet inside, f fatal }`; `s` e.g. `thigh_l`, `forearm_r`, `chest`, missing if unknown),
 `at`, `examinedBy`, `street`, `text` (as "Copy as text"). Bags taken from a body have `entry.body` (= the report's `id`).
 Live: `AddEventHandler('whip_evidence:bodyExamined', function(report) end)` or `GetBodyReport(bodyId)` (also after the body is gone, kept `Config.BodyReportDays` = 30 days).
 

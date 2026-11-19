@@ -14,6 +14,9 @@ local MAX_HITS, MAX_BULLETS = 12, 6
 
 local WOUNDS = { 'gunshot', 'stab', 'blunt', 'vehicle', 'fall', 'burn', 'explosion', 'other' }
 local PARTS = { 'head', 'torso', 'arms', 'legs' }
+local SPOTS = { 'none', 'head', 'neck', 'chest', 'belly', 'pelvis', 'shoulder_l', 'shoulder_r',
+    'upperarm_l', 'forearm_l', 'hand_l', 'upperarm_r', 'forearm_r', 'hand_r',
+    'thigh_l', 'shin_l', 'foot_l', 'thigh_r', 'shin_r', 'foot_r' }
 local POS = { { 'x', 'number', -16000, 16000 }, { 'y', 'number', -16000, 16000 }, { 'z', 'number', -1000, 3000 } }
 local BLOOD = { 'A+', 'A+', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O+', 'O+', 'O-' }
 
@@ -115,7 +118,7 @@ local function view(b)
             inside[h.part] = inside[h.part] - 1
             stays = true
         end
-        marks[i] = { p = h.part, w = h.wound, i = stays or nil, f = (h == fatal) or nil }
+        marks[i] = { p = h.part, s = h.spot, w = h.wound, i = stays or nil, f = (h == fatal) or nil }
     end
     v.wounds, v.parts, v.bullets = wounds, parts, #b.bullets
     v.details = {
@@ -499,10 +502,11 @@ function WhipEvidence.Bodies.register()
             { 'armed', 'bool', false },
             { 'ground', 'record', POS },
             { 'male', 'bool', true },
+            { 'spot', 'enum', SPOTS, 'none' },
         },
         near = { at = function(_, _, net) local e = pedOf(net); return e and GetEntityCoords(e) or nil end,
                  range = function() return (Config.MaxShotDistance or 150.0) + 10.0 end, message = false },
-    }, function(source, player, net, wound, part, fatal, armed, ground, male)
+    }, function(source, player, net, wound, part, fatal, armed, ground, male, spot)
         if Config.Bodies == false then return end
         local ent = pedOf(net)
         if not ent then return false end
@@ -513,7 +517,7 @@ function WhipEvidence.Bodies.register()
             if b.net == net or (victim and b.source == victim) then return end   -- already a body
         end
         local p = pendingOf(key)
-        local hit = { wound = wound, part = part, fatal = fatal or nil,
+        local hit = { wound = wound, part = part, fatal = fatal or nil, spot = spot ~= 'none' and spot or nil,
                       dist = #(GetEntityCoords(GetPlayerPed(source)) - GetEntityCoords(ent)) }
         if #p.hits < MAX_HITS then p.hits[#p.hits + 1] = hit end
         if armed then p.armed = true end
@@ -543,16 +547,17 @@ function WhipEvidence.Bodies.register()
     -- A dead player's own game: the cause, used only when no attacker reported a hit (a fall, a fire)
     Whip.core:SecureEvent('whip_evidence:myDeath', {
         rateLimit = 2000, whileDead = true,
-        params = { { 'wound', 'enum', WOUNDS, 'other' }, { 'part', 'enum', PARTS, 'torso' } },
-    }, function(source, player, wound, part)
+        params = { { 'wound', 'enum', WOUNDS, 'other' }, { 'part', 'enum', PARTS, 'torso' }, { 'spot', 'enum', SPOTS, 'none' } },
+    }, function(source, player, wound, part, spot)
+        spot = spot ~= 'none' and spot or nil
         if not exports.whip_core:IsPlayerDead(source) then return false end
         for _, b in pairs(Bodies) do
             if b.source == source then
-                if #b.hits == 0 then b.hits[1] = { wound = wound, part = part } end
+                if #b.hits == 0 then b.hits[1] = { wound = wound, part = part, spot = spot } end
                 return
             end
         end
-        selfCause[source] = { wound = wound, part = part }
+        selfCause[source] = { wound = wound, part = part, spot = spot }
     end)
 
     local ID = { 'id', 'key', 16 }

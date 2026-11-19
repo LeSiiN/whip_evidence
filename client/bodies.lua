@@ -44,9 +44,23 @@ for _, b in ipairs({ 31086, 39317, 12844, 65068 }) do PART[b] = 'head' end
 for _, b in ipairs({ 45509, 61163, 18905, 40269, 28252, 57005, 64729, 10706 }) do PART[b] = 'arms' end
 for _, b in ipairs({ 58271, 63931, 14201, 2108, 51826, 36864, 52301, 20781, 65245, 35502 }) do PART[b] = 'legs' end
 
+-- the exact spot for the body picture (left/right = the body's own side)
+local SPOT = {
+    [31086] = 'head', [12844] = 'head', [65068] = 'head', [39317] = 'neck',
+    [24818] = 'chest', [24817] = 'chest', [24816] = 'belly', [23553] = 'belly',
+    [57597] = 'pelvis', [11816] = 'pelvis', [0] = 'pelvis',
+    [64729] = 'shoulder_l', [10706] = 'shoulder_r',
+    [45509] = 'upperarm_l', [61163] = 'forearm_l', [18905] = 'hand_l', [60309] = 'hand_l', [36029] = 'hand_l',
+    [40269] = 'upperarm_r', [28252] = 'forearm_r', [57005] = 'hand_r', [28422] = 'hand_r', [6286] = 'hand_r',
+    [58271] = 'thigh_l', [63931] = 'shin_l', [46078] = 'shin_l', [14201] = 'foot_l', [2108] = 'foot_l', [65245] = 'foot_l',
+    [51826] = 'thigh_r', [36864] = 'shin_r', [16335] = 'shin_r', [52301] = 'foot_r', [20781] = 'foot_r', [35502] = 'foot_r',
+}
+
+-- body part (head/torso/arms/legs) and the exact spot ('none' when the bone is not known)
 local function partOf(ped)
     local ok, bone = GetPedLastDamageBone(ped)
-    return ok and PART[bone] or 'torso'
+    if not ok then return 'torso', 'none' end
+    return PART[bone] or 'torso', SPOT[bone] or 'none'
 end
 
 local function xyz(v) return { x = v.x, y = v.y, z = v.z } end
@@ -57,7 +71,7 @@ local lastHit, lastClean = {}, 0
 local localHits = {}   -- [entity] = hits on a pedestrian only this game knows (not networked yet)
 
 local function sendHit(net, h, fatal)
-    TriggerServerEvent('whip_evidence:bodyHit', net, h.wound, h.part, fatal == true, h.armed == true, h.ground, h.male == true)
+    TriggerServerEvent('whip_evidence:bodyHit', net, h.wound, h.part, fatal == true, h.armed == true, h.ground, h.male == true, h.spot)
 end
 
 -- A pedestrian that only exists in this game (no server copy): make it networked once it dies,
@@ -93,7 +107,8 @@ AddEventHandler('gameEventTriggered', function(name, args)
     if now - lastClean > 60000 then lastHit, localHits, lastClean = {}, {}, now end
     if not fatal and lastHit[victim] and now - lastHit[victim] < 150 then return end   -- shotgun pellets: one hit
     lastHit[victim] = now
-    local hit = { wound = woundOf(args[7]), part = partOf(victim), armed = IsPedArmed(victim, 4 | 2) == true,
+    local part, spot = partOf(victim)
+    local hit = { wound = woundOf(args[7]), part = part, spot = spot, armed = IsPedArmed(victim, 4 | 2) == true,
                   male = IsPedMale(victim) == true, ground = xyz(WhipEvidence.ground(GetEntityCoords(victim))) }
 
     if not NetworkGetEntityIsNetworked(victim) then
@@ -119,7 +134,8 @@ end)
 AddEventHandler('whip_core:player:died', function(e)
     if Config.Bodies == false or (type(e) == 'table' and (e.reconnected or e.respawnRefused)) then return end
     local ped = PlayerPedId()
-    TriggerServerEvent('whip_evidence:myDeath', woundOf(GetPedCauseOfDeath(ped)), partOf(ped))
+    local part, spot = partOf(ped)
+    TriggerServerEvent('whip_evidence:myDeath', woundOf(GetPedCauseOfDeath(ped)), part, spot)
 end)
 
 -- A pedestrian this player killed is a body now: keep it from despawning (needs control of it)
@@ -313,6 +329,17 @@ function WhipEvidence.Bodies.openReport(id)
     -- the body picture (every hit on its part) and three numbers on top
     local fig = {
         marks = d.marks or {}, cause = d.fatal ~= nil, front = L('rep_front'):upper(),
+        spots = (function()
+            local t = {}
+            for _, m in ipairs(d.marks or {}) do
+                if m.s then t[m.s] = L('spot_' .. m.s) end
+                t[m.p] = t[m.p] or L('part_' .. m.p)
+                t['w_' .. m.w] = L('wound_' .. m.w)
+            end
+            t.inside, t.through, t.fatal = L('rep_legend_in'), L('rep_legend_through'), L('rep_fatal_short')
+            t.side_l, t.side_r = L('rep_side_l'), L('rep_side_r')
+            return t
+        end)(),
         legend = { inside = L('rep_legend_in'), through = L('rep_legend_through'), stab = L('wound_stab'), other = L('rep_legend_other') },
         tiles = {
             { n = tostring(d.hits or 0), t = L('rep_hits_title') },

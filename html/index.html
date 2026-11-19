@@ -530,25 +530,61 @@
             arms:  [[55, 150, 9, 48], [145, 150, 9, 48]],
             legs:  [[86, 300, 10, 70], [114, 300, 10, 70]],
         };
+        // exact spots (the body's own left is on the right of the picture, as on a medical chart)
+        const REP_SPOTS = {
+            head: [100, 36], neck: [100, 72], chest: [100, 108], belly: [100, 158], pelvis: [100, 194],
+            shoulder_l: [126, 92], upperarm_l: [145, 128], forearm_l: [147, 174], hand_l: [150, 204],
+            thigh_l: [116, 250], shin_l: [115, 328], foot_l: [114, 384],
+        };
+        for (const k of Object.keys(REP_SPOTS)) if (k.endsWith('_l')) REP_SPOTS[k.slice(0, -1) + 'r'] = [200 - REP_SPOTS[k][0], REP_SPOTS[k][1]];
         const REP_ICON = {
             inside:  '<circle cx="0" cy="0" r="6.5" fill="#ef4444" stroke="#fff" stroke-width="2"/>',
             through: '<circle cx="0" cy="0" r="5.5" fill="none" stroke="#ef4444" stroke-width="2.6"/>',
             stab:    '<path d="M-6 6L6 -6" stroke="#fb923c" stroke-width="3.4" stroke-linecap="round"/>',
             other:   '<rect x="-5" y="-5" width="10" height="10" rx="2.5" fill="#a78bfa" stroke="#111" stroke-width="1"/>',
         };
+        // the room on this figure: arms and legs top to bottom (y), head / neck / body left to right (x)
+        const REP_BOUNDS = { arm: [96, 206], leg: [214, 386], head: [82, 118], neck: [96, 104], torso: [74, 126] };
+        // where the nth hit on one spot goes, as an offset: 0 on it, then 16 apart, alternating sides, but never off the body:
+        // along the arm / leg (a foot's 2nd hit goes up the leg), side by side on head and body, then a row above / below
+        function repSpread(spot, nth, base) {
+            const limb = /_[lr]$/.test(spot);
+            const group = limb ? (/^(thigh|shin|foot)/.test(spot) ? 'leg' : 'arm') : (spot === 'head' || spot === 'neck' ? spot : 'torso');
+            const [lo, hi] = REP_BOUNDS[group], at = limb ? base[1] : base[0];
+            const out = [[0, 0]];
+            for (let k = 1; k <= 8; k++) for (const sg of [1, -1]) {
+                const d = sg * 16 * k;
+                if (at + d >= lo && at + d <= hi) out.push(limb ? [0, d] : [d, 0]);
+            }
+            if (!limb) for (const row of [16, -16]) for (let k = 0; k <= 2; k++) for (const sg of (k ? [1, -1] : [1])) {
+                const d = sg * 16 * k;
+                if (at + d >= lo && at + d <= hi) out.push([d, row]);
+            }
+            const o = out[nth % out.length], extra = Math.floor(nth / out.length) * 5;
+            return [o[0] + extra, o[1] + extra];
+        }  // same rule in es_mdt
         function repFigure(f) {
             const marks = f.marks || [];
             let seed = 7;
             const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
-            const used = {};
+            const used = {}, S = f.spots || {};
             const dots = marks.map((m) => {
-                const areas = REP_AREAS[m.p] || REP_AREAS.torso;
-                used[m.p] = (used[m.p] || 0) + 1;
-                const a = areas[(used[m.p] - 1) % areas.length];
-                const x = a[0] + (rnd() * 2 - 1) * a[2], y = a[1] + (rnd() * 2 - 1) * a[3];
+                let x, y;
+                if (m.s && REP_SPOTS[m.s]) {
+                    // the exact spot; more hits on the same spot go along the limb (arms, legs) or side by side (body, head)
+                    const o = repSpread(m.s, (used[m.s] = (used[m.s] || 0) + 1) - 1, REP_SPOTS[m.s]);
+                    x = REP_SPOTS[m.s][0] + o[0]; y = REP_SPOTS[m.s][1] + o[1];
+                } else {
+                    const areas = REP_AREAS[m.p] || REP_AREAS.torso;
+                    used[m.p] = (used[m.p] || 0) + 1;
+                    const a = areas[(used[m.p] - 1) % areas.length];
+                    x = a[0] + (rnd() * 2 - 1) * a[2]; y = a[1] + (rnd() * 2 - 1) * a[3];
+                }
                 const kind = m.w === 'gunshot' ? (m.i ? 'inside' : 'through') : (m.w === 'stab' ? 'stab' : 'other');
                 const fatal = m.f ? `<circle cx="0" cy="0" r="11" fill="none" stroke="#fde047" stroke-width="1.6" stroke-dasharray="3 2"/>` : '';
-                return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">${fatal}${REP_ICON[kind]}</g>`;
+                const tip = [S['w_' + m.w] || m.w, S[m.s] || S[m.p] || m.p,
+                    m.w === 'gunshot' ? (m.i ? S.inside : S.through) : null, m.f ? S.fatal : null].filter(Boolean).join(' · ');
+                return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})"><title>${esc(tip)}</title>${fatal}${REP_ICON[kind]}</g>`;
             }).join('');
             const skin = 'fill="rgba(255,255,255,.10)" stroke="rgba(255,255,255,.35)" stroke-width="1.6"';
             $('repFig').innerHTML = `<svg viewBox="0 0 200 410">
@@ -559,6 +595,8 @@
                 <path d="M134 86 L152 98 L158 210 L142 212 L134 120 Z" ${skin}/>
                 <path d="M68 206 L98 210 L96 392 L76 392 Z" ${skin}/>
                 <path d="M132 206 L102 210 L104 392 L124 392 Z" ${skin}/>
+                <text x="18" y="30" fill="rgba(255,255,255,.35)" font-size="13" font-weight="800">${esc(S.side_r || 'R')}</text>
+                <text x="182" y="30" fill="rgba(255,255,255,.35)" font-size="13" font-weight="800" text-anchor="end">${esc(S.side_l || 'L')}</text>
                 ${dots}</svg><div class="cap">${esc(f.front || 'FRONT')}</div>`;
             const L = f.legend || {};
             const item = (k, t) => `<span><svg viewBox="-9 -9 18 18">${REP_ICON[k]}</svg>${esc(t)}</span>`;

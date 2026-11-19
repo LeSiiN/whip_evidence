@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.2.4
+
+### New
+- **Exact hit spots**: the findings sheet puts every hit where it landed (from the bone that was hit: head, neck, chest, belly, pelvis, left/right shoulder, upper arm, forearm, hand, thigh, lower leg, foot). Hover shows wound and spot. For an MDT: `report.details.marks[].s` (missing when the bone is not known).
+
 ## 4.2.0
 
 ### New
@@ -19,7 +24,7 @@
 - **Partly readable** (`LabPartial`, off by default): traces over 30 min old when collected sometimes come back with some characters as "?" (fingerprint, serial, sole and tread pattern, fibre; blood type without +/-), marked "partly readable" (`LabPartialChance`).
 - **Age without a clock**: `AgeShown` (scan card, legend, photos) and `LabAge` (the lab's age at collection), each 'exact', 'rough' (default) or 'off'. Rough: "fresh", "a while ago", "older", "old" on the scene; "Under 15 min", "Under 1 h", "Over 1 h" in the lab. The "time left" chip only shows with exact ages. Shoe prints, tyre tracks and cleaned spots are always rough in the lab. Settings in `/whip`.
 - **Post-mortem report**: examining a body gives a report item (cause of death, findings, the whole report for an MDT) that goes into a case like any bag. For an MDT: `entry.report`, `entry.body` on bags taken from a body, `entry.bodies` on photos, event `whip_evidence:bodyExamined(report)` and export `GetBodyReport(bodyId)` (behind `ApiResources`; reports are saved, so this also works after the body is gone, `BodyReportDays` = 30).
-- **New findings sheet**: a body picture with every hit on its part (bullet still inside, went through, stab, other; the fatal one circled), cause of death on top, hits / bullets / time of death as tiles.
+- **New findings sheet**: a body picture with every hit where it landed (from the bone that was hit: head, neck, chest, belly, pelvis, shoulder, upper arm, forearm, hand, thigh, lower leg, foot, left/right; hover shows what it is). Marks: bullet still inside, went through, stab, other; the fatal one circled. Cause of death on top, hits / bullets / time of death as tiles.
 - **New minigames**: "Plaster cast" for shoe prints and tyre tracks (pour plaster over the whole print without spilling or pouring too thick, then lift the cast when it is set) and "Glove fibres" for fibres from a person (pick only the fibres in the glove's colour, not lint or hairs). Choosable per job in `/whip` like the others.
 
 ## 4.1.0
