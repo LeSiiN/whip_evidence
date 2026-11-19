@@ -113,7 +113,7 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
    A dead player can't respawn while being examined (up to 10 min, `BodyHoldMinutes`). "Release the body" ends it.
    Pedestrian bodies don't despawn and are taken away after 30 min.
 
-   <img src="LINK_body_card" alt="Body card in the scan: time of death, wounds, bullets" width="434" height="236">
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/rG625dbl4LE4.png" alt="Body card in the scan: time of death, wounds, bullets" width="434" height="236">
 
 4. **Clean up.** "Clear away" on a marker, or F1 → "Release crime scene". Unphotographed traces need a confirmation.
 5. **Lab.** At the lab device: "Unload evidence case", then "Analyse evidence" (5–10 min, storage locked).
@@ -121,8 +121,7 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
    The lab also tells how old a trace was when it was collected. The monitor shows progress and results:
    locked until an officer steps up, each bag in turn with what the instrument sees, a sound when done.
 
-   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/2VJQuOwDvb39.jpg" alt="Lab monitor: ready" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/BW41f7UoPAXL.jpg" alt="Lab monitor while the analysis runs" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/vibnK5MP95eC.jpg" alt="Lab monitor with the results" width="288" height="156">
-   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/NEyj9cEYW5yv.png" alt="Analysed blood bag" width="465" height="260"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/OubKPwuVIkVf.png" alt="Analysed fingerprint bag" width="312" height="260">
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/a07o3wVLJOxZ.png" alt="Lab monitor: lockscreen" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/TjF8Cg6SwPCM.png" alt="Lab monitor logging in" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/wet4dmtm7mVk.png" alt="Lab monitor when ready" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/W88C0hLwXNe1.png" alt="Lab monitor analysing bullets" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/hR9SZn7mwCkj.png" alt="Lab monitor when analysing vehicle fragments" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/qfdPG4JuHjek.png" alt="Lab monitor when analysing blood" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/FXXmeyAUrvOw.png" alt="Lab monitor when analysing fingerprints" width="288" height="156">
 
 6. **Case.** Upload analysed items to a case in your MDT (or at the lab device: "Upload to a case").
    They move into that case's locker. Open it at any evidence locker by typing the case ID.
