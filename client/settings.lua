@@ -38,6 +38,8 @@ local function options(list)
     return out
 end
 
+local forcedCache, forcedAt = {}, {}   -- see WhipEvidence.ui below
+
 for _, row in ipairs(ROWS) do
     WhipEvidence.UI[row.id] = load(row)
     Whip.playerSetting({
@@ -47,15 +49,22 @@ for _, row in ipairs(ROWS) do
         get = function() return WhipEvidence.UI[row.id] end,
         set = function(value)
             WhipEvidence.UI[row.id] = value
+            forcedAt[row.id] = nil   -- read again
             SetResourceKvp('ui:' .. row.id, json.encode(value))
             if WhipEvidence.Scan and WhipEvidence.Scan.layoutChanged then WhipEvidence.Scan.layoutChanged() end
         end,
     })
 end
 
--- The value in force (a server-forced value wins over the player's choice)
+-- The value in force (a server-forced value wins over the player's choice). Asked of whip_core at most
+-- once a minute per row (an export call is not cheap); the player's own change comes through set() at once.
 function WhipEvidence.ui(id)
-    local forced = exports.whip_core:GetPlayerSetting('whip_evidence.' .. id)
+    local now = GetGameTimer()
+    if not forcedAt[id] or now - forcedAt[id] > 60000 then
+        forcedAt[id] = now
+        forcedCache[id] = exports.whip_core:GetPlayerSetting('whip_evidence.' .. id)
+    end
+    local forced = forcedCache[id]
     if forced ~= nil then return forced end
     return WhipEvidence.UI[id]
 end

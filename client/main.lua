@@ -22,8 +22,14 @@ function WhipEvidence.wearingGloves()
     return not set[GetPedDrawableVariation(ped, 3)]
 end
 
+-- The player's job key, kept here: reading LocalPlayer.state unpacks it every time, and many loops ask
+local myJob = LocalPlayer.state.whipJob
+AddStateBagChangeHandler('whipJob', ('player:%d'):format(GetPlayerServerId(PlayerId())), function(_, _, value)
+    myJob = value
+end)
+
 function WhipEvidence.isPoliceOnDuty()
-    return WhipEvidence.isPoliceJob(LocalPlayer.state.whipJob)
+    return WhipEvidence.isPoliceJob(myJob)
 end
 
 -- Client hint of the rank level (the server checks again). Asked often (prompts, scan):
@@ -36,7 +42,7 @@ AddEventHandler('whip_core:job:clockedOn', resetCan)
 AddEventHandler('whip_core:job:clockedOff', resetCan)
 
 function WhipEvidence.can(permission)
-    local job = LocalPlayer.state.whipJob
+    local job = myJob
     if not WhipEvidence.isPoliceJob(job) then return false end
     if not WhipEvidence.permsActive() then return true end
     local now = GetGameTimer()

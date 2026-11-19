@@ -3,8 +3,10 @@
 -- Shoes: mud, sand, snow (snowy weather: anywhere outside) and blood (after stepping in a stain).
 -- Tyres: the same plus grass, and any ground while skidding or doing a burnout.
 
-local TXD, SHOE_R, SHOE_L, TREAD, SPOT = 'whip_ev_tracks', 'shoe_r', 'shoe_l', 'tread', 'spot'
-local DRAW_RANGE = 35.0
+local TXD, SPOT = 'whip_ev_tracks', 'spot'
+-- one picture per piece (one quad): four steps baked in (two variants each), both tyres of a car, a bike's tyre
+local TEX = { 'trail_a', 'trail_b', 'trail_blood_a', 'trail_blood_b', 'tyres_car', 'tyre_bike', 'spot' }
+local DRAW_RANGE = 25.0
 
 -- How often: a stretch of steps every SHOE_GAP metres walked on soft ground, a stretch of track every
 -- TYRE_GAP metres driven (and never closer in time than the *_MS). Blood: one stretch right after the stain.
@@ -22,11 +24,11 @@ local SNOWY = { [`XMAS`] = true, [`SNOW`] = true, [`SNOWLIGHT`] = true, [`BLIZZA
 
 -- Colour on the ground per surface (the texture is white)
 local COLOUR = {
-    mud   = { 58, 42, 30, 150 },
-    sand  = { 96, 78, 55, 110 },
-    snow  = { 130, 142, 160, 120 },
-    grass = { 38, 52, 26, 110 },
-    blood = { 82, 10, 8, 175 },
+    mud   = { 45, 32, 22, 225 },
+    sand  = { 88, 70, 48, 185 },
+    snow  = { 115, 128, 148, 190 },
+    grass = { 30, 40, 20, 170 },
+    blood = { 120, 12, 10, 240 },
     skid  = { 20, 20, 20, 150 },
     cleaned = { 225, 228, 215, 95 },   -- bleached, wet-looking patch
 }
@@ -192,23 +194,39 @@ local function loadTextures()
     if loaded then return end
     loaded = true
     local txd = CreateRuntimeTxd(TXD)
-    CreateRuntimeTextureFromImage(txd, SHOE_R, 'html/img/tracks/shoe_r.png')
-    CreateRuntimeTextureFromImage(txd, SHOE_L, 'html/img/tracks/shoe_l.png')
-    CreateRuntimeTextureFromImage(txd, TREAD, 'html/img/tracks/tread.png')
-    CreateRuntimeTextureFromImage(txd, SPOT, 'html/img/tracks/spot.png')
+    for _, name in ipairs(TEX) do CreateRuntimeTextureFromImage(txd, name, ('html/img/tracks/%s.png'):format(name)) end
 end
 
--- A flat quad on the ground: centre, forward and right half-vectors; both windings (seen from above either way)
-local function quad(c, f, r, col, tex, z)
-    local a = vector3(c.x - f.x - r.x, c.y - f.y - r.y, z)   -- back left
-    local b = vector3(c.x + f.x - r.x, c.y + f.y - r.y, z)   -- front left
-    local d = vector3(c.x + f.x + r.x, c.y + f.y + r.y, z)   -- front right
-    local e = vector3(c.x - f.x + r.x, c.y - f.y + r.y, z)   -- back right
-    local R, G, B, A = col[1], col[2], col[3], col[4]
-    DrawTexturedPoly(a.x, a.y, a.z, b.x, b.y, b.z, d.x, d.y, d.z, R, G, B, A, TXD, tex, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0)
-    DrawTexturedPoly(a.x, a.y, a.z, d.x, d.y, d.z, e.x, e.y, e.z, R, G, B, A, TXD, tex, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0)
-    DrawTexturedPoly(a.x, a.y, a.z, d.x, d.y, d.z, b.x, b.y, b.z, R, G, B, A, TXD, tex, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0)
-    DrawTexturedPoly(a.x, a.y, a.z, e.x, e.y, e.z, d.x, d.y, d.z, R, G, B, A, TXD, tex, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0)
+-- Which side of a polygon GTA shows is not documented: both are drawn by default. `/evidence_trackfaces`
+-- switches between both / only one / only the other, so the cheaper single side can be tested in game.
+local FACES = GetResourceKvpString('trackfaces') or 'b'   -- 'b' is the side GTA shows from above
+RegisterCommand('evidence_trackfaces', function()
+    FACES = FACES == 'both' and 'a' or (FACES == 'a' and 'b' or 'both')
+    SetResourceKvp('trackfaces', FACES)
+    print(('[whip_evidence] prints and tracks drawn with side: %s'):format(FACES))
+end, false)
+
+local DrawTexturedPoly = DrawTexturedPoly
+-- One flat quad, corners worked out once (p = { ax, ay, bx, by, dx, dy, ex, ey, z, strength, texture })
+local function quad(p, R, G, B, A)
+    local z, tex = p[9], p[11]
+    if FACES ~= 'b' then
+        DrawTexturedPoly(p[1], p[2], z, p[3], p[4], z, p[5], p[6], z, R, G, B, A, TXD, tex, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0)
+        DrawTexturedPoly(p[1], p[2], z, p[5], p[6], z, p[7], p[8], z, R, G, B, A, TXD, tex, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 1.0)
+    end
+    if FACES ~= 'a' then
+        DrawTexturedPoly(p[1], p[2], z, p[5], p[6], z, p[3], p[4], z, R, G, B, A, TXD, tex, 0.0, 1.0, 1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 1.0)
+        DrawTexturedPoly(p[1], p[2], z, p[7], p[8], z, p[5], p[6], z, R, G, B, A, TXD, tex, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 1.0)
+    end
+end
+
+-- centre c, half-vectors f (forward) and r (right) -> the flat corner list
+local function corners(c, f, r, z, strength, tex)
+    return { c.x - f.x - r.x, c.y - f.y - r.y,   -- back left
+             c.x + f.x - r.x, c.y + f.y - r.y,   -- front left
+             c.x + f.x + r.x, c.y + f.y + r.y,   -- front right
+             c.x - f.x + r.x, c.y - f.y + r.y,   -- back right
+             z, strength, tex }
 end
 
 -- Ground height under a point, looked up once per piece (slopes)
@@ -218,74 +236,48 @@ local function groundZ(x, y, z)
     return z
 end
 
--- The same small differences every time for the same piece (no flicker, everyone sees the same)
-local function rngOf(id)
-    local x = 0
-    for i = 1, #id do x = (x * 31 + id:byte(i)) % 2147483647 end
-    return function()
-        x = (x * 1103515245 + 12345) % 2147483648
-        return x / 2147483648
-    end
-end
-
-local function turned(v, deg)
-    local r = math.rad(deg)
-    local c, s = math.cos(r), math.sin(r)
-    return vector3(v.x * c - v.y * s, v.x * s + v.y * c, 0.0)
-end
-
--- The parts of one piece, worked out once: { centre, forward, right, z, strength 0-1, texture }
+-- The parts of one piece, worked out once: one quad each (corners, z, strength, texture)
 local function partsOf(ev)
     local look = ev.look or {}
     local h = math.rad((ev.heading or 0.0) + 90.0)
     local fwd = vector3(math.cos(h), math.sin(h), 0.0)
     local right = vector3(fwd.y, -fwd.x, 0.0)
-    local c, parts = ev.coords, {}
-    local rnd = rngOf(tostring(ev.id))
+    local c = ev.coords
     if ev.kind == 'cleaned' then
-        parts[1] = { c, fwd * 0.6, right * 0.6, groundZ(c.x, c.y, c.z) + 0.015, 1.0, SPOT }
-    elseif ev.kind == 'shoeprint' then
-        -- four steps behind the end of the stretch, left and right, toes a little outwards, never quite even.
-        -- Blood: strongest at the stain (the oldest step), almost gone at the last one.
-        local blood = look.s == 'blood'
-        for i = 0, 3 do
-            local leftFoot = i % 2 == 1
-            local side = (leftFoot and -0.09 or 0.09) + (rnd() - 0.5) * 0.03
-            local at = c - fwd * (i * 0.68 + 0.15 + (rnd() - 0.5) * 0.08) + right * side
-            local angle = (leftFoot and 6.0 or -6.0) + (rnd() - 0.5) * 8.0
-            local f, r = turned(fwd, angle), turned(right, angle)
-            local strength = blood and (0.25 + 0.75 * (i / 3)) or (0.6 + rnd() * 0.4)
-            parts[#parts + 1] = { at, f * 0.14, r * 0.055, groundZ(at.x, at.y, c.z) + 0.02, strength, leftFoot and SHOE_L or SHOE_R }
-        end
-    else
-        local len = look.l or 6.0
-        local n = math.max(1, math.floor(len / 2 + 0.5))   -- pieces of about 2 m (fewer polygons)
-        local seg = len / n
-        local sides = look.b and { 0.0 } or { -(look.w or 1.6) / 2, (look.w or 1.6) / 2 }
-        local half = look.b and 0.07 or 0.12
-        for _, side in ipairs(sides) do
-            for i = 0, n - 1 do
-                local at = c + fwd * (-len / 2 + seg * (i + 0.5)) + right * side
-                -- fainter at both ends of the stretch
-                local edge = math.min(i + 1, n - i) / math.max(1, math.ceil(n / 2))
-                parts[#parts + 1] = { at, fwd * (seg / 2), right * half, groundZ(at.x, at.y, c.z) + 0.02,
-                    0.55 + 0.45 * edge * (0.8 + rnd() * 0.2), TREAD }
-            end
-        end
+        return { corners(c, fwd * 0.6, right * 0.6, groundZ(c.x, c.y, c.z) + 0.015, 1.0, SPOT) }
     end
-    return parts
+    if ev.kind == 'shoeprint' then
+        -- four steps behind the end of the stretch, in one picture (two variants; blood fades towards the end)
+        local id = tostring(ev.id)
+        local variant = (id:byte(#id) or 0) % 2 == 0 and 'a' or 'b'
+        local tex = (look.s == 'blood' and 'trail_blood_' or 'trail_') .. variant
+        local mid = c - fwd * 1.175
+        return { corners(mid, fwd * 1.3, right * 0.2, groundZ(mid.x, mid.y, c.z) + 0.02, 1.0, tex) }
+    end
+    -- tyre track: both tyres of a car in one picture (or a bike's one), faint at both ends
+    local len = look.l or 6.0
+    local half = look.b and 0.07 or ((look.w or 1.6) + 0.24) / 2
+    return { corners(c, fwd * (len / 2), right * half, groundZ(c.x, c.y, c.z) + 0.02, 1.0, look.b and 'tyre_bike' or 'tyres_car') }
 end
 
-local near = {}   -- pieces to draw, refreshed twice a second
+local near = {}   -- pieces to draw (in range, with their colour), refreshed twice a second
+local SIZE = { shoeprint = 2.6, tyre_track = 7.5, cleaned = 0.9 }   -- radius for "is it on screen"
 CreateThread(function()
     while true do
         local n = 0
         if WhipEvidence.Ev.count() > 0 then
             local pos = GetEntityCoords(PlayerPedId())
+            local now = GetGameTimer()
             WhipEvidence.Ev.eachNear(pos, DRAW_RANGE, function(ev)
-                if ev.kind == 'shoeprint' or ev.kind == 'tyre_track' or ev.kind == 'cleaned' then
+                if SIZE[ev.kind] then
                     n = n + 1
                     near[n] = ev
+                    ev.parts = ev.parts or partsOf(ev)
+                    -- colour and how faded (it changes slowly: worked out here, not every frame)
+                    local base = COLOUR[(ev.look or {}).s] or COLOUR.mud
+                    local total = math.max(1, (ev.endsAt or now) - (ev.bornAt or now))
+                    local left = math.max(0.0, math.min(1.0, ((ev.endsAt or now) - now) / total))
+                    ev.rgb, ev.alpha = base, base[4] * (0.35 + 0.65 * left)
                 end
             end)
         end
@@ -294,31 +286,28 @@ CreateThread(function()
     end
 end)
 
-local col = { 0, 0, 0, 0 }
--- drawn every frame only while a print or track is within DRAW_RANGE (otherwise it checks twice a second)
+-- drawn every frame only while a print or track is within DRAW_RANGE (otherwise it checks twice a second);
+-- a piece off screen costs one check, nothing is drawn for it
+local IsSphereVisible, floor, Get = IsSphereVisible, math.floor, WhipEvidence.Ev.get
 CreateThread(function()
     while true do
         local wait = 500
         if near[1] then
             wait = 0
             loadTextures()
-            local now = GetGameTimer()
+            local t = WhipCost and WhipCost.start()
             for i = 1, #near do
                 local ev = near[i]
-                if WhipEvidence.Ev.get(ev.id) == ev then
-                    ev.parts = ev.parts or partsOf(ev)
-                    local base = COLOUR[(ev.look or {}).s] or COLOUR.mud
-                    -- fades as it gets older
-                    local total = math.max(1, (ev.endsAt or now) - (ev.bornAt or now))
-                    local left = math.max(0.0, math.min(1.0, ((ev.endsAt or now) - now) / total))
-                    local alpha = base[4] * (0.35 + 0.65 * left)
-                    col[1], col[2], col[3] = base[1], base[2], base[3]
-                    for _, p in ipairs(ev.parts) do
-                        col[4] = math.floor(alpha * p[5])
-                        quad(p[1], p[2], p[3], col, p[6], p[4])
+                local c = ev.coords
+                if ev.parts and Get(ev.id) == ev and IsSphereVisible(c.x, c.y, c.z, SIZE[ev.kind]) then
+                    local rgb, alpha = ev.rgb, ev.alpha
+                    for j = 1, #ev.parts do
+                        local p = ev.parts[j]
+                        quad(p, rgb[1], rgb[2], rgb[3], floor(alpha * p[10]))
                     end
                 end
             end
+            if t then WhipCost.stop('evidence: prints and tracks', t) end
         end
         Wait(wait)
     end

@@ -66,9 +66,12 @@ local W, H = 1024, 1024
 local IDLE_MS = 60000
 local dui, up, waiting, painted, lastUsed = nil, false, {}, {}, 0
 
+local resetMarks   -- set further down: the whole-marker cells are gone with the page
+
 local function release()
     if dui then DestroyDui(dui) end
     dui, up, waiting, painted = nil, false, {}, {}
+    if resetMarks then resetMarks() end
 end
 
 local function checkIdle()
@@ -116,6 +119,64 @@ end
 local LEGEND_UV = { uv(512, 0, 512, 640) }
 local BADGE_UV  = { uv(512 + 6 * 64, 640, 64, 64) }   -- camera badge: already photographed
 local ARROW_UV  = { uv(512 + 7 * 64, 640, 64, 64) }   -- blood trail: the way the person walked
+
+-- Whole markers painted on the atlas (tag, number, badge in one picture): one sprite per marker per frame.
+-- A cell stays with its marker while it is in view; a new cell is used only once the page has painted it.
+local MARK_CELLS = 64
+local MARK_UV = {}
+for i = 0, MARK_CELLS - 1 do MARK_UV[i] = { uv((i % 8) * 64, 384 + math.floor(i / 8) * 80, 64, 80) } end
+local markCell, markSeen, markReady = {}, {}, {}   -- [key] = cell, last rebuild it was used, time it can be drawn
+local freeCells = {}
+for i = MARK_CELLS - 1, 0, -1 do freeCells[#freeCells + 1] = i end
+local markMsg = { action = 'marks', list = {} }
+
+local function markKey(m)
+    local k = m.body and 'L' or (m.car and 'V' or m.phase)
+    return ('%s:%d:%d'):format(k, m.no or 0, m.photo and 1 or 0)
+end
+
+resetMarks = function()
+    markCell, markSeen, markReady, freeCells = {}, {}, {}, {}
+    for i = MARK_CELLS - 1, 0, -1 do freeCells[#freeCells + 1] = i end
+end
+
+-- once per rebuild: give every marker in the list its cell (painted once), free cells not used for 3 s
+local function assignMarks(list, n, rebuildNo)
+    if not (dui and up) then
+        for i = 1, n do list[i].cellUv = nil end   -- drawn from parts until the page is there
+        return
+    end
+    local now = GetGameTimer()
+    local out, nOut = markMsg.list, 0
+    for i = 1, n do
+        local m = list[i]
+        local key = m.markKey
+        if not key or m.markKeyOf ~= (m.no or 0) * 10 + (m.photo and 1 or 0) + (m.phase or 0) * 100 then
+            key = markKey(m)
+            m.markKey, m.markKeyOf = key, (m.no or 0) * 10 + (m.photo and 1 or 0) + (m.phase or 0) * 100
+        end
+        local cell = markCell[key]
+        if not cell and #freeCells > 0 then
+            cell = table.remove(freeCells)
+            markCell[key], markReady[key] = cell, now + 400   -- the page needs a moment to paint it
+            local text = m.body and ('L' .. m.no) or (m.car and ('V' .. m.no) or tostring(m.no))
+            nOut = nOut + 1
+            out[nOut] = { i = cell, k = m.body and 'L' or (m.car and 'V' or m.phase), t = text, p = m.photo == true }
+        end
+        markSeen[key] = rebuildNo
+        m.cellUv = (cell and now >= markReady[key]) and MARK_UV[cell] or nil
+    end
+    for key, cell in pairs(markCell) do
+        if rebuildNo - (markSeen[key] or 0) > 6 then
+            markCell[key], markSeen[key], markReady[key] = nil, nil, nil
+            freeCells[#freeCells + 1] = cell
+        end
+    end
+    if nOut > 0 and dui then
+        for i = nOut + 1, #out do out[i] = nil end
+        if up then SendDuiMessage(dui, json.encode(markMsg)) end
+    end
+end
 
 -- GTA heading (0 = north, 90 = west) as a compass word
 local COMPASS = { 'N', 'NW', 'W', 'SW', 'S', 'SE', 'E', 'NE' }
@@ -510,7 +571,7 @@ local function markerGeometry(m, aspect)
     local dw = w * 0.5 * scale
     m.dw, m.dh = dw, dw * 2 * aspect
     m.step = dw * 0.78
-    m.line = m.dist < 18.0
+    m.line = m.dist < 12.0   -- the stem to the ground only close up (one line less per marker further away)
     m.bw = w * 0.55
     m.ring = math.max(0.014, 0.03 - m.dist * 0.0006)
     local dir = m.ev and m.ev.dir
@@ -709,6 +770,7 @@ local function rebuild()
     focus = best
 
     clearFrom(list, nList + 1)
+    assignMarks(list, nList, rebuildNo)
     markers, cars, lines, lasers = list, carList, lineList, laserList
 
     -- what a photo would show (takePhoto copies it)
@@ -792,8 +854,14 @@ local function cardSize(dist, aspect)
 end
 
 -- one marker: yellow tag, coloured stripe (age), digits, badge. Geometry from markerGeometry.
+-- Painted whole on the atlas (m.cellUv): one sprite; until then from its parts.
 local function drawMarker(m, x, y, aspect)
     local cy = y - m.h / 2
+    local whole = m.cellUv
+    if whole then
+        sprite(x, cy, m.w, m.h, whole)
+        return cy - m.h / 2
+    end
     sprite(x, cy, m.w, m.h, m.tagUv)
     local dy, digits = cy - m.h * 0.11, m.digits
     local n, step = #digits, m.step

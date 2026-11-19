@@ -92,7 +92,7 @@ function WhipEvidence.Ev.lasers() return lasers end
 ---------------------------------------------------------------- Prompts (only while scanning, close up)
 
 -- The prompt only shows up close; further away the scan markers show the evidence
-local PROMPT_RANGE = 6.0
+local PROMPT_RANGE = 3.5   -- fewer prompts at once: whip_core scores every prompt that is up, every frame
 
 -- Police clean-up. Without a photo it asks first: once it is gone, nothing proves it was there.
 local function clearAway(id)
@@ -220,7 +220,7 @@ end
 
 -- A prompt goes up within range and only comes down 3 m further out: walking along the edge
 -- doesn't add and remove it over and over (each AddAction is a big call into whip_core).
-local HIDE_EXTRA = 3.0
+local HIDE_EXTRA = 2.0
 local nearBuf = {}
 
 CreateThread(function()

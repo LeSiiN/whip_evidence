@@ -10,7 +10,9 @@
            legend    x 512-1023, y 0-639   512 x 640 (camera)
            icons     x 512+,    y 640      64 x 64: dots green/yellow/red, rings green/yellow/red, camera badge, trail arrow
            tags      x 512+,    y 704      64 x 80: marker tag too fresh/ready/gone soon
-           digits    x 512+,    y 784      32 x 64: 0-9 */
+           digits    x 512+,    y 784      32 x 64: 0-9
+           marks     x 0-511,   y 384-1023 64 cells of 64 x 80: whole markers (tag, number, photo badge), painted
+                                           for the markers in view, so a marker is one picture per frame */
         html, body { width: 1024px; height: 1024px; margin: 0; overflow: hidden; background: transparent; }
         body { font-family: var(--ui-font, 'Barlow', sans-serif); color: var(--ui-text, rgba(255, 255, 255, 0.93)); }
         .abs { position: absolute; box-sizing: border-box; }
@@ -72,6 +74,10 @@
         .tag .stripe { position: absolute; left: 0; right: 0; bottom: 0; height: 13px; border-top: 2px solid #111; }
         .digit { width: 32px; height: 64px; display: flex; align-items: center; justify-content: center;
                  font-size: 54px; font-weight: 800; line-height: 1; color: #111; }
+        .mark .num { position: absolute; left: 6px; top: 7px; width: 52px; height: 50px; display: flex; align-items: center;
+                     justify-content: center; font-weight: 800; line-height: 1; color: #111; letter-spacing: -1px; }
+        .mark .cam { position: absolute; right: 0; top: 0; width: 24px; height: 24px; border-radius: 50%; background: #0f172a;
+                     border: 2px solid #fff; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -114,6 +120,24 @@
         // arrow (pointing up): the way a bleeding person walked
         box('icon', 512 + 7 * 64, 640, `<svg viewBox="0 0 64 64" width="64" height="64"><path d="M32 4 L54 34 H40 V60 H24 V34 H10 Z" fill="#f87171" stroke="#111" stroke-width="3" stroke-linejoin="round"/></svg>`);
 
+        // whole markers: { i, k = 0/1/2 (phase) or 'L' / 'V', t = text, p = photographed }
+        const marks = [];
+        for (let i = 0; i < 64; i++) marks.push(box('tag mark', (i % 8) * 64, 384 + Math.floor(i / 8) * 80));
+        const MARK_BG = { L: ['#c4b5fd', '#7c3aed'], V: ['#93c5fd', '#2563eb'] };
+        function paintMarks(list) {
+            for (const m of list) {
+                const el = marks[m.i];
+                if (!el) continue;
+                if (!m.t) { el.innerHTML = ''; continue; }
+                const c = MARK_BG[m.k] || ['#fde047', STRIPE[m.k] || STRIPE[1]];
+                const t = String(m.t);
+                const size = t.length <= 1 ? 44 : (t.length === 2 ? 34 : 25);
+                el.innerHTML = `<div class="body" style="background:${c[0]}"><div class="stripe" style="background:${c[1]}"></div></div>
+                    <div class="num" style="font-size:${size}px">${esc(t)}</div>
+                    ${m.p ? `<div class="cam"><div style="width:13px;height:13px">${CAM('#fff')}</div></div>` : ''}`;
+            }
+        }
+
         function esc(s) {
             return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
@@ -153,6 +177,7 @@
 
         window.addEventListener('message', (e) => {
             const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+            if (d && d.action === 'marks') return paintMarks(d.list || []);
             if (!d || d.action !== 'paint') return;
             if (d.cell === 'legend') paintSheet(legend, d);
             else paintCard(d);
