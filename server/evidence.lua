@@ -477,6 +477,7 @@ function WhipEvidence.Evidence.secretFor(kind, d, meta, age)
     if said then
         meta.age, secret.age = '???', said
     end
+    if age then secret._age = math.floor(age) end   -- for the lab (how long it takes); never put on the item
     if kind == 'casing' or kind == 'bullet' then
         meta.ammo, meta.weapon_serial = '???', '???'
         secret.ammo, secret.weapon_serial = d.caliber or L('unknown'), d.serial or L('unknown')

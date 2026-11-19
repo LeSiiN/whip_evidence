@@ -656,4 +656,6 @@ Locales.en = {
     hint_card_off             = '   [%s] Hide card',
     key_cards                 = 'Evidence scan: hide/show the card (camera)',
     pad_cards                 = 'Evidence: hide/show the card',
+    lab_partial               = 'partly readable',
+    f_quality                 = 'Quality',
 }

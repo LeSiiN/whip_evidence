@@ -157,6 +157,11 @@ Vorbereitung: `/w` → Forensics → „Give me the test kit“, Polizei im Dien
 - [ ] 7f.2 Labor (grob): „Alter bei Sicherung: Unter 15 Min / Unter 1 Std / Über 1 Std“.
 - [ ] 7f.3 `/whip`: Alter auf „Exact“ → wieder Minuten und „noch X Min“; „Not shown“ → keine Altersangabe. Labor „Not told“ → neue Beutel ohne Altersfeld.
 
+## 7g. Laborzeit nach Alter
+- [ ] 7g.1 Drei frische Beutel analysieren → ca. 3 Min (mind. 2). Alte Beutel (über 30 Min beim Sichern; „Give me every evidence bag“: der Fingerabdruck #4 ist 60 Min alt) → deutlich länger. Nie über 15 Min.
+- [ ] 7g.2 Monitor: frische Beutel laufen in der Liste schneller durch, „in ca. X Min“ passt zur echten Zeit.
+- [ ] 7g.3 `/whip` „Old traces partly readable“ an, Chance 100 → alter Fingerabdruck kommt z. B. „FP-12?4?“ zurück, Feld „Qualität: teilweise lesbar“. Frische Beutel nie.
+
 ## 8. Neustart und Kanten
 - [ ] 8.1 Spur fotografieren, Resource neu starten → Spur, Nummer, Foto-Abzeichen und Blutrichtung sind noch da.
 - [ ] 8.2 Beweiskoffer an Spieler 2 geben → Custody „Received (evidence case)“ bei allen Beuteln, **nur einmal**.

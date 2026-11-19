@@ -3,7 +3,7 @@
 Forensics for WHIP: evidence at crime scenes, real crime scene photos, minigames, labs with a monitor,
 ballistics, gunshot residue, vehicle and weapon traces, an evidence case and case lockers for your MDT.
 
-Version 4.2.0 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
+Version 4.2.1 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
 
 <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/Czztofsedr9H.jpg" alt="Camera scan with numbered markers and the crime scene legend" width="880" height="478">
 
@@ -123,7 +123,9 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
    <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/rG625dbl4LE4.png" alt="Body card in the scan: time of death, wounds, bullets" width="434" height="236">
 
 4. **Clean up.** "Clear away" on a marker, or F1 → "Release crime scene". Unphotographed traces need a confirmation.
-5. **Lab.** At the lab device: "Unload evidence case", then "Analyse evidence" (5–10 min, storage locked).
+5. **Lab.** At the lab device: "Unload evidence case", then "Analyse evidence" (storage locked). Each bag takes time by its age
+   when collected: fresh about 1 min, old about 2.5 min, all added up (2–15 min, `LabMinMinutes` / `LabMaxMinutes`).
+   With `LabPartial` on, old traces sometimes come back only partly readable ("FP-8K2M4?7?").
    A gun in the storage gets test-fired: a reference casing and "Ballistic match" on matching casings.
    The lab also tells how old a trace was when it was collected. The monitor shows progress and results:
    locked until an officer steps up, each bag in turn with what the instrument sees, a sound when done.
@@ -217,7 +219,7 @@ server code, never straight from its NUI.
 2. MDT case page → "Add evidence" → your server calls `GetUploadable(source)` → your NUI shows the list.
 3. Officer ticks items → your server calls `Upload(source, refs, caseId)` → for every `ok` result, save `entry` in your DB.
    The items now sit in that case's locker in game (`Case: <id>` on the item, chain of custody updated).
-4. In game, officers open the locker at an evidence locker by typing the case ID (or your MDT calls `OpenCaseLocker`).
+4. In game, officers open the locker at an evidence locker by picking the case from the list (or your MDT calls `OpenCaseLocker`).
 5. `whip_evidence:caseChanged` tells your MDT when something changed → refresh with `GetCase(caseId)`.
 6. Closing the case in your MDT → `CloseCase(caseId, source)` (the locker becomes look only).
 
@@ -298,7 +300,8 @@ end)
 
 **5. Photos**
 
-`entry.entries` lists the markers in the picture (`n` number, `t` type, `d` metres, `s` state, `a` age in minutes),
+`entry.entries` lists the markers in the picture (`n` number, `t` type, `d` metres, `s` state, `a` age in minutes,
+`w` the age as shown to officers per `AgeShown`, `false` when off),
 `entry.cars` the vehicles (`v` marker, `p` plate, `seen` plate readable, `m` model, `c` colour, `t` traces), `entry.bodies` the bodies. The picture itself: `GetPhotoImage(entry.photo_id)` → a `data:image/...;base64,...` text
 (up to a few MB). Load it only when an officer opens the photo, and keep your own copy if the MDT should still show it
 after `Config.Photo.KeepDays` (photos in a case locker are never deleted).
@@ -309,7 +312,7 @@ after `Config.Photo.KeepDays` (photos in a case locker are never deleted).
 |---|---|---|---|---|
 | `ref` (`bag:<id>`, `photo:<id>`, `gun:<serial>`), `item`, `kind`, `type`, `case`, `analysed`, `custody` | ✓ | | | |
 | `time`, `street`, `collected_by`, `marker` (scene number), `photographed`, `tested_on` | | ✓ | | |
-| `results` = `{ ammo, weapon_serial, fingerprint, blood_type, paint, gsr, ballistics, age, fiber, cleaner, surface, shoe_profile, shoe_size, tyre_profile, tyre_width }` | | ✓ | | |
+| `results` = `{ ammo, weapon_serial, fingerprint, blood_type, paint, gsr, ballistics, age, fiber, cleaner, surface, shoe_profile, shoe_size, tyre_profile, tyre_width, quality }` (`quality` set and `?` in a value: only partly readable) | | ✓ | | |
 | `photo_id`, `time`, `street`, `scene`, `taken_by`, `entries`, `cars` | | | ✓ | |
 | `serial`, `caliber`, `ballistics` | | | | ✓ |
 

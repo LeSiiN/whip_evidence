@@ -78,8 +78,43 @@ local function resultLine(meta)
     if main and main ~= '???' then parts[#parts + 1] = main end
     local extra = meta.shoe_size or meta.tyre_width
     if extra and extra ~= '???' then parts[#parts + 1] = extra end
+    if meta.quality then parts[#parts + 1] = meta.quality end
     if meta.age and meta.age ~= '???' then parts[#parts + 1] = meta.age end
     return { no = meta.marker, kind = meta.kind, text = table.concat(parts, ' · ') }
+end
+
+-- How long one bag takes in the lab: by its age when collected (secret._age, seconds), a little random.
+-- No age = a sample from a person, a car or a weapon.
+local function bagSeconds(secret)
+    local a = secret and tonumber(secret._age)
+    local base
+    if not secret or (secret.age == nil and not a) then base = 60
+    elseif not a then base = 90                     -- bags from before 4.2
+    elseif a < 600 then base = 60
+    elseif a < 1800 then base = 90
+    else base = 150 end
+    return base * (0.8 + math.random() * 0.4)
+end
+
+-- Old traces may come back only partly readable (Config.LabPartial): some characters become '?'
+local MASKED = { 'fingerprint', 'weapon_serial', 'shoe_profile', 'tyre_profile', 'fiber' }
+local function partly(secret)
+    local hit = false
+    for _, key in ipairs(MASKED) do
+        local v = secret[key]
+        if type(v) == 'string' and #v > 3 then
+            local out = {}
+            for i = 1, #v do
+                local ch = v:sub(i, i)
+                out[i] = (ch:match('%w') and math.random() < 0.4 and i > 3) and '?' or ch
+            end
+            secret[key], hit = table.concat(out), true
+        end
+    end
+    if type(secret.blood_type) == 'string' then
+        secret.blood_type, hit = secret.blood_type:gsub('[%+%-]$', '?'), true
+    end
+    if hit then secret.quality = L('lab_partial') end
 end
 
 -- What the screen shows: idle (counts), running (progress), done (results for 10 minutes)
@@ -91,7 +126,7 @@ local function publish(id)
     if lab.running then
         local r = lab.running
         st.state, st.started, st.ends, st.count, st.guns, st.by, st.kinds = 'running', r.started, r.ends, #r.ids, #r.guns, r.byName, r.kinds
-        st.items = r.list
+        st.items, st.restS = r.list, r.restS
     else
         local s = status(lab.containerId, function(addr) return Whip.core:StoreRead(addr) end)
         st.pending, st.analysed, st.total, st.newGuns = #s.pending, s.analysed, s.total, #s.newGuns
@@ -134,6 +169,11 @@ local function finish(id)
     local labName = lab.def.label or id
     for bagId, secret in pairs(WhipEvidence.Data.pendingSecrets(stillThere)) do
         local addr = addrOf(c.bags[bagId].slot)
+        local age = tonumber(secret._age)
+        secret._age = nil
+        if Config.LabPartial and age and age >= 1800 and math.random(1, 100) <= (tonumber(Config.LabPartialChance) or 40) then
+            partly(secret)
+        end
         secret.custody = WhipEvidence.custody(c.bags[bagId].meta.custody, L('custody_analysed', labName))
         if Whip.core:SetItemMetadata(addr, secret) then
             done[#done + 1] = bagId
@@ -445,26 +485,41 @@ function WhipEvidence.Lab.register()
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
         if lab.running then return false, L('lab_running') end
 
-        local lo = math.min(Config.LabMinMinutes, Config.LabMaxMinutes)
-        local hi = math.max(Config.LabMinMinutes, Config.LabMaxMinutes)
-        local minutes = math.random(lo, hi)
         local locked, why = exports.whip_core:UpdateContainer(lab.containerId, { locked = true, name = busyName(lab.def) })
         if not locked then return false, why end
         local token = WhipEvidence.Data.newId()
         local kinds, list = {}, {}
         local c = contents(lab.containerId, function(addr) return exports.whip_core:StoreRead(addr) end)
-        for _, bagId in ipairs(s.pending) do
+        -- each bag by its age, then all added up and kept between LabMinMinutes and LabMaxMinutes
+        local secrets = WhipEvidence.Data.pendingSecrets(s.pending)
+        local times, sum = {}, 0
+        for i, bagId in ipairs(s.pending) do
+            times[i] = bagSeconds(secrets[bagId])
+            sum = sum + times[i]
+        end
+        local gunTime = #s.newGuns * 60
+        sum = sum + gunTime
+        local lo = math.min(Config.LabMinMinutes, Config.LabMaxMinutes) * 60
+        local hi = math.max(Config.LabMinMinutes, Config.LabMaxMinutes) * 60
+        local total = math.floor(math.max(lo, math.min(hi, sum)) + 0.5)
+        local scale = sum > 0 and total / sum or 1
+        local restS = gunTime * scale
+        for i, bagId in ipairs(s.pending) do
             local meta = c.bags[bagId] and c.bags[bagId].meta or {}
             local k = meta.kind or 'other'
             kinds[k] = (kinds[k] or 0) + 1
-            if #list < 12 then list[#list + 1] = { k = k, n = meta.marker } end   -- the screen shows them one after another
+            -- the screen shows them one after another, each with its own time
+            if #list < 12 then list[#list + 1] = { k = k, n = meta.marker, s = math.floor(times[i] * scale + 0.5) }
+            else restS = restS + times[i] * scale end
         end
-        lab.running = { started = os.time(), ends = os.time() + minutes * 60, ids = s.pending, guns = s.newGuns,
-                        by = player.charId, byName = WhipEvidence.officerLabel(source, player), kinds = kinds, list = list, token = token }
+        local minutes = math.max(1, math.ceil(total / 60))
+        lab.running = { started = os.time(), ends = os.time() + total, ids = s.pending, guns = s.newGuns,
+                        by = player.charId, byName = WhipEvidence.officerLabel(source, player), kinds = kinds, list = list,
+                        restS = math.floor(restS + 0.5), token = token }
         lab.result = nil
         signLab(lab, s.pending, WhipEvidence.officerLabel(source, player))
         publish(id)
-        SetTimeout(math.max(1000, minutes * 60000), function()
+        SetTimeout(math.max(1000, total * 1000), function()
             -- only this run (an admin may have finished it early and a new one started)
             if labs[id] and labs[id].running and labs[id].running.token == token then finish(id) end
         end)

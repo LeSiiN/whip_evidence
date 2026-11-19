@@ -42,6 +42,7 @@ local function revealMine(source)
     end
     local done = {}
     for id, secret in pairs(WhipEvidence.Data.pendingSecrets(ids)) do
+        secret._age = nil   -- only for the lab's timing
         if exports.whip_core:SetItemMetadata(byId[id].addr, secret) then done[#done + 1] = id end
     end
     WhipEvidence.Data.markAnalysed(done)

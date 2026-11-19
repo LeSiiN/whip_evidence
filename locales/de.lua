@@ -656,4 +656,6 @@ Locales.de = {
     hint_card_off             = '   [%s] Karte ausblenden',
     key_cards                 = 'Spurenscan: Karte aus/an (Kamera)',
     pad_cards                 = 'Beweise: Karte aus/an',
+    lab_partial               = 'teilweise lesbar',
+    f_quality                 = 'Qualität',
 }

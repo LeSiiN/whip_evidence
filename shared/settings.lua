@@ -193,8 +193,11 @@ Whip.configPage({
                   { key = 'coords', type = 'vec3', here = true, label = 'Position' },
               } }),
             { key = 'CaseSlots', type = 'int', min = 10, max = 200, label = 'Slots per case locker' },
-            { key = 'LabMinMinutes', type = 'int', min = 0, max = 120, unit = 'min', label = 'Analysis from' },
-            { key = 'LabMaxMinutes', type = 'int', min = 0, max = 120, unit = 'min', label = 'Analysis to' },
+            { key = 'LabMinMinutes', type = 'int', min = 0, max = 120, unit = 'min', label = 'Analysis at least',
+              help = 'Each bag takes time by its age (fresh about 1 min, old about 2.5 min), all added up.' },
+            { key = 'LabMaxMinutes', type = 'int', min = 0, max = 120, unit = 'min', label = 'Analysis at most' },
+            { key = 'LabPartial', type = 'bool', label = 'Old traces partly readable', help = 'Over 30 min old when collected: sometimes only part of the result.' },
+            { key = 'LabPartialChance', type = 'int', min = 0, max = 100, unit = '%', label = 'Partly readable chance' },
         } },
         { label = 'Weapons', settings = {
             restart({ key = 'Calibers', type = 'map', each = { type = 'string', maxLen = 40 }, keyPattern = '^[%w_%-]+$',

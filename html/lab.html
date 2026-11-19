@@ -524,19 +524,30 @@
                     taskProgress(pct);
                     if (!d.user) $('lkCard').innerHTML = lockCard(Object.assign({}, d, { leftMs: left }));
                     if (!items.length) { scanStep(pct / 100); return; }
-                    // one bag after another: each gets an equal share of the time
-                    const n = items.length, per = total / n, done = (pct / 100) * n;
-                    const idx = Math.min(n - 1, Math.floor(done));
+                    // one bag after another, each with its own time (s, seconds; older traces take longer).
+                    // Without times (an older server): equal shares. The rest (more bags, guns) comes after the list.
+                    const n = items.length;
+                    const secs = items.map((it) => Math.max(1, +it.s || 0));
+                    const timed = items.every((it) => +it.s > 0);
+                    const listMs = timed ? secs.reduce((a, b) => a + b, 0) * 1000 : total;
+                    const ends = [];
+                    let acc = 0;
+                    for (let i = 0; i < n; i++) { acc += timed ? secs[i] * 1000 : total / n; ends.push(acc); }
+                    const elapsed = Math.min(listMs, (pct / 100) * total);
+                    let idx = ends.findIndex((e) => elapsed < e);
+                    if (idx < 0) idx = n - 1;
+                    const startMs = idx > 0 ? ends[idx - 1] : 0;
+                    const done = idx + Math.min(1, (elapsed - startMs) / Math.max(1, ends[idx] - startMs));
                     const rows = Math.max(2, Math.floor((H - 205) / 25));
                     const from = Math.max(0, Math.min(idx - 1, n - rows));
                     let html = '';
                     for (let i = from; i < Math.min(n, from + rows); i++) {
                         const it = items[i];
                         let st, cls = '';
-                        if (i < idx) { st = T('lab_bag_done', 'done'); cls = 'done'; }
+                        if (i < idx || (i === idx && done >= idx + 1)) { st = T('lab_bag_done', 'done'); cls = 'done'; }
                         else if (i === idx) { st = F('lab_bag_running', 'running · %d %', Math.floor((done - idx) * 100)); cls = 'now'; }
                         else {
-                            const mins = Math.ceil(((i * per) - (pct / 100) * total) / 60000);
+                            const mins = Math.ceil(((i > 0 ? ends[i - 1] : 0) - elapsed) / 60000);
                             st = mins <= 1 ? T('lab_bag_soon', 'next') : F('lab_bag_wait', 'in about %d min', mins);
                         }
                         html += `<div class="bag ${cls}"><span class="no">${esc(it.n || '•')}</span><span class="k">${esc(kindName(it.k))}</span><span class="s">${esc(st)}</span></div>`;

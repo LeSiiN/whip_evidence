@@ -228,8 +228,12 @@ Config = {
           slots = 10, weight = 50.0 },
     },
     LabScreenLogo = 'img/screen/logo.png',   -- your own logo for the lab screen (html/img/screen/), PNG
-    LabMinMinutes = 5,     -- an analysis takes between ...
-    LabMaxMinutes = 10,    -- ... and this many minutes
+    -- Analysis time: each bag by its age when collected (fresh ~1 min, older ~1.5, old ~2.5; samples from people,
+    -- cars and weapons 1 min; a gun to test-fire 1 min), a little random, all added up, kept between these two
+    LabMinMinutes = 2,
+    LabMaxMinutes = 15,
+    LabPartial       = false,  -- old traces (over 30 min when collected) sometimes come back only partly readable
+    LabPartialChance = 40,     -- percent, for those old traces
 
     -- Evidence lockers: where officers open the locker of a case (case ID asked).
     -- Every case's locker opens at every one of these places. Set the spot in /whip -> Forensics.
