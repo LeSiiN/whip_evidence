@@ -101,6 +101,45 @@ function WhipEvidence.ageWords(seconds)
     return L('age_old')
 end
 
+-- The findings of an examined body (a view from server/bodies.lua) as rows { k, v, c? }, a title, a sub line
+-- and the same as plain text. died = "died 10-20 min ago". Used by the sheet and the post-mortem report.
+function WhipEvidence.bodyReport(b, died)
+    local d = b.details or {}
+    local function woundList(list)
+        local w = {}
+        for _, x in ipairs(list or {}) do w[#w + 1] = L('wound_' .. x.w) .. (x.n > 1 and (' ×' .. x.n) or '') end
+        return table.concat(w, ', ')
+    end
+    local rows = {}
+    local function row(k, v, c) rows[#rows + 1] = { k = k, v = v, c = c } end
+    if d.fatal then row(L('rep_fatal'), L('rep_fatal_v', L('wound_' .. d.fatal.w), L('part_' .. d.fatal.p)), 'red') end
+    row(L('rep_wounds'), ('%s  (%s)'):format(woundList(b.wounds), L('rep_hits', d.hits or 0)))
+    for _, p in ipairs(d.byPart or {}) do row('   ' .. L('part_' .. p.p), woundList(p.w)) end
+    if d.ranges and #d.ranges > 0 then
+        local r = {}
+        for _, x in ipairs(d.ranges) do r[#r + 1] = L('range_' .. x) end
+        row(L('rep_range'), table.concat(r, ', '))
+    end
+    if (d.through or 0) > 0 or (b.bullets or 0) > 0 then
+        row(L('rep_bullets'), L('rep_bullets_v', b.bullets or 0, d.through or 0), (b.bullets or 0) > 0 and 'red' or nil)
+    end
+    if d.defense then row(L('rep_defense'), L('rep_defense_v'), 'yellow') end
+    if d.armed then row(L('rep_armed'), L('rep_armed_v'), 'yellow') end
+    if d.moved then row(L('rep_moved'), L('rep_moved_v', d.moved), 'yellow') end
+    local secured = {}
+    if b.photo then secured[#secured + 1] = L('chip_photo') end
+    if b.blood then secured[#secured + 1] = L('chip_blood_taken') end
+    if b.gsr then secured[#secured + 1] = L('chip_gsr_taken') end
+    row(L('rep_secured'), #secured > 0 and table.concat(secured, ', ') or L('rep_nothing_yet'))
+    local sub = died
+    if d.sex then sub = sub .. ' · ' .. L('sex_' .. d.sex) end
+    sub = sub .. ' · ' .. L(b.kind == 'player' and 'rep_kind_player' or 'rep_kind_ped')
+    local title = L('rep_title', b.no)
+    local lines = { title, sub }
+    for _, r in ipairs(rows) do lines[#lines + 1] = (r.k:gsub('^%s+', '- ')) .. ': ' .. r.v end
+    return title, sub, rows, table.concat(lines, '\n')
+end
+
 function WhipEvidence.vec(t)
     if type(t) == 'vector3' then return t end
     return vector3(t.x + 0.0, t.y + 0.0, t.z + 0.0)

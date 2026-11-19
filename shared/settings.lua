@@ -153,6 +153,7 @@ Whip.configPage({
         { label = 'Bodies', settings = {
             { key = 'Bodies', type = 'bool', label = 'Bodies can be examined', help = 'Killed by a player: people and pedestrians.' },
             { key = 'BodyKeepMinutes', type = 'int', min = 5, max = 240, unit = 'min', label = 'Pedestrian bodies stay for' },
+            { key = 'BodyReportDays', type = 'int', min = 0, max = 365, unit = 'days', label = 'Post-mortem reports kept for (0 = forever, on start)' },
             { key = 'BodyMax', type = 'int', min = 1, max = 40, label = 'Most pedestrian bodies at once' },
             { key = 'BodyHoldMinutes', type = 'int', min = 0, max = 60, unit = 'min', label = 'No respawn while examined, up to', help = '0 = players can always respawn.' },
             { key = 'BodyBulletStays', type = 'int', min = 0, max = 100, unit = '%', label = 'Bullet stays in the body' },

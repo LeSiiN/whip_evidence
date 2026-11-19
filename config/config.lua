@@ -195,6 +195,7 @@ Config = {
     BodyKeepMinutes  = 30,    -- a pedestrian's body stays this long (then it is taken away)
     BodyMax          = 12,    -- most pedestrian bodies kept at once (the oldest goes first)
     BodyHoldMinutes  = 10,    -- a dead player can't respawn this long once police examine them (0 = never held)
+    BodyReportDays   = 30,    -- post-mortem reports are kept this long for GetBodyReport (0 = forever)
     BodyBulletStays  = 70,    -- percent: a bullet stays in the body (the rest went through)
 
     -- Traces inside vehicles: prints, blood, casings, bullet holes, GSR

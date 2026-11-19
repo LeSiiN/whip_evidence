@@ -61,17 +61,22 @@ local function entryOf(item, m)
     if item == I.bag then
         e.kind, e.type = m.kind, m.type
         e.time, e.street, e.collected_by, e.marker, e.photographed = m.time, m.street, m.collected_by, m.marker, m.photographed
-        e.tested_on = m.tested_on
+        e.tested_on, e.body = m.tested_on, m.body
+        if m.kind == 'autopsy' and type(m.report) == 'string' then
+            local ok, report = pcall(json.decode, m.report)
+            e.report = ok and report or nil
+        end
         e.results = {
             ammo = m.ammo, weapon_serial = m.weapon_serial, fingerprint = m.fingerprint, blood_type = m.blood_type,
             paint = m.paint, gsr = m.gsr, ballistics = m.ballistics, age = m.age,
             surface = m.surface, shoe_profile = m.shoe_profile, shoe_size = m.shoe_size,
             tyre_profile = m.tyre_profile, tyre_width = m.tyre_width, fiber = m.fiber, cleaner = m.cleaner, quality = m.quality,
+            cause = m.cause, findings = m.findings,
         }
     elseif item == I.photo then
         e.kind, e.type = 'photo', L('type_photo')
         e.photo_id, e.time, e.street, e.scene, e.taken_by = m.photo_id, m.time, m.street, m.scene, m.taken_by
-        e.entries, e.cars = m.entries, m.cars
+        e.entries, e.cars, e.bodies = m.entries, m.cars, m.bodies
     else
         e.kind, e.type = 'weapon', gunName(item)
         e.serial, e.ballistics, e.caliber = m.serial, m.ballistics, Config.Calibers[item]
@@ -630,6 +635,13 @@ end)
 exports('GetPhotoImage', function(photoId)
     if not apiAllowed() then return nil end
     return WhipEvidence.Data.loadPhoto(photoId)
+end)
+
+-- The post-mortem report of an examined body (also after it is gone, for Config.BodyReportDays; nil otherwise).
+-- The report item (kind 'autopsy') keeps it for good: entry.report. Pushed too: AddEventHandler('whip_evidence:bodyExamined', fn(report))
+exports('GetBodyReport', function(bodyId)
+    if not apiAllowed() then return nil end
+    return WhipEvidence.Bodies.report(tostring(bodyId or ''))
 end)
 
 -- The MDT tells this resource how to check a case ID (used by the lab's "Upload to a case"):

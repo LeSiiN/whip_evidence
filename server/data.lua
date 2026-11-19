@@ -118,6 +118,18 @@ function WhipEvidence.Data.setup()
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
     if not ok then return Whip.startProblem('table whip_evidence_filed: %s', tostring(why)) end
 
+    -- post-mortem reports (GetBodyReport still finds them after the body is gone)
+    ok, why = Whip.core:EnsureTable('whip_evidence_reports', [[CREATE TABLE IF NOT EXISTS `whip_evidence_reports` (
+        `id` VARCHAR(32) NOT NULL,
+        `report` MEDIUMTEXT NOT NULL,
+        `created` INT UNSIGNED NOT NULL,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    if not ok then return Whip.startProblem('table whip_evidence_reports: %s', tostring(why)) end
+    if (Config.BodyReportDays or 0) > 0 then
+        MySQL.update.await('DELETE FROM `whip_evidence_reports` WHERE `created` < ?', { os.time() - Config.BodyReportDays * 86400 })
+    end
+
     -- old pictures go, except those of a case (in its locker, or taken out of it)
     if (Config.Photo.KeepDays or 0) > 0 then
         local gone = MySQL.update.await([[DELETE FROM `whip_evidence_photos` WHERE `created` < ?
@@ -207,6 +219,18 @@ function WhipEvidence.Data.fileSerial(filed, original)
         { query = 'INSERT INTO `whip_evidence_filed` (`filed`, `original`, `created`) VALUES (?, ?, ?)', values = { filed, original, os.time() } },
         { query = 'UPDATE IGNORE `whip_evidence_weapon_prints` SET `serial` = ? WHERE `serial` = ?', values = { filed, original } },
     })
+end
+
+-- A body's post-mortem report (json); saved again when the body goes, so the last state is kept
+function WhipEvidence.Data.saveReport(id, report, created)
+    if not ready then return end
+    MySQL.insert('INSERT INTO `whip_evidence_reports` (`id`, `report`, `created`) VALUES (?, ?, ?) ' ..
+        'ON DUPLICATE KEY UPDATE `report` = VALUES(`report`)', { id, report, created or os.time() })
+end
+
+function WhipEvidence.Data.loadReport(id)
+    if not ready then return nil end
+    return MySQL.scalar.await('SELECT `report` FROM `whip_evidence_reports` WHERE `id` = ?', { id })
 end
 
 function WhipEvidence.Data.filedOriginal(filed)

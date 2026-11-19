@@ -104,6 +104,8 @@ function WhipEvidence.ItemDefs.register()
             { key = 'blood_type',    label = L('f_blood_type') },
             { key = 'paint',         label = L('f_paint') },
             { key = 'quality',       label = L('f_quality') },
+            { key = 'cause',         label = L('f_cause') },
+            { key = 'findings',      label = L('f_findings') },
             { key = 'fiber',         label = L('f_fiber') },
             { key = 'cleaner',       label = L('f_cleaner') },
             { key = 'surface',       label = L('f_surface') },

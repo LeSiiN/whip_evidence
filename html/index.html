@@ -133,7 +133,7 @@
         #report { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 60;
                   background: rgba(5, 6, 8, .55); font-family: 'Barlow', sans-serif; color: #f3f3f3; }
         #report.open { display: flex; }
-        #report .sheet { width: min(620px, 92vw); max-height: 86vh; overflow-y: auto; background: rgba(18, 20, 28, .97);
+        #report .sheet { width: min(900px, 94vw); max-height: 86vh; overflow-y: auto; background: rgba(18, 20, 28, .97);
                          border: 1px solid rgba(255,255,255,.12); border-top: 4px solid #a78bfa; border-radius: 12px;
                          padding: 20px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
         #report .kicker { font-size: 12px; font-weight: 800; letter-spacing: 3px; color: #a78bfa; }
@@ -144,6 +144,21 @@
         #report .r .v { flex: 1; font-weight: 700; }
         #report .r.sub-part .k, #report .r.sub-part .v { font-size: 15px; font-weight: 600; }
         #report .btns { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+        /* body picture with the hits, findings beside it */
+        #report .grid { display: grid; grid-template-columns: 250px 1fr; gap: 22px; align-items: start; }
+        #report .fig { background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); border-radius: 12px; padding: 12px 10px 10px; }
+        #report .fig svg { width: 100%; height: auto; display: block; }
+        #report .fig .cap { text-align: center; font-size: 11px; letter-spacing: 2px; color: rgba(255,255,255,.4); font-weight: 700; margin-top: 2px; }
+        #report .legend { display: grid; gap: 5px; margin-top: 10px; font-size: 12.5px; color: rgba(255,255,255,.7); }
+        #report .legend span { display: flex; align-items: center; gap: 8px; }
+        #report .legend svg { width: 16px; height: 16px; flex: none; }
+        #report .cause { padding: 12px 14px; border-radius: 10px; background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.35); margin-bottom: 10px; }
+        #report .cause .k { font-size: 12px; letter-spacing: 2px; font-weight: 800; color: #f87171; text-transform: uppercase; }
+        #report .cause .v { font-size: 20px; font-weight: 800; margin-top: 2px; }
+        #report .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+        #report .tile { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); border-radius: 10px; padding: 8px 10px; }
+        #report .tile .n { font-size: 22px; font-weight: 800; line-height: 1.1; }
+        #report .tile .t { font-size: 12px; color: rgba(255,255,255,.55); font-weight: 600; }
         #report .btn { padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14);
                        font-size: 14px; font-weight: 700; cursor: pointer; }
         #report .btn:hover { background: rgba(255,255,255,.16); }
@@ -210,7 +225,10 @@
             <div class="kicker" id="repKicker"></div>
             <h2 id="repTitle"></h2>
             <div class="sub" id="repSub"></div>
-            <div class="list" id="repRows"></div>
+            <div class="grid">
+                <div class="fig"><div id="repFig"></div><div class="legend" id="repLegend"></div></div>
+                <div><div id="repTop"></div><div class="list" id="repRows"></div></div>
+            </div>
             <div class="btns"><div class="btn" id="repCopy" data-probe-press></div><div class="btn" id="repClose" data-probe-press></div></div>
         </div>
     </div>
@@ -504,6 +522,49 @@
             $('repCopy').textContent = REP.copied;
         }
         $('repCopy').addEventListener('click', repCopy);
+
+        // a person seen from the front; every hit as a mark on its body part
+        const REP_AREAS = {
+            head:  [[100, 42, 20, 22]],
+            torso: [[100, 140, 26, 56]],
+            arms:  [[55, 150, 9, 48], [145, 150, 9, 48]],
+            legs:  [[86, 300, 10, 70], [114, 300, 10, 70]],
+        };
+        const REP_ICON = {
+            inside:  '<circle cx="0" cy="0" r="6.5" fill="#ef4444" stroke="#fff" stroke-width="2"/>',
+            through: '<circle cx="0" cy="0" r="5.5" fill="none" stroke="#ef4444" stroke-width="2.6"/>',
+            stab:    '<path d="M-6 6L6 -6" stroke="#fb923c" stroke-width="3.4" stroke-linecap="round"/>',
+            other:   '<rect x="-5" y="-5" width="10" height="10" rx="2.5" fill="#a78bfa" stroke="#111" stroke-width="1"/>',
+        };
+        function repFigure(f) {
+            const marks = f.marks || [];
+            let seed = 7;
+            const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+            const used = {};
+            const dots = marks.map((m) => {
+                const areas = REP_AREAS[m.p] || REP_AREAS.torso;
+                used[m.p] = (used[m.p] || 0) + 1;
+                const a = areas[(used[m.p] - 1) % areas.length];
+                const x = a[0] + (rnd() * 2 - 1) * a[2], y = a[1] + (rnd() * 2 - 1) * a[3];
+                const kind = m.w === 'gunshot' ? (m.i ? 'inside' : 'through') : (m.w === 'stab' ? 'stab' : 'other');
+                const fatal = m.f ? `<circle cx="0" cy="0" r="11" fill="none" stroke="#fde047" stroke-width="1.6" stroke-dasharray="3 2"/>` : '';
+                return `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">${fatal}${REP_ICON[kind]}</g>`;
+            }).join('');
+            const skin = 'fill="rgba(255,255,255,.10)" stroke="rgba(255,255,255,.35)" stroke-width="1.6"';
+            $('repFig').innerHTML = `<svg viewBox="0 0 200 410">
+                <circle cx="100" cy="42" r="26" ${skin}/>
+                <rect x="90" y="66" width="20" height="14" rx="4" ${skin}/>
+                <path d="M68 82 Q100 74 132 82 L136 206 Q100 214 64 206 Z" ${skin}/>
+                <path d="M66 86 L48 98 L42 210 L58 212 L66 120 Z" ${skin}/>
+                <path d="M134 86 L152 98 L158 210 L142 212 L134 120 Z" ${skin}/>
+                <path d="M68 206 L98 210 L96 392 L76 392 Z" ${skin}/>
+                <path d="M132 206 L102 210 L104 392 L124 392 Z" ${skin}/>
+                ${dots}</svg><div class="cap">${esc(f.front || 'FRONT')}</div>`;
+            const L = f.legend || {};
+            const item = (k, t) => `<span><svg viewBox="-9 -9 18 18">${REP_ICON[k]}</svg>${esc(t)}</span>`;
+            $('repLegend').innerHTML = item('inside', L.inside || 'bullet still inside') + item('through', L.through || 'went through')
+                + item('stab', L.stab || 'stab') + item('other', L.other || 'other wound');
+        }
         $('repClose').addEventListener('click', () => repClose(true));
         window.addEventListener('message', (e) => {
             const d = e.data || {};
@@ -513,7 +574,13 @@
                 $('repKicker').textContent = d.kicker || '';
                 $('repTitle').textContent = d.title || '';
                 $('repSub').textContent = d.sub || '';
-                $('repRows').innerHTML = (d.rows || []).map((r) => {
+                repFigure(d.fig || {});
+                const rows = (d.rows || []).slice();
+                // the cause of death on top as a card, a few numbers as tiles, then the rest
+                const cause = rows.length && rows[0].c === 'red' && d.fig && d.fig.cause ? rows.shift() : null;
+                $('repTop').innerHTML = (cause ? `<div class="cause"><div class="k">${esc(cause.k)}</div><div class="v">${esc(cause.v)}</div></div>` : '')
+                    + ((d.fig && d.fig.tiles) ? `<div class="tiles">${d.fig.tiles.map((t) => `<div class="tile"><div class="n"${REP_COLORS[t.c] ? ` style="color:${REP_COLORS[t.c]}"` : ''}>${esc(t.n)}</div><div class="t">${esc(t.t)}</div></div>`).join('')}</div>` : '');
+                $('repRows').innerHTML = rows.map((r) => {
                     const part = /^\s/.test(r.k || '');
                     const c = REP_COLORS[r.c] ? ` style="color:${REP_COLORS[r.c]}"` : '';
                     return `<div class="r${part ? ' sub-part' : ''}"><span class="k">${esc(r.k)}</span><span class="v"${c}>${esc(r.v)}</span></div>`;

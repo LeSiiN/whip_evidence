@@ -102,12 +102,28 @@ local function view(b)
         if ranges[r] then rlist[#rlist + 1] = r end
     end
     local moved = b.deathCoords and #(coordsOf(b) - b.deathCoords) or 0
+    -- every hit for the body picture: where, what, and whether its bullet is still in the body
+    local inside = {}
+    for _, bl in ipairs(b.bullets) do
+        local p = bl.part or 'torso'
+        inside[p] = (inside[p] or 0) + 1
+    end
+    local marks = {}
+    for i, h in ipairs(b.hits) do
+        local stays = false
+        if h.wound == 'gunshot' and h.stays and (inside[h.part] or 0) > 0 then
+            inside[h.part] = inside[h.part] - 1
+            stays = true
+        end
+        marks[i] = { p = h.part, w = h.wound, i = stays or nil, f = (h == fatal) or nil }
+    end
     v.wounds, v.parts, v.bullets = wounds, parts, #b.bullets
     v.details = {
         hits = #b.hits, byPart = byPart, ranges = rlist, through = through, defense = defense,
         fatal = fatal and { w = fatal.wound, p = fatal.part } or nil,
         sex = b.male == true and 'male' or (b.male == false and 'female' or nil),
         armed = b.armed == true, moved = moved >= 3.0 and math.floor(moved + 0.5) or nil,
+        marks = marks,
     }
     return v
 end
@@ -124,9 +140,12 @@ local function release(b)
     b.held = nil
 end
 
+local keepReport   -- below: saves the report of an examined body
+
 local function remove(id, takeAway)
     local b = Bodies[id]
     if not b then return end
+    if b.examined and keepReport then keepReport(b) end   -- last state (samples taken) for GetBodyReport later
     Bodies[id] = nil
     release(b)
     if takeAway and b.kind == 'ped' then deletePed(b.net) end
@@ -328,7 +347,38 @@ local function findings(b)
     return text
 end
 
-local function examine(source, player, b)
+-- The post-mortem report: the findings (view) plus when, by whom, where, and the text of "Copy as text"
+local function reportOf(b)
+    local v = view(b)
+    local title, _, _, text = WhipEvidence.bodyReport(v, L('body_died', WhipEvidence.Evidence.ageText(v.age)))
+    v.title, v.text = title, text
+    v.at, v.examinedBy, v.street = b.examinedAt and os.date('%Y-%m-%d %H:%M:%S', b.examinedAt), b.examinedBy, b.street
+    return v
+end
+
+keepReport = function(b, report)
+    local ok, text = pcall(json.encode, report or reportOf(b))
+    if ok and text then WhipEvidence.Data.saveReport(b.id, text, b.examinedAt) end
+end
+
+-- The officer gets the report as an item (like the serial lab report): it goes into a case like any bag
+local function giveReport(source, player, b, report)
+    local d = report.details or {}
+    local officer = WhipEvidence.officerLabel(source, player)
+    local meta = {
+        evidence_id = WhipEvidence.Data.newId(), kind = 'autopsy', type = L('type_autopsy'),
+        time = report.at, street = report.street, collected_by = officer, marker = 'L' .. b.no,
+        tested_on = label(b), body = b.id,
+        cause = d.fatal and L('rep_fatal_v', L('wound_' .. d.fatal.w), L('part_' .. d.fatal.p)) or L('unknown'),
+        findings = findings(b),
+        report = json.encode(report),   -- the whole report for the MDT (not shown on the item)
+        custody = WhipEvidence.custody(nil, L('custody_examined'), officer),
+    }
+    local given = WhipEvidence.giveBag(source, meta, 'Post-mortem report ' .. label(b))
+    if given then WhipEvidence.logBag(source, 'evidence_pickup', meta.type .. ' · ' .. label(b), meta.evidence_id) end
+end
+
+local function examine(source, player, b, street)
     -- a dead player stays down while they are examined
     local holdMin = tonumber(Config.BodyHoldMinutes) or 0
     if b.source and holdMin > 0 and not b.held then
@@ -340,8 +390,13 @@ local function examine(source, player, b)
     if not kneel(source, b, L('body_examining'), 6000, 'body_examine') then return false end
     if not exports.whip_core:IsSessionCurrent(source, player.session) or not Bodies[b.id] then return false end
     b.examined = true
+    b.examinedAt, b.examinedBy, b.street = os.time(), WhipEvidence.officerLabel(source, player), street
     WhipEvidence.wear(source, WhipEvidence.Items.kit)
     send(b)
+    local report = reportOf(b)
+    giveReport(source, player, b, report)
+    keepReport(b, report)
+    TriggerEvent('whip_evidence:bodyExamined', report)   -- for an MDT (server side)
     local text = findings(b)
     exports.whip_core:LogActivity(source, 'evidence_body_examine', { detail = label(b) .. ': ' .. text })
     exports.whip_core:NotifyPlayer(source, L('body_findings', b.no, text), 'info', 8000)
@@ -356,6 +411,7 @@ local function bag(source, player, b, meta, kind, data, why)
     meta.time = os.date('%Y-%m-%d %H:%M:%S')
     meta.collected_by = officer
     meta.custody = WhipEvidence.custody(nil, L('custody_collected'), officer)
+    meta.body = b.id   -- which body it came from (the MDT links it to the post-mortem report)
     local secret = data and WhipEvidence.Evidence.secretFor(kind, data, meta) or nil
     if not WhipEvidence.useEmptyBag(source) then return false, L('no_empty_bags') end
     local given, err = WhipEvidence.giveBag(source, meta, why)
@@ -465,7 +521,7 @@ function WhipEvidence.Bodies.register()
         if wound == 'gunshot' and #p.bullets < MAX_BULLETS and roll(Config.BodyBulletStays or 70) then
             local shot = WhipEvidence.Evidence.shotOf(source)
             if shot and not WhipEvidence.isIgnoredWeapon(shot.item) then
-                p.bullets[#p.bullets + 1] = { serial = shot.serial or L('unknown'), caliber = Config.Calibers[shot.item] or L('unknown') }
+                p.bullets[#p.bullets + 1] = { serial = shot.serial or L('unknown'), caliber = Config.Calibers[shot.item] or L('unknown'), part = part }
                 hit.stays = true
             end
         end
@@ -516,9 +572,9 @@ function WhipEvidence.Bodies.register()
             if not ok and why then return false, why end
         end)
     end
-    action('whip_evidence:bodyExamine', function(source, player, b)
+    action('whip_evidence:bodyExamine', function(source, player, b, street)
         if b.examined then return false, L('body_already_examined') end
-        return examine(source, player, b)
+        return examine(source, player, b, street)
     end)
     action('whip_evidence:bodyBullet', takeBullet, true)
     action('whip_evidence:bodyBlood', takeBlood)
@@ -572,6 +628,16 @@ end
 -- Dev tools: a pedestrian that is "a copy of me" (my blood, my GSR) to test player bodies alone
 function WhipEvidence.Bodies.markClone(net, source, charId)
     clones[net] = { source = source, charId = charId }
+end
+
+-- The report of an examined body: live while it is there, else the saved one (Config.BodyReportDays), else nil
+function WhipEvidence.Bodies.report(id)
+    local b = Bodies[id]
+    if b then return b.examined and reportOf(b) or nil end
+    local text = WhipEvidence.Data.loadReport(id)
+    if not text then return nil end
+    local ok, report = pcall(json.decode, text)
+    return ok and report or nil
 end
 
 function WhipEvidence.Bodies.clearAll()

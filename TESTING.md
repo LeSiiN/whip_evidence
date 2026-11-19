@@ -110,6 +110,7 @@ Vorbereitung: `/w` → Forensics → „Give me the test kit“, Polizei im Dien
 - [ ] 7b.1 „Place a test pedestrian“ → Passant steht 4 m vor dir und bleibt stehen.
 - [ ] 7b.2 Zweimal anschießen, dann erschießen → Blutlache am Boden. Taschenlampe drauf: Karte „L1 Leiche · Noch nicht untersucht“.
 - [ ] 7b.3 Prompt „Leiche L1“ sitzt auf der Brust der Leiche (auch nach Wegtragen). „Leiche untersuchen“ (kniend, 6 s) → Befund-Fenster öffnet sich: Todesursache, Verletzungen je Körperstelle, Schussdistanz, Projektile, Geschlecht. „Als Text kopieren“ geht, Esc/B schließt. „Befund ansehen“ öffnet es wieder.
+- [ ] 7b.3a Nach dem Untersuchen: Item „Obduktionsbericht“ im Inventar (Todesursache, Befund). Im Befund-Fenster: Körperbild mit den Treffern (rot gefüllt = Projektil noch drin, Ring = Durchschuss, gelb gestrichelt = tödlich), Kacheln Treffer/Projektile/Todeszeitpunkt. Bericht in einen Case hochladen → MDT bekommt `entry.report`. Projektil/Blut/Schmauch aus der Leiche → `entry.body` gesetzt. Server-Konsole: `exports.whip_evidence:GetBodyReport(id)` liefert den Bericht; nach „Leiche freigeben“ und nach einem Neustart weiterhin (aus `whip_evidence_reports`, mit den zuletzt genommenen Proben).
 - [ ] 7b.3b Kamera auf die Leiche, Foto (H) → im Foto steht „L1 Leiche“ in der Liste, Karte zeigt „Fotografiert“.
 - [ ] 7b.3c Einen normalen Passanten auf der Straße erschießen (nicht gespawnt) → wird genauso zur Leiche.
 - [ ] 7b.4 „Projektil entnehmen“ → Herausziehen-Minigame → Beutel „Projektil (aus Leiche)“. Im Labor: Seriennummer deiner Waffe.
