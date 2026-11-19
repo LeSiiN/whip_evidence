@@ -77,11 +77,10 @@ local function clean(source, player, slotData, addr)
     if not gsr and not blood then
         return false, c.blood and L('nothing_to_clean') or L('no_gsr')
     end
-    local done = exports.whip_core:Progress(source, {
+    local done = exports.whip_core:Progress(source, WhipEvidence.bar('clean_self', {
         label = L('cleaning_self'), duration = math.max(1, tonumber(c.seconds) or 10) * 1000, icon = 'info',
-        anim = { dict = 'missheist_agency3aig_23', clip = 'urinal_sink_loop', flag = 49 },
         disable = { combat = true }, canCancel = true,
-    })
+    }))
     if not done then return false end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
     -- the item must still be there (it may have been dropped or given away meanwhile)
@@ -133,7 +132,7 @@ function WhipEvidence.Gsr.register()
         params = { { 'target', 'player', { range = 3.0 } }, { 'street', 'string', 80, 'Unknown' } },
     }, function(source, player, target, street)
         if not WhipEvidence.isPolice(source) then return false, L('police_only_test') end
-        if not WhipEvidence.can(source, 'evidence_gsr') then return false, L('not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_gsr') then return false, WhipEvidence.why(source, 'evidence_gsr') end
         if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, L('need_kit') end
         if not WhipEvidence.hasEmptyBags(source) then return false, L('no_empty_bags') end
         if exports.whip_core:IsPlayerDead(target.source) then return false, L('must_be_conscious') end
@@ -144,12 +143,12 @@ function WhipEvidence.Gsr.register()
         end
 
         exports.whip_core:NotifyPlayer(target.source, L('being_tested'), 'info')
-        local done = exports.whip_core:Progress(source, {
+        TriggerClientEvent('whip_evidence:client:handsOut', target.source, 3000)
+        local done = exports.whip_core:Progress(source, WhipEvidence.bar('swab_person', {
             label = L('testing_gsr'), duration = 3000, icon = 'target',
-            anim = { dict = 'creatures@rottweiler@tricks@', clip = 'petting_franklin', flag = 0 },
             disable = { move = true, combat = true, car = true },
             near = { coords = GetEntityCoords(GetPlayerPed(target.source)), range = 3.5 },
-        })
+        }))
         if not done then return false end
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
 
@@ -194,10 +193,10 @@ function WhipEvidence.Gsr.register()
         local tag = ('wash:%d:%d'):format(source, GetGameTimer())
         local w = { tag = tag, aborted = false }
         washing[source] = w
-        local done = exports.whip_core:Progress(source, {
+        local done = exports.whip_core:Progress(source, WhipEvidence.bar('clean_self', {
             label = L('washing'), duration = Config.WashSeconds * 1000, icon = 'info', canCancel = true,
             disable = { move = false, combat = true }, tag = tag,
-        })
+        }))
         washing[source] = nil
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
         if not done then

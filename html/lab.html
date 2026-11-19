@@ -48,7 +48,7 @@
                background: rgba(96,205,255,.09); border: 1px solid rgba(96,205,255,.2); border-radius: 7px; padding: 10px 12px; }
 
         .prog { height: 7px; border-radius: 4px; background: rgba(255,255,255,.14); margin: 14px 0 7px; overflow: hidden; }
-        .prog b { display: block; height: 100%; width: 0; border-radius: 4px; background: #60cdff; transition: width 1s linear; }
+        .prog b { display: block; height: 100%; width: 0; border-radius: 4px; background: #60cdff; }
         .row { display: flex; justify-content: space-between; font-size: 14px; font-weight: 600; color: rgba(255,255,255,.88); }
         .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
         .chip { font-size: 12.5px; padding: 5px 10px; border-radius: 14px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.07); }
@@ -56,8 +56,7 @@
                 background: repeating-linear-gradient(90deg, rgba(96,205,255,.07) 0 1px, transparent 1px 16px),
                             repeating-linear-gradient(0deg, rgba(96,205,255,.07) 0 1px, transparent 1px 16px), rgba(0,0,0,.2); }
         .scan i { position: absolute; top: 0; bottom: 0; width: 80px; background: linear-gradient(90deg, transparent, rgba(96,205,255,.35), transparent);
-                  animation: sweep 2.4s linear infinite; }
-        @keyframes sweep { from { left: -80px; } to { left: 100%; } }
+                  left: 0; }
         .scan svg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 180px; opacity: .65; }
 
         .ok { display: flex; align-items: center; gap: 12px; }
@@ -85,11 +84,84 @@
         .tray .clock { line-height: 1.3; }
         .tray svg { width: 13px; height: 13px; opacity: .9; }
 
+        /* running: the bags one after another, and what the current one looks like under the instrument */
+        .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+        .bags { display: flex; flex-direction: column; gap: 3px; overflow: hidden; }
+        .bag { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 4px 8px; border-radius: 5px; background: rgba(255,255,255,.04); }
+        .bag .no { min-width: 26px; height: 18px; line-height: 18px; text-align: center; border-radius: 4px; background: #fde047; color: #111; font-weight: 700; font-size: 11px; flex: none; }
+        .bag .k { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .bag .s { color: rgba(255,255,255,.6); font-size: 11.5px; white-space: nowrap; }
+        .bag.done .s { color: #6ccb5f; }
+        .bag.now { background: rgba(96,205,255,.12); border: 1px solid rgba(96,205,255,.3); }
+        .bag.now .s { color: #60cdff; }
+        .viz { border-radius: 7px; background: rgba(0,0,0,.28); border: 1px solid rgba(96,205,255,.15); padding: 8px; position: relative; overflow: hidden;
+               display: flex; flex-direction: column; max-height: var(--vizh, 240px); }
+        .viz > svg { width: 100%; flex: 1 1 auto; min-height: 0; display: block; }
+        .viz .cap { font-size: 11px; color: rgba(255,255,255,.7); margin-top: 4px; display: flex; justify-content: space-between; }
+        .viz .grid line { stroke: rgba(96,205,255,.12); stroke-width: .5; }
+        /* the pictures move in steps once a second with the analysis, never smoothly: a page drawn small
+           onto a monitor in the world shimmers on every moving pixel */
+        .trace { fill: none; stroke-width: 1.3; }
+        .minu { fill: none; stroke: #f87171; stroke-width: 1.2; }
+        .ridge { fill: none; stroke: rgba(230,230,240,.55); stroke-width: .9; }
+
+        /* taskbar: the app's progress and a badge when results are in; who is signed in */
+        .tb .tbprog { position: absolute; left: 4px; right: 4px; bottom: 1px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.15); overflow: hidden; display: none; }
+        .tb .tbprog b { display: block; height: 100%; width: 0; background: #6ccb5f; }
+        .tb .badge { position: absolute; top: 0; right: 0; min-width: 14px; height: 14px; border-radius: 7px; background: #e81123; font-size: 9px; font-weight: 700;
+                     display: none; align-items: center; justify-content: center; padding: 0 3px; }
+        .tray .user { display: flex; align-items: center; gap: 5px; font-size: 11px; color: rgba(255,255,255,.8); }
+        .tray .user:empty { display: none; }
+        .tray .user i { width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, #60cdff, #2563eb); font-style: normal; font-size: 8.5px; font-weight: 700;
+                        display: flex; align-items: center; justify-content: center; flex: none; }
+        .tray .user span { max-width: 95px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+        /* lock screen, sign-in, screensaver (nobody at the device) */
+        .lock, .login, .saver { position: absolute; inset: 0; display: none; }
+        .lock { z-index: 5; background: radial-gradient(120% 90% at 50% 120%, #0c3b8f 0%, #0a1f54 40%, #071230 75%); }
+        .lock.show, .login.show, .saver.show { display: block; }
+        .lock .lt { position: absolute; top: 15%; width: 100%; text-align: center; font-size: 76px; font-weight: 600; letter-spacing: -1px; }
+        .lock .ld { position: absolute; top: calc(15% + 92px); width: 100%; text-align: center; font-size: 17px; color: rgba(255,255,255,.85); }
+        .lock .card { position: absolute; left: 50%; transform: translateX(-50%); top: calc(15% + 140px); width: 320px; padding: 10px 14px; border-radius: 8px;
+                      background: rgba(20,24,40,.55); border: 1px solid rgba(255,255,255,.1); font-size: 13px; }
+        .lock .card .p { height: 5px; border-radius: 3px; background: rgba(255,255,255,.15); margin-top: 8px; overflow: hidden; }
+        .lock .card .p b { display: block; height: 100%; background: #60cdff; }
+        .lock .hint { position: absolute; bottom: 18px; width: 100%; display: flex; justify-content: center; align-items: center; gap: 8px; font-size: 12px; color: rgba(255,255,255,.7); }
+        .lock .hint img { width: 16px; height: 16px; object-fit: contain; }
+        .login { z-index: 6; background: radial-gradient(120% 90% at 50% 120%, #0c3b8f 0%, #0a1f54 40%, #071230 75%); text-align: center; }
+        .login .av { width: 86px; height: 86px; border-radius: 50%; margin: 0 auto; margin-top: 16%; background: linear-gradient(135deg, #60cdff, #2563eb);
+                     display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 600; }
+        .login .lw { margin-top: 14px; font-size: 15px; color: rgba(255,255,255,.8); }
+        .login .ln { margin-top: 2px; font-size: 22px; font-weight: 600; }
+        .login .spin { width: 22px; height: 22px; margin: 16px auto 0; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.2); border-top-color: #fff; animation: spin .8s steps(8) infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .saver { z-index: 7; background: #000; }
+        .saver .sv { position: absolute; display: flex; align-items: center; gap: 10px; opacity: .55; left: 10%; top: 12%; }
+        .saver .sv img { width: 34px; height: 34px; object-fit: contain; }
+        .saver .sv div { font-size: 30px; font-weight: 300; color: #9fb7e8; }
+
+        /* upload to a case: bags → case folder, then a check; plays once, steps only (no sliding) */
+        .upload { position: absolute; inset: 0; z-index: 8; display: none; background: rgba(8,12,24,.72); }
+        .upload.show { display: flex; align-items: center; justify-content: center; }
+        .upload .box { width: 430px; padding: 18px 22px; border-radius: 10px; background: #1f2433; border: 1px solid rgba(255,255,255,.1); text-align: center; }
+        .upload .flow { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 4px 0 14px; }
+        .upload .ic { min-width: 64px; white-space: nowrap; text-align: center; font-size: 10.5px; color: rgba(255,255,255,.75); }
+        .upload .ic svg { width: 44px; height: 44px; display: block; margin: 0 auto 4px; }
+        .upload .dots { display: flex; gap: 6px; }
+        .upload .dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,.18); }
+        .upload .dots i.on { background: #60cdff; }
+        .upload h2 { margin: 0; font-size: 16px; font-weight: 600; }
+        .upload .p { height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); margin: 12px 0 6px; overflow: hidden; }
+        .upload .p b { display: block; height: 100%; background: #60cdff; width: 0; }
+        .upload .s { font-size: 12px; color: rgba(255,255,255,.65); }
+        .upload .okc { width: 46px; height: 46px; border-radius: 50%; background: #6ccb5f; display: flex; align-items: center; justify-content: center; margin: 2px auto 10px; }
+        .upload .left { margin-top: 8px; font-size: 12px; color: #fbbf24; }
+
         /* toast */
-        .toast { position: absolute; right: 10px; bottom: 48px; width: 270px; padding: 10px 12px; border-radius: 7px; display: none;
+        .toast { position: absolute; right: 10px; bottom: 48px; width: 270px; padding: 10px 12px; border-radius: 7px; display: none; z-index: 10;
                  background: rgba(40, 42, 54, .97); border: 1px solid rgba(255,255,255,.1); box-shadow: 0 12px 30px rgba(0,0,0,.4); }
-        .toast.show { display: block; animation: tin .35s cubic-bezier(.16,1,.3,1); }
-        @keyframes tin { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+        .toast.show { display: block; animation: tin .3s ease-out; }
+        @keyframes tin { from { opacity: 0; } to { opacity: 1; } }
         .toast .h { display: flex; gap: 6px; align-items: center; font-size: 11px; color: rgba(255,255,255,.75); }
         .toast .h img { width: 13px; height: 13px; object-fit: contain; }
         .toast .t { font-size: 14px; font-weight: 600; margin-top: 6px; }
@@ -117,6 +189,16 @@
         </div>
     </div>
 
+    <div class="lock" id="lock">
+        <div class="lt" id="lkTime">--:--</div><div class="ld" id="lkDate"></div>
+        <div class="card" id="lkCard"></div>
+        <div class="hint"><img class="logo" alt=""><span data-t="lab_lock_hint">Step up to the device to sign in</span></div>
+    </div>
+    <div class="login" id="login"><div class="av" id="loginAv"></div><div class="lw" data-t="lab_welcome">Welcome</div><div class="ln" id="loginName"></div><div class="spin"></div></div>
+    <div class="saver" id="saver"><div class="sv"><img class="logo" alt=""><div id="svTime">--:--</div></div></div>
+
+    <div class="upload" id="upload"><div class="box" id="upBox"></div></div>
+
     <div class="toast" id="toast">
         <div class="h"><img class="logo" alt=""><span data-t="lab_app">Forensic Analysis</span></div>
         <div class="t" data-t="lab_complete">Analysis complete</div>
@@ -128,11 +210,12 @@
         <div class="search"><svg viewBox="0 0 16 16" width="12"><circle cx="7" cy="7" r="5" fill="none" stroke="#fff" stroke-width="1.5"/><path d="M11 11l4 4" stroke="#fff" stroke-width="1.5"/></svg><span data-t="lab_search">Search</span></div>
         <div class="tb"><span class="ico" style="background:linear-gradient(135deg,#ffd166,#f4a300)"></span></div>
         <div class="tb"><span class="ico" style="background:linear-gradient(135deg,#7dd3fc,#2563eb)"></span></div>
-        <div class="tb on"><img class="logo" alt=""></div>
+        <div class="tb on"><img class="logo" alt=""><i class="tbprog" id="tbProg"><b id="tbProgB"></b></i><b class="badge" id="tbBadge"></b></div>
         <div class="tb"><span class="ico" style="background:linear-gradient(135deg,#86efac,#16a34a)"></span></div>
         <div class="tray">
             <svg viewBox="0 0 16 16"><path d="M1 6a10 10 0 0 1 14 0M3.5 8.5a6.5 6.5 0 0 1 9 0M6 11a3 3 0 0 1 4 0" fill="none" stroke="#fff" stroke-width="1.4"/><circle cx="8" cy="13.3" r="1" fill="#fff"/></svg>
             <svg viewBox="0 0 16 16"><path d="M2 6h3l4-3v10l-4-3H2z" fill="#fff"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.8a6 6 0 0 1 0 8.4" fill="none" stroke="#fff" stroke-width="1.3"/></svg>
+            <div class="user" id="trayUser"></div>
             <div class="clock"><div id="time">--:--</div><div id="date"></div></div>
         </div>
     </div>
@@ -153,7 +236,198 @@
         // fallback mark if the logo file is missing
         const MARK = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#2563eb"/><circle cx="10.5" cy="10.5" r="5" fill="none" stroke="#fff" stroke-width="2"/><path d="M14.5 14.5l5 5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>');
         let timer = 0, toastTimer = 0, lastDone = 0;
-        let MAX_ROWS = 7, last = null;
+        let MAX_ROWS = 7, last = null, H = 450;
+
+        // ---- what the instrument shows for the bag being analysed (a show only, the results come from the server)
+        function rnd(seed) { let x = Math.sin(seed * 9301 + 49297) * 233280; return () => { x = Math.sin(x) * 10000; return x - Math.floor(x); }; }
+        function grid() {
+            let g = '<g class="grid">';
+            for (let x = 0; x <= 240; x += 20) g += `<line x1="${x}" y1="0" x2="${x}" y2="130"/>`;
+            for (let y = 10; y <= 130; y += 20) g += `<line x1="0" y1="${y}" x2="240" y2="${y}"/>`;
+            return g + '</g>';
+        }
+        function vizFor(kind, seed) {
+            const r = rnd(seed + 1);
+            const cap = (a, b) => `<div class="cap"><span>${esc(a)}</span><span>${esc(b || '')}</span></div>`;
+            const all = (sel) => document.querySelectorAll('#viz ' + sel);
+            if (kind === 'blood') {
+                // DNA: an electropherogram, four dyes; the curves get longer with the analysis
+                const colors = ['#60cdff', '#4ade80', '#fbbf24', '#f87171'];
+                let lines = '';
+                colors.forEach((c, k) => {
+                    let pts = [];
+                    for (let x = 0; x <= 240; x += 2) {
+                        let y = 122;
+                        for (let p = 0; p < 5; p++) {
+                            const px = 20 + p * 46 + k * 7 + (r() * 10 - 5), h = 25 + r() * 70;
+                            y -= h * Math.exp(-Math.pow((x - px) / 2.6, 2));
+                        }
+                        pts.push(`${x},${y.toFixed(1)}`);
+                    }
+                    lines += `<polyline class="trace" stroke="${c}" points="${pts.join(' ')}"/>`;
+                });
+                return { html: `<svg viewBox="0 0 240 130">${grid()}${lines}</svg>${cap(T('lab_viz_dna', 'STR profile'), 'D3S1358 · vWA · FGA · D8S1179')}`,
+                    step: (q) => all('.trace').forEach((el) => {
+                        if (!el.dataset.len) { el.dataset.len = Math.ceil(el.getTotalLength()); el.setAttribute('stroke-dasharray', el.dataset.len); }
+                        el.setAttribute('stroke-dashoffset', Math.round(el.dataset.len * (1 - q)));
+                    }) };
+            }
+            if (kind === 'fingerprint') {
+                // a whorl of ridges, one more point marked every step
+                let ridges = '';
+                for (let i = 1; i <= 15; i++) ridges += `<ellipse class="ridge" cx="${120 + i * .6}" cy="${66 - i * .3}" rx="${i * 4.6}" ry="${i * 3.4}" transform="rotate(${(r() * 8 - 4).toFixed(1)} 120 66)"/>`;
+                let minu = '';
+                const n = 10 + Math.floor(r() * 5);
+                for (let i = 0; i < n; i++) {
+                    const a = r() * Math.PI * 2, d = 12 + r() * 48;
+                    minu += `<circle class="minu" cx="${(120 + Math.cos(a) * d * 1.3).toFixed(1)}" cy="${(66 + Math.sin(a) * d).toFixed(1)}" r="3"/>`;
+                }
+                return { html: `<svg viewBox="0 0 240 130">${ridges}${minu}</svg>${cap(T('lab_viz_print', 'AFIS comparison'), F('lab_viz_points', '%d points', n))}`,
+                    step: (q) => all('.minu').forEach((el, i) => { el.style.display = i < Math.ceil(q * n) ? '' : 'none'; }) };
+            }
+            if (kind === 'casing' || kind === 'bullet' || kind === 'reference') {
+                // comparison microscope: the right half moves into line with the left one
+                let lines = '';
+                for (let i = 0; i < 26; i++) { const x = r() * 104, w = .4 + r() * 1.6; lines += `<rect x="${x.toFixed(1)}" y="0" width="${w.toFixed(1)}" height="120" fill="rgba(220,220,230,${(.25 + r() * .5).toFixed(2)})"/>`; }
+                return { html: `<svg viewBox="0 0 240 130"><rect x="6" y="5" width="110" height="120" rx="4" fill="#1d2433"/><rect x="124" y="5" width="110" height="120" rx="4" fill="#1d2433"/>
+                    <svg x="9" y="5" width="104" height="120">${lines}</svg>
+                    <svg x="127" y="5" width="104" height="120"><g class="slide"><g transform="translate(-104 0)">${lines}</g>${lines}</g></svg>
+                    <line x1="120" y1="0" x2="120" y2="130" stroke="#60cdff" stroke-width="1"/></svg>${cap(T('lab_viz_ballistic', 'Comparison microscope'), T('lab_viz_striations', 'striations'))}`,
+                    step: (q) => all('.slide').forEach((el) => el.setAttribute('transform', `translate(${-Math.round(24 * (1 - Math.min(1, q * 1.4)))} 0)`)) };
+            }
+            if (kind === 'gsr') {
+                // SEM/EDX: element peaks (lead, barium, antimony) build up
+                const els = ['Pb', 'Ba', 'Sb', 'Si', 'Ca', 'Fe', 'K'];
+                let bars = '';
+                els.forEach((e, i) => {
+                    const h = i < 3 ? 70 + r() * 40 : 10 + r() * 25, x = 14 + i * 32;
+                    bars += `<rect class="el" data-h="${h.toFixed(1)}" x="${x}" y="120" width="16" height="0" rx="2" fill="${i < 3 ? '#f87171' : '#60cdff'}"/>
+                             <text x="${x + 8}" y="129" text-anchor="middle" font-size="8" fill="#cbd5e1">${e}</text>`;
+                });
+                return { html: `<svg viewBox="0 0 240 130">${grid()}${bars}</svg>${cap(T('lab_viz_gsr', 'SEM/EDX analysis'), 'Pb · Ba · Sb')}`,
+                    step: (q) => all('.el').forEach((el) => { const h = Math.round(+el.dataset.h * (.1 + .9 * q)); el.setAttribute('y', 120 - h); el.setAttribute('height', h); }) };
+            }
+            if (kind === 'vehicle_fragment') {
+                // paint layers in a cross-section, the scan line goes down with the analysis
+                const cols = ['#e5e7eb', '#9ca3af', `hsl(${Math.floor(r() * 360)} 70% 45%)`, '#d1d5db', '#4b5563'];
+                let y = 10, bands = '';
+                cols.forEach((c) => { const h = 12 + r() * 16; bands += `<rect x="40" y="${y.toFixed(1)}" width="160" height="${h.toFixed(1)}" fill="${c}"/>`; y += h + 1; });
+                const bottom = y;
+                return { html: `<svg viewBox="0 0 240 130">${bands}<rect class="line" x="34" y="8" width="172" height="2" fill="#60cdff" opacity=".85"/></svg>${cap(T('lab_viz_paint', 'Paint layers'), F('lab_viz_layers', '%d layers', cols.length))}`,
+                    step: (q) => all('.line').forEach((el) => el.setAttribute('y', Math.round(8 + (bottom - 10) * q))) };
+            }
+            return { html: `<div class="scan" style="margin:0"><i></i></div>${cap(T('lab_viz_generic', 'Analysis'), '')}`, step: scanStep };
+        }
+        // the light bar of the plain "scan" moves a step every second
+        function scanStep(q) {
+            document.querySelectorAll('.scan i').forEach((el) => { el.style.left = `calc(${Math.round(((q * 40) % 1) * 100)}% - 40px)`; });
+        }
+
+        // ---- uploaded to a case: ~3 s transfer (bags → folder), ~3 s "done", then the screen below (usually "Ready")
+        let lastUpload = 0, upTimer = 0;
+        const UP_SEND = 3000, UP_SHOW = 6500;
+        function playUpload(u) {
+            clearInterval(upTimer);
+            const n = Math.max(1, u.n || 1), start = Date.now();
+            const bag = `<svg viewBox="0 0 44 44"><rect x="9" y="8" width="26" height="30" rx="3" fill="#d6c7a1"/><rect x="9" y="8" width="26" height="7" fill="#c9b78a"/>
+                <rect x="14" y="20" width="16" height="9" rx="1.5" fill="#fff" opacity=".85"/><rect x="16" y="23" width="12" height="1.6" fill="#94a3b8"/><rect x="16" y="26" width="8" height="1.6" fill="#94a3b8"/></svg>`;
+            const folder = `<svg viewBox="0 0 44 44"><path d="M5 12a3 3 0 0 1 3-3h9l4 4h15a3 3 0 0 1 3 3v17a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3z" fill="#fbbf24"/>
+                <rect x="5" y="17" width="34" height="19" rx="3" fill="#fcd34d"/></svg>`;
+            const step = () => {
+                const t = Date.now() - start;
+                if (t >= UP_SHOW) { clearInterval(upTimer); $('upload').classList.remove('show'); return; }
+                if (t < UP_SEND) {
+                    const q = t / UP_SEND, k = Math.floor(t / 250) % 6;
+                    $('upBox').innerHTML = `<div class="flow">
+                            <div class="ic">${bag}${esc(F('lab_bags', '%d bag(s)', n))}</div>
+                            <div class="dots">${[0, 1, 2, 3, 4].map((i) => `<i class="${i < k ? 'on' : ''}"></i>`).join('')}</div>
+                            <div class="ic">${folder}${esc(u.case || '')}</div></div>
+                        <h2>${esc(F('lab_up_title', 'Uploading to case %s…', u.case || '?'))}</h2>
+                        <div class="p"><b style="width:${Math.round(q * 100)}%"></b></div>
+                        <div class="s">${esc(F('lab_up_item', 'Item %d of %d', Math.min(n, Math.floor(q * n) + 1), n))}</div>`;
+                } else if (!$('upBox').dataset.done || $('upBox').dataset.done !== String(u.at)) {
+                    $('upBox').dataset.done = String(u.at);
+                    $('upBox').innerHTML = `<div class="okc"><svg viewBox="0 0 16 16" width="24"><path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="#fff" stroke-width="2.2"/></svg></div>
+                        <h2>${esc(F('lab_up_done', '%d item(s) uploaded to case %s', n, u.case || '?'))}</h2>
+                        <div class="s" style="margin-top:4px">${esc(T('lab_up_locker', 'Now in the case locker'))}${u.by ? ' · ' + esc(F('lab_up_by', 'by %s', u.by)) : ''}</div>
+                        ${u.left ? `<div class="left">${esc(F('lab_up_left', '%d not analysed yet, they stay in the lab', u.left))}</div>` : ''}`;
+                }
+            };
+            $('upBox').dataset.done = '';
+            step();
+            $('upload').classList.add('show');
+            upTimer = setInterval(step, 250);
+        }
+
+        // ---- taskbar: progress under the app while running, a badge with the results when done
+        function taskProgress(pct) {
+            $('tbProg').style.display = pct == null ? 'none' : 'block';
+            if (pct != null) $('tbProgB').style.width = pct + '%';
+        }
+        function taskBadge(n) {
+            $('tbBadge').style.display = n ? 'flex' : 'none';
+            $('tbBadge').textContent = n > 99 ? '99+' : String(n || '');
+        }
+
+        // ---- signed in (desktop), locked, signing in, screensaver
+        let mode = null, user = null, loginTimer = 0, saverTimer = 0, saverMove = 0;
+        // screensaver: logo and clock jump to a new spot every 10 s (no sliding, that shimmers on the monitor)
+        function moveSaver() {
+            const sv = document.querySelector('.saver .sv');
+            sv.style.left = Math.round(5 + Math.random() * 60) + '%';
+            sv.style.top = Math.round(8 + Math.random() * 70) + '%';
+        }
+        function saverOn() {
+            if ($('saver').classList.contains('show')) return;
+            moveSaver();
+            $('saver').classList.add('show');
+            clearInterval(saverMove);
+            saverMove = setInterval(moveSaver, 10000);
+        }
+        function saverOff() {
+            clearInterval(saverMove);
+            $('saver').classList.remove('show');
+        }
+        const SAVER_MS = 120000;
+        function lockCard(d) {
+            if (d.state === 'running') {
+                const pct = Math.min(100, Math.max(0, (1 - (d.leftMs || 0) / Math.max(1, d.totalMs || 1)) * 100));
+                return `${esc(F('lab_lock_running', 'Analysis running · %d %', Math.floor(pct)))}<div class="p"><b style="width:${pct}%"></b></div>`;
+            }
+            if (d.state === 'done') return `${esc(T('lab_complete', 'Analysis complete'))}<div style="opacity:.75;margin-top:3px">${esc(d.summary || '')}</div>`;
+            if (d.pending) return esc(F('lab_lock_waiting', '%d bag(s) waiting for analysis', d.pending));
+            return esc(T('lab_ready', 'Ready'));
+        }
+        function setMode(d) {
+            clearTimeout(saverTimer);
+            if (d.user) {
+                const initials = String(d.user).split(/[\s|]+/).filter(Boolean).slice(-2).map((w) => w[0]).join('').toUpperCase() || '?';
+                const tu = $('trayUser');
+                tu.title = F('lab_signed_in', 'Signed in: %s', d.user);
+                tu.innerHTML = `<i>${esc(initials)}</i><span>${esc(String(d.user).split('|').pop().trim())}</span>`;
+                $('lock').classList.remove('show');
+                saverOff();
+                if (user !== d.user) {
+                    // a short sign-in: picture, "Welcome", the name
+                    user = d.user;
+                    $('loginAv').textContent = initials;
+                    $('loginName').textContent = d.user;
+                    $('login').classList.add('show');
+                    clearTimeout(loginTimer);
+                    loginTimer = setTimeout(() => $('login').classList.remove('show'), 1800);
+                }
+                return;
+            }
+            user = null;
+            clearTimeout(loginTimer);
+            $('login').classList.remove('show');
+            $('trayUser').innerHTML = '';
+            $('lkCard').innerHTML = lockCard(d);
+            $('lock').classList.add('show');
+            const wait = SAVER_MS - (d.idleMs || 0);
+            if (wait <= 0) saverOn();
+            else { saverOff(); saverTimer = setTimeout(saverOn, wait); }
+        }
 
         function setLogo(src) {
             document.querySelectorAll('img.logo').forEach((img) => {
@@ -175,20 +449,45 @@
             const m = $('main');
             if (d.state === 'running') {
                 const total = Math.max(1, d.totalMs || 1), endsAt = Date.now() + (d.leftMs || 0);
+                const items = Array.isArray(d.items) ? d.items : [];
                 const chips = Object.entries(d.kinds || {}).map(([k, n]) => `<span class="chip">${esc(kindName(k))}: ${esc(n)}</span>`).join('');
                 m.innerHTML = `<h1>${esc(T('lab_running_title', 'Analysing evidence…'))}</h1>
                     <div class="sub">${esc(F('lab_bags', '%d bag(s)', d.count))}${d.guns ? ` · ${esc(F('lab_guns', '%d weapon(s) to test-fire', d.guns))}` : ''} · ${esc(F('lab_started_by', 'started by %s', d.by || '?'))}</div>
                     <div class="prog"><b id="pb"></b></div>
                     <div class="row"><span id="pct">0 %</span><span id="left"></span></div>
-                    <div class="chips">${chips}</div>
-                    <div class="scan"><i></i><svg viewBox="0 0 120 60"><g fill="none" stroke="#60cdff" stroke-width="1.6">
-                        <path d="M10 50 Q30 5 60 30 T110 20"/><path d="M10 40 Q35 15 60 38 T110 30" opacity=".6"/></g></svg></div>`;
+                    ${items.length ? `<div class="split"><div class="bags" id="bags"></div><div class="viz" id="viz"></div></div>` : `<div class="chips">${chips}</div><div class="scan"><i></i></div>`}`;
+                let shownIdx = -1, viz = null;
+                if ($('viz')) $('viz').style.setProperty('--vizh', Math.max(60, H - 200) + 'px');
                 const tick = () => {
                     const left = endsAt - Date.now();
                     const pct = Math.min(100, Math.max(0, (1 - left / total) * 100));
                     $('pb').style.width = pct + '%';
                     $('pct').textContent = Math.floor(pct) + ' %';
                     $('left').textContent = mmss(left);
+                    taskProgress(pct);
+                    if (!d.user) $('lkCard').innerHTML = lockCard(Object.assign({}, d, { leftMs: left }));
+                    if (!items.length) { scanStep(pct / 100); return; }
+                    // one bag after another: each gets an equal share of the time
+                    const n = items.length, per = total / n, done = (pct / 100) * n;
+                    const idx = Math.min(n - 1, Math.floor(done));
+                    const rows = Math.max(2, Math.floor((H - 205) / 25));
+                    const from = Math.max(0, Math.min(idx - 1, n - rows));
+                    let html = '';
+                    for (let i = from; i < Math.min(n, from + rows); i++) {
+                        const it = items[i];
+                        let st, cls = '';
+                        if (i < idx) { st = T('lab_bag_done', 'done'); cls = 'done'; }
+                        else if (i === idx) { st = F('lab_bag_running', 'running · %d %', Math.floor((done - idx) * 100)); cls = 'now'; }
+                        else {
+                            const mins = Math.ceil(((i * per) - (pct / 100) * total) / 60000);
+                            st = mins <= 1 ? T('lab_bag_soon', 'next') : F('lab_bag_wait', 'in about %d min', mins);
+                        }
+                        html += `<div class="bag ${cls}"><span class="no">${esc(it.n || '•')}</span><span class="k">${esc(kindName(it.k))}</span><span class="s">${esc(st)}</span></div>`;
+                    }
+                    if ((d.count || n) > from + rows) html += `<div class="more">${esc(F('lab_more_bags', '+ %d more', (d.count || n) - (from + rows)))}</div>`;
+                    $('bags').innerHTML = html;
+                    if (idx !== shownIdx) { shownIdx = idx; viz = vizFor(items[idx].k, idx); $('viz').innerHTML = viz.html; }
+                    viz.step(Math.min(1, done - idx));
                 };
                 tick();
                 timer = setInterval(tick, 1000);
@@ -200,14 +499,19 @@
                     <div><h1>${esc(T('lab_complete', 'Analysis complete'))}</h1><div class="sub" style="margin:0">${esc(d.summary || '')}</div></div></div>
                     <div class="results">${shown || `<div class="res">${esc(T('lab_no_results', 'No results.'))}</div>`}</div>
                     ${lines.length > MAX_ROWS ? `<div class="more">${esc(F('lab_more', '+ %d more in the evidence bags', lines.length - MAX_ROWS))}</div>` : ''}`;
+                taskProgress(null);
+                taskBadge(lines.length);
                 if (d.finished && d.finished !== lastDone) {
                     lastDone = d.finished;
+                    saverOff();   // a notification wakes the screen
                     $('toastText').textContent = d.summary || '';
                     $('toast').classList.add('show');
                     clearTimeout(toastTimer);
                     toastTimer = setTimeout(() => $('toast').classList.remove('show'), 15000);
                 }
             } else {
+                taskProgress(null);
+                taskBadge(0);
                 m.innerHTML = `<h1>${esc(T('lab_ready', 'Ready'))}</h1><div class="sub">${esc(d.label || 'Lab')} · ${esc(T('lab_ready_sub', 'Evidence analysis'))}</div>
                     <div class="cards">
                         <div class="card"><div class="n">${esc(d.pending || 0)}</div><div class="l">${esc(T('lab_card_waiting', 'Bags waiting for analysis'))}</div></div>
@@ -217,15 +521,35 @@
                     <div class="tip"><svg viewBox="0 0 16 16" width="15" style="flex:none"><circle cx="8" cy="8" r="7" fill="none" stroke="#60cdff"/><path d="M8 7v4M8 4.6v.1" stroke="#60cdff" stroke-width="1.6"/></svg>
                         ${esc(T('lab_tip', 'Put evidence into the storage, then start the analysis at the device.'))}</div>`;
             }
+            setMode(d);
+            if (d.upload && d.upload.at !== lastUpload) {
+                lastUpload = d.upload.at;
+                if ((d.uploadAge || 0) < UP_SHOW) { saverOff(); playUpload(d.upload); }
+            }
         }
 
         // the real time and date (the player's own PC), not the game clock
-        const fmtTime = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' });
-        const fmtDate = new Intl.DateTimeFormat(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' });
-        function clock() {
+        // formatted in the script's language (lab_locale), e.g. de-DE
+        let fmtTime, fmtDate, fmtLong;
+        function makeFormats() {
+            let loc = TEXTS.lab_locale || undefined;
+            try { new Intl.DateTimeFormat(loc); } catch (e) { loc = undefined; }
+            fmtTime = new Intl.DateTimeFormat(loc, { hour: '2-digit', minute: '2-digit' });
+            fmtDate = new Intl.DateTimeFormat(loc, { day: '2-digit', month: '2-digit', year: 'numeric' });
+            fmtLong = new Intl.DateTimeFormat(loc, { weekday: 'long', day: 'numeric', month: 'long' });
+        }
+        makeFormats();
+        function paintClock() {
             const now = new Date();
             $('time').textContent = fmtTime.format(now);
             $('date').textContent = fmtDate.format(now);
+            $('lkTime').textContent = fmtTime.format(now);
+            $('svTime').textContent = fmtTime.format(now);
+            $('lkDate').textContent = fmtLong.format(now);
+            return now;
+        }
+        function clock() {
+            const now = paintClock();
             setTimeout(clock, 60000 - (now.getSeconds() * 1000 + now.getMilliseconds()) + 50);   // on the next full minute
         }
         clock();
@@ -233,11 +557,12 @@
         window.addEventListener('message', (e) => {
             const d = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
             if (!d) return;
-            if (d.action === 'texts') { TEXTS = d.t || {}; applyTexts(); if (last) render(last); }
+            if (d.action === 'texts') { TEXTS = d.t || {}; applyTexts(); makeFormats(); paintClock(); if (last) render(last); }
             else if (d.action === 'paint') render(d);
             else if (d.action === 'size') {
                 // the screen's shape: d.h page pixels high (zoom 1.6), more result rows on taller screens
                 const h = Math.max(225, Math.round(d.h / 1.6));
+                H = h;
                 document.documentElement.style.setProperty('--h', h + 'px');
                 MAX_ROWS = Math.max(3, Math.floor((h - 190) / 34));
                 if (last) { const keepDone = lastDone; render(last); lastDone = keepDone; }

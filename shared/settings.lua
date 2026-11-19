@@ -55,6 +55,7 @@ Whip.configPage({
                   { key = 'MaxKB', type = 'int', min = 50, max = 4000, unit = 'KB', label = 'Biggest picture kept' },
                   { key = 'KeepDays', type = 'int', min = 0, max = 3650, unit = 'days', label = 'Delete pictures after (0 = never)' },
               } },
+            { key = 'HandProps', type = 'bool', label = 'Props in the hand', help = 'Notepad, sponge, torch and the like while a bar runs (Config.Animations).' },
             { key = 'MinigameLevel', type = 'enum', label = 'Minigame difficulty', options = {
                 { value = 'easy', label = 'Easy' }, { value = 'medium', label = 'Medium' }, { value = 'hard', label = 'Hard' } } },
             { key = 'Minigames', type = 'record', label = 'Minigame per job',

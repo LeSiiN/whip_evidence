@@ -128,6 +128,8 @@ end
 for d = 0, 9 do DIGIT_UV[d] = { uv(512 + d * 32, 784, 32, 64) } end
 local BODY_TAG_UV = { uv(512 + 3 * 64, 704, 64, 80) }   -- bodies: purple tag
 local LETTER_L_UV = { uv(512 + 10 * 32, 784, 32, 64) }
+local CAR_TAG_UV = { uv(512 + 4 * 64, 704, 64, 80) }    -- vehicles: blue tag
+local LETTER_V_UV = { uv(512 + 11 * 32, 784, 32, 64) }
 
 ---------------------------------------------------------------- Keys
 
@@ -201,6 +203,7 @@ local function takePhoto()
     end
     snapping = true
     local ids, carNets, bodyIds = { table.unpack(picture.ids) }, picture.cars, picture.bodies or {}
+    local models = picture.models or {}
     local street = WhipEvidence.street(GetEntityCoords(PlayerPedId()))
     CreateThread(function()
         PlaySoundFrontend(-1, 'Camera_Shoot', 'Phone_Soundset_Franklin', true)
@@ -214,7 +217,7 @@ local function takePhoto()
         flash()
         pendingPicture = type(image) == 'string' and image or nil
         if not pendingPicture then WhipEvidence.notify(L('photo_failed'), 'warning') end
-        TriggerServerEvent('whip_evidence:photo', ids, carNets, street, pendingPicture ~= nil, bodyIds)
+        TriggerServerEvent('whip_evidence:photo', ids, carNets, street, pendingPicture ~= nil, bodyIds, models)
         snapping = false
     end)
 end
@@ -367,7 +370,45 @@ local function carParts(s, police)
     if s.bullet > 0 then parts[#parts + 1] = { text = L('car_bullet_holes', s.bullet) } end
     if s.gsr then parts[#parts + 1] = { text = 'GSR', color = 'yellow' } end
     if s.prints and police then parts[#parts + 1] = { text = L('possible_prints') } end
+    if (s.fragments or 0) > 0 then parts[#parts + 1] = { text = L('car_fragments_scene'), color = 'yellow' } end
     return parts
+end
+
+-- the card adds the photo state: a car counts as photographed once its plate was readable on a photo
+local function carCardChips(s, police)
+    local chips = carParts(s, police)
+    if s.plateSeen then
+        chips[#chips + 1] = { text = L('chip_photo'), color = 'green' }
+    elseif s.photo then
+        chips[#chips + 1] = { text = L('car_photo_no_plate'), color = 'yellow' }
+    else
+        chips[#chips + 1] = { text = L('car_no_photo'), color = 'yellow' }
+    end
+    return chips
+end
+
+-- top of the roof (marker spot) and the model's name, both kept per model
+local roofCache, modelCache = {}, {}
+local function roofOf(ent)
+    local model = GetEntityModel(ent)
+    local top = roofCache[model]
+    if not top then
+        local _, max = GetModelDimensions(model)
+        top = (max and max.z or 1.0) + 0.05
+        roofCache[model] = top
+    end
+    return GetOffsetFromEntityInWorldCoords(ent, 0.0, 0.0, top)
+end
+local function modelName(ent)
+    local model = GetEntityModel(ent)
+    local name = modelCache[model]
+    if not name then
+        local code = GetDisplayNameFromVehicleModel(model)
+        name = GetLabelText(code)
+        if not name or name == 'NULL' or name == '' then name = code or '' end
+        modelCache[model] = name
+    end
+    return name
 end
 
 local function onScreen(pos)
@@ -411,14 +452,15 @@ local function digitsOf(no)
     return list
 end
 
--- "L" and the digits of a body's number
-local bodyDigitCache = {}
-local function bodyDigitsOf(no)
-    local list = bodyDigitCache[no]
+-- a letter and the digits: "L1" for bodies, "V1" for vehicles
+local letterDigitCache = { [LETTER_L_UV] = {}, [LETTER_V_UV] = {} }
+local function letterDigitsOf(letter, no)
+    local cache = letterDigitCache[letter]
+    local list = cache[no]
     if list then return list end
-    list = { LETTER_L_UV }
+    list = { letter }
     for _, uvs in ipairs(digitsOf(no)) do list[#list + 1] = uvs end
-    bodyDigitCache[no] = list
+    cache[no] = list
     return list
 end
 
@@ -427,8 +469,13 @@ local function markerGeometry(m, aspect)
     local w = math.max(0.011, math.min(0.024, 0.024 - m.dist * 0.0005)) * layout.tag
     local h = w * (80 / 64) * aspect
     m.w, m.h = w, h
-    m.digits = m.body and bodyDigitsOf(m.no) or digitsOf(m.no)
-    m.tagUv = m.body and BODY_TAG_UV or TAG_UV[m.phase]
+    if m.body then
+        m.digits, m.tagUv = letterDigitsOf(LETTER_L_UV, m.no), BODY_TAG_UV
+    elseif m.car then
+        m.digits, m.tagUv = letterDigitsOf(LETTER_V_UV, m.no), CAR_TAG_UV
+    else
+        m.digits, m.tagUv = digitsOf(m.no), TAG_UV[m.phase]
+    end
     local n = #m.digits
     local scale = n == 1 and 0.95 or (n == 2 and 0.72 or 0.55)
     local dw = w * 0.5 * scale
@@ -450,7 +497,7 @@ end
 
 local foundBuf, markerBuf, picBuf, picIds, lineBuf, lineRows = {}, {}, {}, {}, {}, {}
 local casingOf, bulletOf, countBuf = {}, {}, {}
-local markerOf, bodyMarkOf, rebuildNo = {}, {}, 0
+local markerOf, bodyMarkOf, carMarkOf, rebuildNo = {}, {}, {}, 0
 local NO_BODIES = {}
 local function byDist(a, b) return a.scanDist < b.scanDist end
 
@@ -538,30 +585,48 @@ local function rebuild()
     end
     clearFrom(lineList, nLines + 1)
 
-    -- cars with traces (cells 1-3), named V1, V2, ...
-    local carList, carRows, carNets = {}, {}, {}
+    -- vehicles with traces: a blue marker "V1", "V2", ... (numbered by the server) on the roof of each,
+    -- like evidence; the one aimed at gets the card, the legend and a photo list them all
+    local carList, carRows, carNets, carModels, nCars = NO_BODIES, {}, NO_BODIES, NO_BODIES, 0
     if scanning and passes('vehicles') then
         for net, s in pairs(WhipEvidence.Ev.vehicles()) do
-            if #carList >= CAR_CARDS then break end
+            if nList >= MAX_MARKERS then break end
             if NetworkDoesNetworkIdExist(net) then
                 local ent = NetworkGetEntityFromNetworkId(net)
-                if DoesEntityExist(ent) then
-                    local cpos = GetEntityCoords(ent)
+                if ent ~= 0 and DoesEntityExist(ent) then
+                    local cpos = roofOf(ent)
                     local dist = #(cpos - pos)
-                    local parts = dist <= Config.SeeDistance and carParts(s, police) or {}
-                    if #parts > 0 then
-                        local tag = 'V' .. (#carList + 1)
-                        local cell = 1 + #carList
-                        paint(cell, { no = tag, car = true, title = L('vehicle'), dist = metres(dist), chips = parts })
-                        carList[#carList + 1] = { cell = cell, ent = ent, dist = dist }
-                        if onScreen(cpos + vector3(0.0, 0.0, 1.0)) then
-                            local texts = {}
-                            for _, p in ipairs(parts) do texts[#texts + 1] = p.text end
-                            carRows[#carRows + 1] = { no = tag, car = true, title = L('vehicle'), info = table.concat(texts, ', '), dist = metres(dist) }
+                    if dist <= Config.SeeDistance and #carParts(s, police) > 0 then
+                        nCars = nCars + 1
+                        local m = carMarkOf[net]
+                        if not m then
+                            m = { id = 'car:' .. net, car = true, phase = 1 }
+                            carMarkOf[net] = m
+                        end
+                        m.s, m.seen, m.pos, m.dist, m.no, m.photo = s, rebuildNo, cpos, dist, s.no or nCars, s.plateSeen == true
+                        markerGeometry(m, aspect)
+                        nList = nList + 1
+                        list[nList] = m
+                        local on, sx, sy = onScreen(cpos + vector3(0.0, 0.0, TAG_LIFT))
+                        if on then
+                            if carNets == NO_BODIES then carNets, carModels = {}, {} end
                             carNets[#carNets + 1] = net
+                            carModels[#carModels + 1] = modelName(ent)
+                            local texts = {}
+                            for _, p in ipairs(carParts(s, police)) do texts[#texts + 1] = p.text end
+                            carRows[#carRows + 1] = { no = 'V' .. m.no, car = true, title = L('vehicle') .. ' · ' .. (s.plate or '?'),
+                                                      info = table.concat(texts, ', '), dist = metres(dist) }
+                            local dx, dy = sx - 0.5, (sy - 0.5) / aspect
+                            local score = dx * dx + dy * dy
+                            if score < 0.006 and (not bestScore or score < bestScore) then best, bestScore = m, score end
                         end
                     end
                 end
+            end
+        end
+        if rebuildNo % 20 == 0 then
+            for net, m in pairs(carMarkOf) do
+                if rebuildNo - m.seen > 20 then carMarkOf[net] = nil end
             end
         end
     end
@@ -601,9 +666,12 @@ local function rebuild()
             end
         end
     end
-    -- the aimed-at one gets a card (cell 0): evidence or body
+    -- the aimed-at one gets a card (cell 0): evidence, vehicle or body
     if best then
-        if best.body then
+        if best.car then
+            paint(0, { no = 'V' .. best.no, car = true, title = L('vehicle') .. ' · ' .. (best.s.plate or '?'),
+                       dist = metres(best.dist), chips = carCardChips(best.s, police) })
+        elseif best.body then
             paint(0, { no = 'L' .. best.no, body = true, title = L('body'), dist = metres(best.dist), chips = WhipEvidence.Bodies.chips(best.b) })
         else
             paint(0, evidenceCard(best.ev, best.dist, police))
@@ -618,7 +686,7 @@ local function rebuild()
     local ids = picIds
     for i = 1, nPic do ids[i] = inPicture[i].id end
     clearFrom(ids, nPic + 1)
-    picture.ids, picture.cars, picture.bodies = ids, carNets, bodyIds
+    picture.ids, picture.cars, picture.models, picture.bodies = ids, carNets, carModels, bodyIds
 
     if not scanning then return end
 
@@ -655,7 +723,7 @@ local function rebuild()
 
     local summary = L('summary', #found, counts.yellow, counts.green, counts.red, photographed, #found)
     if nBodies > 0 then summary = summary .. L('summary_bodies', nBodies) end
-    if #carList > 0 then summary = summary .. L('summary_cars', #carList) end
+    if nCars > 0 then summary = summary .. L('summary_cars', nCars) end
     summary = summary .. ' | ' .. hint()
     if summary ~= lastSummary then
         lastSummary = summary
@@ -667,7 +735,7 @@ local function stopScan()
     scanning, legendOn = false, false
     markers, focus, cars, lines = {}, nil, {}, {}
     picture = { ids = {}, cars = {} }
-    markerBuf, lineBuf, picIds, markerOf, bodyMarkOf = markers, lines, picture.ids, {}, {}
+    markerBuf, lineBuf, picIds, markerOf, bodyMarkOf, carMarkOf = markers, lines, picture.ids, {}, {}, {}
     if lastSummary then
         lastSummary = nil
         Whip.core:HideText()

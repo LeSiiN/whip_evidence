@@ -59,6 +59,37 @@ Config = {
 
     ReleaseRadius = 20.0,   -- metres a "Release crime scene" clears
 
+    -- Animations and props while a bar runs. Taken from WHIP's emotes (try them with /e <name>);
+    -- animation and prop always come from the same emote, the offsets only fit that animation.
+    -- HandProps = false: animations without props.
+    HandProps = true,
+    Animations = {
+        collect      = { anim = { dict = 'amb@medic@standing@tendtodead@base', clip = 'base', flag = 1 } },            -- /e medic2
+        label_bag    = { anim = { dict = 'missheistdockssetup1clipboard@base', clip = 'base', flag = 49 },              -- /e notepad
+                         prop = { model = 'prop_notepad_01', bone = 18905, offset = { 0.1, 0.02, 0.05 }, rot = { 10.0, 0.0, 0.0 } } },
+        swab_person  = { anim = { dict = 'mp_arresting', clip = 'a_uncuff', flag = 49 } },                               -- at their hands
+        clear        = { anim = { dict = 'amb@medic@standing@tendtodead@base', clip = 'base', flag = 1 } },             -- /e medic2
+        bullet       = { anim = { dict = 'random@train_tracks', clip = 'idle_e', flag = 49 } },                         -- /e inspect
+        laser        = { anim = { dict = 'random@train_tracks', clip = 'idle_e', flag = 49 } },                         -- /e inspect
+        wipe         = { anim = { dict = 'timetable@floyd@clean_kitchen@base', clip = 'base', flag = 49 },             -- /e clean
+                         prop = { model = 'prop_sponge_01', bone = 28422, offset = { 0.0, 0.0, -0.01 }, rot = { 90.0, 0.0, 0.0 } } },
+        release      = { anim = { dict = 'missfam4', clip = 'base', flag = 49 },                                        -- /e clipboard
+                         prop = { model = 'p_amb_clipboard_01', bone = 36029, offset = { 0.16, 0.08, 0.1 }, rot = { -130.0, -50.0, 0.0 } } },
+        body_examine = { anim = { scenario = 'CODE_HUMAN_MEDIC_TEND_TO_DEAD' } },                                        -- /e medic
+        body_sample  = { anim = { dict = 'amb@medic@standing@tendtodead@base', clip = 'base', flag = 1 } },             -- /e medic2
+        vehicle      = { anim = { dict = 'amb@world_human_security_shine_torch@male@base', clip = 'base', flag = 49 }, -- /e patrolf1
+                         prop = { model = 'prop_cs_police_torch_02', bone = 60309, offset = { 0.0, 0.0, 0.0 }, rot = { 0.0, 0.0, 80.0 } } },
+        vehicle_clean = { anim = { dict = 'amb@world_human_maid_clean@', clip = 'base', flag = 49 },                    -- /e clean2
+                         prop = { model = 'prop_sponge_01', bone = 28422, offset = { 0.0, 0.0, -0.01 }, rot = { 90.0, 0.0, 0.0 } } },
+        dust         = { anim = { dict = 'anim@amb@clubhouse@tutorial@bkr_tut_ig3@', clip = 'machinic_loop_mechandplayer', flag = 49 } },  -- /e mechanic4
+        wipe_weapon  = { anim = { dict = 'timetable@floyd@clean_kitchen@base', clip = 'base', flag = 49 },             -- /e clean
+                         prop = { model = 'prop_sponge_01', bone = 28422, offset = { 0.0, 0.0, -0.01 }, rot = { 90.0, 0.0, 0.0 } } },
+        lab          = { anim = { dict = 'anim@heists@prison_heiststation@cop_reactions', clip = 'cop_b_idle', flag = 49 } },  -- /e type
+        locker       = { anim = { dict = 'anim@heists@prison_heiststation@cop_reactions', clip = 'cop_b_idle', flag = 49 } },  -- /e type
+        clean_self   = { anim = { dict = 'missheist_agency3aig_23', clip = 'urinal_sink_loop', flag = 49 } },           -- /e cleanhands
+        hands_out    = { anim = { dict = 'anim@move_m@prisoner_cuffed', clip = 'idle', flag = 49 } },                   -- /e cuffedfront (the tested person)
+    },
+
     -- Minigame per job. 'ring' = WHIP's ring (Config.SkillCheck below) instead of the forensic game.
     Minigames = {
         fingerprint      = 'dust',      -- brush the print visible, press the tape on

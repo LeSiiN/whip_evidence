@@ -88,6 +88,7 @@ local function publish(id)
     if lab.running then
         local r = lab.running
         st.state, st.started, st.ends, st.count, st.guns, st.by, st.kinds = 'running', r.started, r.ends, #r.ids, #r.guns, r.byName, r.kinds
+        st.items = r.list
     else
         local s = status(lab.containerId, function(addr) return Whip.core:StoreRead(addr) end)
         st.pending, st.analysed, st.total, st.newGuns = #s.pending, s.analysed, s.total, #s.newGuns
@@ -98,6 +99,11 @@ local function publish(id)
             st.state = 'idle'
         end
     end
+    -- who is signed in at the device (lock screen without), and since when nobody is
+    st.user, st.userLeft = lab.user, lab.userLeft
+    -- just uploaded to a case: the screen plays it once, then shows the state below
+    local up = lab.upload
+    if up then st.upload = { at = up.at, case = up.case, n = up.n, left = up.left, by = up.by } end
     -- only when something changed (the clients count the time left themselves): no network traffic every 15 s
     st.now = nil
     local key = json.encode(st)
@@ -293,6 +299,63 @@ end)
 
 WhipEvidence.Lab.publish = function(id) publish(id) end
 
+-- Items went from the lab to a case: the screen shows the upload, then "Ready" once no analysed bag is left
+function WhipEvidence.Lab.uploaded(id, caseId, moved, waiting, by)
+    local lab = labs[id]
+    if not lab or not lab.containerId then return end
+    local s = status(lab.containerId, function(addr) return Whip.core:StoreRead(addr) end)
+    if s.analysed == 0 then lab.result = nil end
+    local mark = { at = os.time(), case = caseId, n = moved, left = waiting or 0, by = by }
+    lab.upload = mark
+    publish(id)
+    SetTimeout(12000, function()
+        if lab.upload ~= mark then return end
+        lab.upload = nil
+        publish(id)
+    end)
+end
+
+-- Signed in at the monitor: the police officer on duty standing at the device (2.5 m). Every 2 s, cheap:
+-- only labs with a screen, only players nearby. The screen locks when they leave.
+local labelCache = {}   -- [source] = { label, at }
+local function labelOf(src)
+    local c = labelCache[src]
+    if c and GetGameTimer() - c.at < 30000 then return c.label end
+    local player = exports.whip_core:GetPlayer(src)
+    local label = player and WhipEvidence.officerLabel(src, player) or nil
+    labelCache[src] = { label = label, at = GetGameTimer() }
+    return label
+end
+AddEventHandler('playerDropped', function() labelCache[source] = nil end)
+
+CreateThread(function()
+    while true do
+        Wait(2000)
+        local players
+        for id, lab in pairs(labs) do
+            if lab.def.screen and lab.def.device then
+                players = players or GetPlayers()
+                local at = WhipEvidence.vec(lab.def.device)
+                local who, best
+                for _, s in ipairs(players) do
+                    local src = tonumber(s)
+                    local ped = GetPlayerPed(src)
+                    if ped and ped ~= 0 then
+                        local d = #(GetEntityCoords(ped) - at)
+                        if d <= 2.5 and (not best or d < best) and WhipEvidence.isPolice(src) then who, best = src, d end
+                    end
+                end
+                local user = who and labelOf(who) or nil
+                if user ~= lab.user then
+                    if not user then lab.userLeft = os.time() end
+                    lab.user = user
+                    publish(id)
+                end
+            end
+        end
+    end
+end)
+
 -- Dev tools: finish every running analysis now. Returns how many.
 function WhipEvidence.Lab.finishNow()
     local n = 0
@@ -330,10 +393,16 @@ function WhipEvidence.Lab.register()
             range = 3.0,
         },
     }, function(source, player, id)
-        if not WhipEvidence.can(source, 'evidence_lab') then return false, L('not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_lab') then return false, WhipEvidence.why(source, 'evidence_lab') end
         local containerId, why = WhipEvidence.Lab.storage(id)
         if not containerId then return false, why end
         if #WhipEvidence.Briefcase.all(source) == 0 then return false, L('no_evidence_case') end
+        local done = exports.whip_core:Progress(source, WhipEvidence.bar('lab', {
+            label = L('unloading_case'), duration = 1500, icon = 'pickup',
+            disable = { move = true, combat = true, car = true },
+            near = { coords = WhipEvidence.vec(labs[id].def.device), range = 3.0 },
+        }))
+        if not done or not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
         local moved, full = WhipEvidence.Briefcase.unloadInto(source, containerId)
         if moved == 0 then return false, full and L('lab_full') or L('case_no_bags') end
         exports.whip_core:LogActivity(source, 'evidence_case_unloaded', { detail = ('%s: %d bag(s)'):format(id, moved) })
@@ -353,7 +422,7 @@ function WhipEvidence.Lab.register()
         local lab = labs[id]
         if not lab then return false, L('lab_not_set_up') end
         if not WhipEvidence.isPolice(source) then return false, L('police_only_lab') end
-        if not WhipEvidence.can(source, 'evidence_lab') then return false, L('not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_lab') then return false, WhipEvidence.why(source, 'evidence_lab') end
         if lab.running then
             return false, L('lab_running_left', math.max(1, math.ceil((lab.running.ends - os.time()) / 60)))
         end
@@ -364,12 +433,11 @@ function WhipEvidence.Lab.register()
             return false, L('lab_nothing_to_do', s.analysed, s.nothing)
         end
 
-        local done = exports.whip_core:Progress(source, {
+        local done = exports.whip_core:Progress(source, WhipEvidence.bar('lab', {
             label = L('starting_device'), duration = math.random(3000, 5000), icon = 'timer',
-            anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 49 },
             disable = { move = true, combat = true, car = true },
             near = { coords = WhipEvidence.vec(lab.def.device), range = 3.0 },
-        })
+        }))
         if not done then return false end
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
         if lab.running then return false, L('lab_running') end
@@ -380,14 +448,16 @@ function WhipEvidence.Lab.register()
         local locked, why = exports.whip_core:UpdateContainer(lab.containerId, { locked = true, name = busyName(lab.def) })
         if not locked then return false, why end
         local token = WhipEvidence.Data.newId()
-        local kinds = {}
+        local kinds, list = {}, {}
         local c = contents(lab.containerId, function(addr) return exports.whip_core:StoreRead(addr) end)
         for _, bagId in ipairs(s.pending) do
-            local k = c.bags[bagId] and c.bags[bagId].meta.kind or 'other'
+            local meta = c.bags[bagId] and c.bags[bagId].meta or {}
+            local k = meta.kind or 'other'
             kinds[k] = (kinds[k] or 0) + 1
+            if #list < 12 then list[#list + 1] = { k = k, n = meta.marker } end   -- the screen shows them one after another
         end
         lab.running = { started = os.time(), ends = os.time() + minutes * 60, ids = s.pending, guns = s.newGuns,
-                        by = player.charId, byName = WhipEvidence.officerLabel(source, player), kinds = kinds, token = token }
+                        by = player.charId, byName = WhipEvidence.officerLabel(source, player), kinds = kinds, list = list, token = token }
         lab.result = nil
         signLab(lab, s.pending, WhipEvidence.officerLabel(source, player))
         publish(id)

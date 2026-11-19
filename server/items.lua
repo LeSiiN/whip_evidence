@@ -165,7 +165,7 @@ function WhipEvidence.ItemDefs.register()
 
     -- Right-click "Sign for evidence": the officer who takes it over signs the chain of custody
     Whip.core:RegisterContextAction(ACT_SIGN, function(source, player, slotData, addr)
-        if not WhipEvidence.can(source, 'evidence_sign') then return false, L('sign_not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_sign') then return false, WhipEvidence.why(source, 'evidence_sign') end
         local who = WhipEvidence.officerLabel(source, player)
         local old = slotData.metadata and slotData.metadata.custody
         if type(old) == 'string' and old:sub(-#who) == who then return false, L('sign_already') end

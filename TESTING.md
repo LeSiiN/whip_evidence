@@ -38,6 +38,11 @@ Dev-Tools: `/w` → **Forensics**.
 - [ ] 3.5 Einstellungen (Settings-Menü) → Layout von Scan und Foto ändern → wird übernommen.
 - [ ] 3.6 Mit Controller: LB + Steuerkreuz links/rechts wechselt Filter / macht Foto (nur beim Scannen). Foto ansehen: A zoomt, LB/RB zoom, rechter Stick verschiebt, B zurück, Hinweise zeigen Pad-Tasten.
 
+- [ ] 3.7 Auf ein geparktes Auto schießen → Fragmente am Boden, Auto bekommt blauen Marker „V1“, Karte „Fragmente am Tatort · Noch kein Foto“. Vier Autos mit Spuren → V1–V4, alle mit Marker.
+- [ ] 3.8 Foto von der Seite → Foto-Liste „V1 Kennzeichen nicht lesbar (gelb) · Modell, Farbe“, Karte „Foto ohne Kennzeichen“. Foto von vorne/hinten unter 12 m → Kennzeichen steht drin, Karte „Fotografiert“.
+- [ ] 3.9 Tatort freigeben mit Auto ohne Kennzeichen-Foto → Nachfrage „1 Fahrzeug(e) ohne Foto: V1 (…)“. „Zurück“ bricht ab, „Trotzdem freigeben“ geht weiter.
+- [ ] 3.10 Spuren am Auto einsammeln → Marker bleibt, solange Fragmente-Spur da ist; Nummer und Foto bleiben.
+
 ## 4. Einsammeln
 - [ ] 4.1 Frische Spur ist sofort grün und einsammelbar (kein Warten).
 - [ ] 4.2 Einsammeln → Minigame je Typ (Pinzette, Tupfer, Ziehen …) → Beutel landet im Beweiskoffer.
@@ -64,6 +69,8 @@ Dev-Tools: `/w` → **Forensics**.
 - [ ] 5.4 Zivi mit Zange (Projektil) / Putztuch (Rest) → Minigame → Spur weg. Ohne Item: Hinweis.
 - [ ] 5.5 Zivi putzt Auto-Innenraum mit Putztuch → Abdrücke/Blut weg, Einschusslöcher bleiben.
 
+Tipp: `/w` → Forensics → „Give me every evidence bag“ gibt jede Beweisart einmal unanalysiert in die Taschen (16 Beutel), ohne Minigames.
+
 ## 6. Labor
 - [ ] 6.1 Am Lab-Gerät „Unload evidence case“ → alle Beutel im Lager, Koffer leer.
 - [ ] 6.2 Waffe dazulegen → „Analyse“ → Bildschirm zeigt Fortschritt, Lager ist gesperrt.
@@ -71,8 +78,17 @@ Dev-Tools: `/w` → **Forensics**.
 - [ ] 6.4 Beutel: Werte sichtbar, „Age at collection“, Custody „In lab“ → „Analysed“.
 - [ ] 6.5 Referenzhülse für die Waffe im Lager, passende Hülsen haben „Ballistic match“.
 - [ ] 6.6 Rechtsklick „Copy data“ → Seriennummer o. ä. im Clipboard.
+- [ ] 6.7 Niemand am Gerät → Sperrbildschirm mit Uhr, Datum und Status. Ans Gerät treten (≤ 2,5 m) → „Willkommen, Name“, dann Desktop, Name unten rechts. Weggehen → wieder gesperrt (bis 2 s).
+- [ ] 6.8 2 Minuten niemand am Gerät → Bildschirmschoner (schwarz, Logo + Uhr wandert). Fertige Analyse weckt ihn.
+- [ ] 6.9 Analyse starten → Ton am Monitor (15 m, 3D). Liste: Beutel nacheinander „fertig“ / „läuft · %“ / „in ca. X Min“, „gestartet von …“, Balken unter dem Taskleisten-Icon.
+- [ ] 6.10 Bild rechts passt zum Beutel: Blut DNA-Kurven, Fingerabdruck Punkte, Hülse/Projektil Riefen, Schmauch Balken Pb/Ba/Sb, Fahrzeugteile Lackschichten.
+- [ ] 6.10b Monitor flimmert/zittert nicht (auch Sperrbildschirm und Bildschirmschoner: Logo springt alle 10 s, gleitet nicht).
+- [ ] 6.12 Nach der Analyse am Gerät „Upload to a case“ → Monitor: Beutel → Ordner mit Fall-ID, „Beweis X von Y“, dann grüner Haken „… in Fall … hochgeladen“ + Ton. Danach „Bereit“, wenn nichts Ausgewertetes mehr im Lager liegt (sonst wieder die Ergebnisse).
+- [ ] 6.11 Fertig → Ton, Hinweis unten rechts (auch auf dem Sperrbildschirm), rotes Abzeichen mit Anzahl am Icon. Nach dem Joinen kein Ton für alte Ergebnisse.
 
 ## 7. Fall-Spinde (braucht das MDT oder den Test-Schnipsel unten)
+- [ ] 7.0 Am Spind „Evidence Lockers“ → Liste der Fälle (neueste Änderung oben, abgeschlossene grau unten). Klick öffnet den Spind. Über 15 Fälle: „Mehr anzeigen“. Suche filtert; eine ID, die nicht in der Liste ist, lässt sich mit Enter trotzdem öffnen. Controller: Steuerkreuz, A, X, B.
+- [ ] 7.0b Am Lab-Gerät „In Fall hochladen“ → dieselbe Liste (ohne abgeschlossene Fälle). Fall anklicken → hochgeladen. Neue Case-ID ins Suchfeld → „diesen Fall verwenden“ → Enter.
 - [ ] 7.1 Lab-Gerät → „Upload to a case“ → Fall-ID → analysierte Sachen wandern in den Fall-Spind.
 - [ ] 7.2 Nicht analysierte bleiben im Lab (Meldung zählt sie).
 - [ ] 7.3 Am Spind (Config.Lockers) Fall-ID eingeben → Spind öffnet.
@@ -104,6 +120,13 @@ Vorbereitung: `/w` → Forensics → „Give me the test kit“, Polizei im Dien
 - [ ] 7b.9 Weggehen (über 300 m) und zurück → Leiche liegt noch da. „Leiche freigeben“ (halten) → Leiche weg.
 - [ ] 7b.10 Vier Leichen nebeneinander → jede hat einen lila Marker „L1“–„L4“, die Karte nur bei der angezielten. Foto → alle vier in der Liste. Filter (G) „Leichen“ zeigt nur Leichen; Kamera-Legende listet sie.
 - [ ] 7b.11 (Zweiter Spieler) Spieler 2 stirbt → Leiche „L…“. Untersuchen → Spieler 2 kann nicht respawnen und bekommt eine Meldung; nach „Leiche freigeben“ oder 10 Min wieder.
+
+## 7c. Animationen und Props
+- [ ] 7c.1 Einsammeln: knien, dann stehend „Beutel verschließen und beschriften“ mit Notizblock, kurzer Ton.
+- [ ] 7c.2 Waffe einstauben: Arbeiten wie an einer Werkbank (/e mechanic4). Waffe/Innenraum putzen (Zivi): Schwamm. Fahrzeugspuren: Taschenlampe.
+- [ ] 7c.3 Tatort freigeben: Klemmbrett. Leiche untersuchen: kniend (Medic). Lab starten/ausladen/hochladen und Spind öffnen: Tippen.
+- [ ] 7c.4 Schmauchtest / Abstrich an Spieler 2: Spieler 2 hält kurz die Hände nach vorne.
+- [ ] 7c.5 Props sitzen richtig in der Hand (sonst: Emote-Name nennen, das besser passt). `/whip` → „Props in the hand“ aus → nur Animationen.
 
 ## 8. Neustart und Kanten
 - [ ] 8.1 Spur fotografieren, Resource neu starten → Spur, Nummer, Foto-Abzeichen und Blutrichtung sind noch da.

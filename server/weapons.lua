@@ -25,7 +25,7 @@ end
 local function dust(source, player, slotData, addr)
     local serial = slotData.metadata and slotData.metadata.serial
     if not serial then return false, L('no_serial') end
-    if not WhipEvidence.can(source, 'evidence_dust') then return false, L('not_allowed') end
+    if not WhipEvidence.can(source, 'evidence_dust') then return false, WhipEvidence.why(source, 'evidence_dust') end
     if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, L('need_kit') end
     if not WhipEvidence.hasEmptyBags(source) then return false, L('no_empty_bags') end
 
@@ -37,11 +37,10 @@ local function dust(source, player, slotData, addr)
     end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
 
-    local done = exports.whip_core:Progress(source, {
+    local done = exports.whip_core:Progress(source, WhipEvidence.bar('dust', {
         label = L('dusting'), duration = 6000, icon = 'target',
-        anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 49 },
         disable = { move = true, combat = true, car = true },
-    })
+    }))
     if not done then return false end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
 
@@ -83,11 +82,10 @@ local function wipe(source, player, slotData, addr)
     local serial = slotData.metadata and slotData.metadata.serial
     if not serial then return false end
     if not exports.whip_core:HasItem(source, WhipEvidence.Items.wipe) then return false, L('need_cloth') end
-    local done = exports.whip_core:Progress(source, {
+    local done = exports.whip_core:Progress(source, WhipEvidence.bar('wipe_weapon', {
         label = L('wiping_weapon'), duration = 4000, icon = 'fail',
-        anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 49 },
         disable = { move = true, combat = true, car = true },
-    })
+    }))
     if not done then return false end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
     WhipEvidence.Data.wipeWeapon(serial)

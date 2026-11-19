@@ -28,6 +28,8 @@ local function topRows()
         { sep = 'Testing' },
         { id = 'kit', label = 'Give me the test kit', icon = 'pickup',
           desc = 'Forensics kit, empty bags, laser pointers, pliers, cloths, camera, flashlight.' },
+        { id = 'bags', label = 'Give me every evidence bag', icon = 'pickup',
+          desc = 'Each kind once, not analysed (ground, person, weapon, vehicle, body). Your own fingerprint and blood.' },
         { id = 'spawn', label = 'Place test evidence around me', icon = 'target',
           desc = 'One of each type, with your own fingerprint and blood. Casing and bullet share a shot (trajectory).' },
         { id = 'ready', label = 'Make evidence within 25 m ready', icon = 'timer', desc = 'Only needed when "too fresh" is turned on.' },

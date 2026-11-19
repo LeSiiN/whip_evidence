@@ -102,6 +102,33 @@
                background: rgba(18, 20, 28, .92); border: 1px solid rgba(255,255,255,.12); border-radius: 10px;
                padding: 14px 18px; color: #f3f3f3; font-family: 'Barlow', sans-serif; box-shadow: 0 14px 40px rgba(0,0,0,.45); }
         #fit.open { display: block; }
+        /* evidence locker: case list */
+        #cases { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 60;
+                 background: rgba(5, 6, 8, .55); font-family: 'Barlow', sans-serif; color: #f3f3f3; }
+        #cases.open { display: flex; }
+        #cases .sheet { width: min(520px, 92vw); max-height: 86vh; display: flex; flex-direction: column; background: rgba(18, 20, 28, .97);
+                        border: 1px solid rgba(255,255,255,.12); border-top: 4px solid #facc15; border-radius: 12px;
+                        padding: 20px 24px; box-shadow: 0 20px 60px rgba(0,0,0,.55); }
+        #cases .kicker { font-size: 12px; font-weight: 800; letter-spacing: 3px; color: #facc15; }
+        #cases h2 { margin: 4px 0 12px; font-size: 26px; font-weight: 800; }
+        #cases input { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,.16);
+                       background: rgba(255,255,255,.06); color: #fff; font: 600 16px 'Barlow', sans-serif; outline: none; margin-bottom: 10px; }
+        #cases input:focus { border-color: #facc15; }
+        #cases .list { overflow-y: auto; min-height: 60px; }
+        #cases .c { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer;
+                    border: 1px solid transparent; }
+        #cases .c:hover, #cases .c.sel { background: rgba(250, 204, 21, .10); border-color: rgba(250, 204, 21, .45); }
+        #cases .c .id { font-size: 18px; font-weight: 800; flex: none; }
+        #cases .c .info { font-size: 14px; color: rgba(255,255,255,.6); flex: 1; text-align: right; }
+        #cases .c.closed { opacity: .45; }
+        #cases .c.typed .id { color: #facc15; }
+        #cases .empty { padding: 14px 4px; color: rgba(255,255,255,.5); }
+        #cases .btn { padding: 8px 14px; border-radius: 8px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14);
+                      font-size: 14px; font-weight: 700; cursor: pointer; text-align: center; }
+        #cases .btn:hover { background: rgba(255,255,255,.16); }
+        #cases .more { margin-top: 8px; }
+        #cases .foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px;
+                       font-size: 13px; color: rgba(255,255,255,.5); }
         /* body findings sheet */
         #report { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; z-index: 60;
                   background: rgba(5, 6, 8, .55); font-family: 'Barlow', sans-serif; color: #f3f3f3; }
@@ -167,6 +194,17 @@
             .catch(() => {});
     </script>
     <script src="games.js"></script>
+    <div id="cases">
+        <div class="sheet">
+            <div class="kicker" id="casesKicker"></div>
+            <h2 id="casesTitle"></h2>
+            <input id="casesSearch" type="text" autocomplete="off" spellcheck="false">
+            <div class="list" id="casesList"></div>
+            <div class="btn more" id="casesMore" data-probe-press></div>
+            <div class="foot"><span id="casesHint"></span><div class="btn" id="casesClose" data-probe-press></div></div>
+        </div>
+    </div>
+
     <div id="report">
         <div class="sheet">
             <div class="kicker" id="repKicker"></div>
@@ -246,9 +284,13 @@
                 <span class="no">${esc(e.n)}</span>
                 <div class="what"><div class="t">${esc(e.t)}</div>${e.s ? `<div class="i">${esc(e.s)} · ${esc(T('nui_min_old', '%d min old').replace('%d', e.a || 0))}</div>` : ''}</div>
                 <span class="d">${esc(e.d || 0)} m</span></div>`);
-            (Array.isArray(d.cars) ? d.cars : []).forEach((c, i) => rows.push(`<div class="row car">
-                <span class="no">V${i + 1}</span>
-                <div class="what"><div class="t">${esc(c.p)}</div><div class="i">${esc(c.t)}</div></div></div>`));
+            (Array.isArray(d.cars) ? d.cars : []).forEach((c, i) => {
+                const what = [c.m, c.c].filter(Boolean).join(', ');
+                const plate = c.seen === false ? `<span style="color:#facc15">${esc(c.p)}</span>` : esc(c.p);
+                rows.push(`<div class="row car">
+                <span class="no">${esc(c.v || 'V' + (i + 1))}</span>
+                <div class="what"><div class="t">${plate}${what ? ` · ${esc(what)}` : ''}</div><div class="i">${esc(c.t)}</div></div></div>`);
+            });
             (Array.isArray(d.bodies) ? d.bodies : []).forEach((b) => rows.push(`<div class="row body">
                 <span class="no">${esc(b.n)}</span>
                 <div class="what"><div class="t">${esc(b.t)}</div><div class="i">${esc(b.i)}</div></div>
@@ -353,6 +395,100 @@
             if (e.key !== 'Escape' && e.key !== 'Backspace') return;
             if ($('zoom').classList.contains('open')) closeZoom();
             else if ($('viewer').classList.contains('open')) closePhoto(true);
+        });
+
+        // ---- evidence locker: case list (client/lockers.lua)
+        const CS = { open: false, all: [], shown: 15, page: 15, now: 0, t: {}, sel: 0, rows: [] };
+        function csAgo(at) {
+            const s = Math.max(0, (CS.now || 0) - (at || 0));
+            if (s < 120) return CS.t.ago_now || 'just now';
+            if (s < 3600) return (CS.t.ago_min || '%d min ago').replace('%d', Math.floor(s / 60));
+            if (s < 172800) return (CS.t.ago_hours || '%d h ago').replace('%d', Math.floor(s / 3600));
+            return (CS.t.ago_days || '%d days ago').replace('%d', Math.floor(s / 86400));
+        }
+        function csClose(tell) {
+            CS.open = false;
+            $('cases').classList.remove('open');
+            $('casesSearch').blur();
+            if (tell) fetch(`https://${RES}/casesClose`, { method: 'POST', body: '{}' }).catch(() => {});
+        }
+        function csPick(id) {
+            if (!id) return;
+            CS.open = false;
+            $('cases').classList.remove('open');
+            $('casesSearch').blur();
+            fetch(`https://${RES}/casesPick`, { method: 'POST', body: JSON.stringify({ id }) }).catch(() => {});
+        }
+        function csRender() {
+            const q = $('casesSearch').value.trim().replace(/^#/, '').toLowerCase();
+            const match = q ? CS.all.filter((c) => String(c.id).toLowerCase().includes(q)) : CS.all;
+            const list = match.slice(0, CS.shown);
+            CS.rows = list.map((c) => c.id);
+            const exact = q && CS.all.some((c) => String(c.id).toLowerCase() === q);
+            let html = list.map((c, i) => {
+                const parts = [(CS.t.items || '%d evidence').replace('%d', c.items)];
+                if (c.taken > 0) parts.push((CS.t.taken || '%d taken out').replace('%d', c.taken));
+                parts.push(c.closed ? (CS.t.closed || 'closed · look only') : csAgo(c.at));
+                return `<div class="c${c.closed ? ' closed' : ''}${i === CS.sel ? ' sel' : ''}" data-id="${esc(c.id)}">
+                    <span class="id">${esc(c.id)}</span><span class="info">${esc(parts.join(' · '))}</span></div>`;
+            }).join('');
+            // a typed ID that is not in the list: open it anyway (the server checks it)
+            const raw = $('casesSearch').value.trim().replace(/^#/, '');
+            if (raw && !exact) {
+                CS.rows.push(raw);
+                html += `<div class="c typed${CS.sel === CS.rows.length - 1 ? ' sel' : ''}" data-id="${esc(raw)}">
+                    <span class="id">${esc(raw)}</span><span class="info">${esc(CS.t.typed || 'open this case ID')}</span></div>`;
+            }
+            if (!html) html = `<div class="empty">${esc(CS.t.empty || 'No case lockers yet.')}</div>`;
+            $('casesList').innerHTML = html;
+            const left = match.length - list.length;
+            $('casesMore').style.display = left > 0 ? '' : 'none';
+            $('casesMore').textContent = (CS.t.more || 'Show more (%d)').replace('%d', left);
+            const sel = $('casesList').querySelector('.c.sel');
+            if (sel) sel.scrollIntoView({ block: 'nearest' });
+        }
+        $('casesList').addEventListener('click', (e) => {
+            const row = e.target.closest('.c');
+            if (row) csPick(row.dataset.id);
+        });
+        $('casesMore').addEventListener('click', () => { CS.shown += CS.page; csRender(); });
+        $('casesClose').addEventListener('click', () => csClose(true));
+        $('casesSearch').addEventListener('input', () => { CS.sel = 0; CS.shown = CS.page; csRender(); });
+        $('casesSearch').addEventListener('focus', () => fetch(`https://${RES}/casesTyping`, { method: 'POST', body: '{"on":true}' }).catch(() => {}));
+        $('casesSearch').addEventListener('blur', () => fetch(`https://${RES}/casesTyping`, { method: 'POST', body: '{"on":false}' }).catch(() => {}));
+        function csMove(d) {
+            if (!CS.rows.length) return;
+            CS.sel = Math.max(0, Math.min(CS.rows.length - 1, CS.sel + d));
+            csRender();
+        }
+        document.addEventListener('keydown', (e) => {
+            if (!CS.open) return;
+            if (e.key === 'Escape') { e.preventDefault(); csClose(true); }
+            else if (e.key === 'ArrowDown') { e.preventDefault(); csMove(1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); csMove(-1); }
+            else if (e.key === 'Enter') { e.preventDefault(); csPick(CS.rows[CS.sel]); }
+        });
+        window.addEventListener('message', (e) => {
+            const d = e.data || {};
+            if (d.action === 'cases') {
+                if (!d.open) return csClose(false);
+                CS.open = true; CS.all = Array.isArray(d.cases) ? d.cases : []; CS.page = d.page || 15; CS.shown = CS.page;
+                CS.now = d.now || 0; CS.t = d.texts || {}; CS.sel = 0;
+                $('casesKicker').textContent = CS.t.kicker || '';
+                $('casesTitle').textContent = CS.t.title || '';
+                $('casesSearch').placeholder = CS.t.search || '';
+                $('casesSearch').value = '';
+                $('casesHint').textContent = CS.t.hint || '';
+                $('casesClose').textContent = CS.t.close || 'Close · Esc';
+                $('cases').classList.add('open');
+                csRender();   // the search field is not focused: the held E of the prompt would type into it
+            } else if (d.action === 'casesPad' && CS.open) {
+                if (d.cmd === 'up') csMove(-1);
+                else if (d.cmd === 'down') csMove(1);
+                else if (d.cmd === 'a') csPick(CS.rows[CS.sel]);
+                else if (d.cmd === 'x') { CS.shown += CS.page; csRender(); }
+                else if (d.cmd === 'b') csClose(true);
+            }
         });
 
         // ---- body findings sheet (client/bodies.lua)

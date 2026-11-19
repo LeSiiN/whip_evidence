@@ -85,10 +85,37 @@ local function numbers(list)
     return table.concat(out, ' ')
 end
 
+-- Involved vehicles nearby whose plate is not on a photo yet: { 'V1 (ABC123)', ... } and their net ids
+local function carsWithoutPhoto()
+    local me = GetEntityCoords(PlayerPedId())
+    local names, nets = {}, {}
+    for net, s in pairs(WhipEvidence.Ev.vehicles()) do
+        if s and not s.plateSeen and NetworkDoesNetworkIdExist(net) then
+            local ent = NetworkGetEntityFromNetworkId(net)
+            if ent ~= 0 and DoesEntityExist(ent) and #(GetEntityCoords(ent) - me) <= Config.ReleaseRadius then
+                names[#names + 1] = ('V%d (%s)'):format(s.no or 0, s.plate or '?')
+                nets[#nets + 1] = net
+            end
+        end
+    end
+    table.sort(names)
+    return names, nets
+end
+
 -- Everything photographed: one question. Some without a photo: choose, and a second, louder question for "everything".
+-- Vehicles without a photo of their plate are asked about first.
 local function releaseScene()
     local list = nearby()
     if #list == 0 then return WhipEvidence.notify(L('nothing_to_clear'), 'info') end
+    local cars = carsWithoutPhoto()
+    if #cars > 0 then
+        local go = Whip.core:Confirm({
+            title = L('release_cars_title', #cars),
+            message = L('release_cars_msg', table.concat(cars, ', ')),
+            yes = L('release_anyway'), no = L('back'),
+        })
+        if not go then return end
+    end
     local missing = {}
     for _, ev in ipairs(list) do if not ev.photo then missing[#missing + 1] = ev end end
     local done = #list - #missing
@@ -127,6 +154,58 @@ local function releaseScene()
         if sure then TriggerServerEvent('whip_evidence:release', 'all') end
     end
 end
+
+-- Evidence locker prompt. whip_core (since 2026-11-18) remembers which panel a prompt opened and draws it
+-- at once on the next press, before the server answers. A locker opens a different case each time, after
+-- picking from the case list: the early drawing is closed by the list, and whip_core then declines the real locker
+-- without a word. So every press gets a fresh prompt id, which has nothing remembered.
+-- The ids must never repeat, also not after a restart of this resource: whip_core keeps what it learned
+-- for the whole game session, so 'locker:mrpd:1' of the last run would draw that run's case at once.
+local lockerUses = {}
+local RUN = GetGameTimer()
+local function addLocker(locker)
+    local n = (lockerUses[locker.id] or 0) + 1
+    lockerUses[locker.id] = n
+    local actionId = ('locker:%s:%d:%d'):format(locker.id, RUN, n)
+    Whip.core:AddAction({
+        id = actionId, group = 'whip_evidence_lockers', at = { coords = WhipEvidence.vec(locker.coords) },
+        label = locker.label or L('evidence_lockers'), icon = 'pickup', reach = 2.0, press = true,
+        require = { job = Config.PoliceJobs, onDuty = true },   -- rank: the server says why not
+        onSelect = function()
+            CreateThread(function()
+                Wait(0)
+                Whip.core:RemoveAction(actionId)
+                addLocker(locker)
+                WhipEvidence.Lockers.pick()   -- the case list (client/lockers.lua)
+            end)
+        end,
+    })
+end
+
+-- A bag was sealed (server/briefcase.lua)
+RegisterNetEvent('whip_evidence:client:bagged', function()
+    PlaySoundFrontend(-1, 'PICK_UP', 'HUD_FRONTEND_DEFAULT_SOUNDSET', true)
+end)
+
+-- Someone tests or swabs this player: they hold their hands out for a moment (Config.Animations.hands_out)
+RegisterNetEvent('whip_evidence:client:handsOut', function(ms)
+    local a = (Config.Animations or {}).hands_out
+    local anim = a and a.anim
+    if not anim or not anim.dict then return end
+    ms = math.max(500, math.min(tonumber(ms) or 3000, 10000))
+    local ped = PlayerPedId()
+    if IsEntityDead(ped) or IsPedInAnyVehicle(ped, false) or IsPedRagdoll(ped) then return end
+    CreateThread(function()
+        RequestAnimDict(anim.dict)
+        local untilAt = GetGameTimer() + 2000
+        while not HasAnimDictLoaded(anim.dict) and GetGameTimer() < untilAt do Wait(10) end
+        if not HasAnimDictLoaded(anim.dict) then return end
+        TaskPlayAnim(ped, anim.dict, anim.clip, 4.0, -4.0, ms, anim.flag or 49, 0.0, false, false, false)
+        Wait(ms)
+        if IsEntityPlayingAnim(ped, anim.dict, anim.clip, 3) then StopAnimTask(ped, anim.dict, anim.clip, 2.0) end
+        RemoveAnimDict(anim.dict)
+    end)
+end)
 
 ---------------------------------------------------------------- Register
 
@@ -183,11 +262,7 @@ Whip.register(function()
                     { id = 'upload', label = L('upload_case'), icon = 'pickup', holdMs = 1000, press = true,
                       canInteract = function() return WhipEvidence.can('evidence_upload') end,
                       onSelect = function()
-                          local r = Whip.core:Input(L('upload_case'), {
-                              { label = L('case_id_mdt'), type = 'text', required = true },
-                          })
-                          local caseId = r and r[1] and tostring(r[1]):gsub('^%s*#?', ''):gsub('%s+$', '')
-                          if caseId and caseId ~= '' then TriggerServerEvent('whip_evidence:labUpload', id, caseId) end
+                          CreateThread(function() WhipEvidence.Lockers.pick({ upload = id }) end)   -- case list (client/lockers.lua)
                       end },
                 },
             })
@@ -195,23 +270,8 @@ Whip.register(function()
     end
 
     -- evidence lockers: type a case ID, its locker opens (every case at every locker)
+    Whip.core:RemoveActionGroup('whip_evidence_lockers')
     for _, locker in ipairs(Config.Lockers or {}) do
-        if locker.id and locker.coords then
-            Whip.core:AddAction({
-                id = 'locker:' .. locker.id, at = { coords = WhipEvidence.vec(locker.coords) },
-                label = locker.label or L('evidence_lockers'), icon = 'pickup', reach = 2.0, press = true,
-                require = { job = Config.PoliceJobs, onDuty = true },
-                canInteract = function() return WhipEvidence.can('evidence_locker') end,
-                onSelect = function()
-                    CreateThread(function()
-                        local r = Whip.core:Input(L('open_locker'), {
-                            { label = L('case_id'), type = 'text', required = true },
-                        })
-                        local caseId = r and r[1] and tostring(r[1]):gsub('^%s*#?', ''):gsub('%s+$', '')
-                        if caseId and caseId ~= '' then TriggerServerEvent('whip_evidence:openLocker', caseId) end
-                    end)
-                end,
-            })
-        end
+        if locker.id and locker.coords then addLocker(locker) end
     end
 end)

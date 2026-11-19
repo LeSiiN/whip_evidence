@@ -299,18 +299,17 @@ end
 
 local function allowed(source)
     if not WhipEvidence.isPolice(source) then return false, L('police_only') end
-    if not WhipEvidence.can(source, 'evidence_body') then return false, L('not_allowed') end
+    if not WhipEvidence.can(source, 'evidence_body') then return false, WhipEvidence.why(source, 'evidence_body') end
     if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, L('need_kit') end
     return true
 end
 
-local function kneel(source, b, label, ms)
-    return exports.whip_core:Progress(source, {
+local function kneel(source, b, label, ms, key)
+    return exports.whip_core:Progress(source, WhipEvidence.bar(key or 'body_sample', {
         label = label, duration = ms, icon = 'target',
-        anim = { dict = 'amb@medic@standing@kneel@base', clip = 'base', flag = 1 },
         disable = { move = true, combat = true, car = true },
         near = { coords = coordsOf(b), range = 3.5 },
-    })
+    }))
 end
 
 local function label(b) return L('body_label', b.no) end
@@ -338,7 +337,7 @@ local function examine(source, player, b)
             exports.whip_core:NotifyPlayer(b.source, L('body_held_you'), 'info')
         end
     end
-    if not kneel(source, b, L('body_examining'), 6000) then return false end
+    if not kneel(source, b, L('body_examining'), 6000, 'body_examine') then return false end
     if not exports.whip_core:IsSessionCurrent(source, player.session) or not Bodies[b.id] then return false end
     b.examined = true
     WhipEvidence.wear(source, WhipEvidence.Items.kit)

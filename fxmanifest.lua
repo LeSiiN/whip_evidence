@@ -6,7 +6,7 @@ lua54 'yes'
 name 'whip_evidence'
 author 'LeSiiN'
 description 'Forensics for WHIP: evidence, GSR, vehicle traces, weapon prints, labs'
-version '4.1.1'
+version '4.1.2'
 
 dependencies {
     'whip_core',
@@ -57,6 +57,7 @@ client_scripts {
     'client/photo.lua',
     'client/games.lua',
     'client/labscreen.lua',
+    'client/lockers.lua',
     'client/police.lua',
     'client/gsr.lua',
     'client/body.lua',

@@ -238,19 +238,19 @@ function WhipEvidence.Body.register()
         params = { { 'target', 'player', { range = 3.0 } }, { 'street', 'string', 80, 'Unknown' } },
     }, function(source, player, target, street)
         if not WhipEvidence.isPolice(source) then return false, L('police_only') end
-        if not WhipEvidence.can(source, 'evidence_collect') then return false, L('not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_collect') then return false, WhipEvidence.why(source, 'evidence_collect') end
         if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, L('need_kit') end
         if not WhipEvidence.hasEmptyBags(source) then return false, L('no_empty_bags') end
 
         local passed, res = WhipEvidence.minigame(source, 'blood')
         if not passed then return false, res == 'busy' and L('busy') or nil end
         exports.whip_core:NotifyPlayer(target.source, L('being_swabbed'), 'info')
-        local done = exports.whip_core:Progress(source, {
+        TriggerClientEvent('whip_evidence:client:handsOut', target.source, 3000)
+        local done = exports.whip_core:Progress(source, WhipEvidence.bar('swab_person', {
             label = L('swabbing'), duration = 3000, icon = 'target',
-            anim = { dict = 'creatures@rottweiler@tricks@', clip = 'petting_franklin', flag = 0 },
             disable = { move = true, combat = true, car = true },
             near = { coords = GetEntityCoords(GetPlayerPed(target.source)), range = 3.5 },
-        })
+        }))
         if not done then return false end
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
         WhipEvidence.wear(source, WhipEvidence.Items.kit)

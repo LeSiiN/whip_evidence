@@ -84,7 +84,33 @@ local function copyOf(t)
 end
 
 local function caseChanged(id, why)
+    local c = Cases[id]
+    if c then c.touched = os.time() end   -- the locker list shows the latest change first
     TriggerEvent('whip_evidence:caseChanged', id, why)
+end
+
+-- Last change of a case after a restart: the newest of its creation, "taken out" times and the custody lines
+-- of the items in it ("11/18 22:10 ..."; the year is this one, or last year if that would be in the future).
+local function lastChange(c)
+    local t = tonumber(c.created) or 0
+    for _, e in pairs(c.taken or {}) do
+        if tonumber(e.at) and e.at > t then t = e.at end
+    end
+    local now = os.time()
+    local year = tonumber(os.date('%Y'))
+    for _, it in pairs(c.slots or {}) do
+        local custody = it.metadata and it.metadata.custody
+        if type(custody) == 'string' then
+            for mo, d, h, mi in custody:gmatch('(%d%d)/(%d%d) (%d%d):(%d%d)') do
+                local at = os.time({ year = year, month = tonumber(mo), day = tonumber(d), hour = tonumber(h), min = tonumber(mi) })
+                if at and at > now + 86400 then
+                    at = os.time({ year = year - 1, month = tonumber(mo), day = tonumber(d), hour = tonumber(h), min = tonumber(mi) })
+                end
+                if at and at > t and at <= now + 60 then t = at end
+            end
+        end
+    end
+    return t
 end
 
 ---------------------------------------------------------------- Store kind
@@ -193,11 +219,12 @@ function WhipEvidence.Cases.load()
             c.slots[tonumber(r.slot)] = { item = r.item, amount = tonumber(r.amount) or 1, metadata = ok and meta or {} }
         end
     end
+    for _, c in pairs(Cases) do c.touched = lastChange(c) end
 end
 
 local function ensureCase(id)
     if not Cases[id] then
-        Cases[id] = { id = id, created = os.time(), closed = false, taken = {}, slots = {} }
+        Cases[id] = { id = id, created = os.time(), touched = os.time(), closed = false, taken = {}, slots = {} }
         WhipEvidence.Data.saveCase(Cases[id])
     end
     return Cases[id]
@@ -307,7 +334,7 @@ end
 local function uploadCheck(source, caseId)
     local id = validId(caseId)
     if not id then return false, L('invalid_case') end
-    if not WhipEvidence.can(source, 'evidence_upload') then return false, L('not_allowed') end
+    if not WhipEvidence.can(source, 'evidence_upload') then return false, WhipEvidence.why(source, 'evidence_upload') end
     if Cases[id] and Cases[id].closed then return false, L('case_closed') end
     local player = exports.whip_core:GetPlayer(source)
     if not player then return false, 'Player not loaded' end
@@ -380,7 +407,7 @@ function WhipEvidence.Cases.setClosed(caseId, closed, source)
     if not c then return false, L('no_locker') end
     local who = 'MDT'
     if source then
-        if not WhipEvidence.can(source, 'evidence_case_close') then return false, L('not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_case_close') then return false, WhipEvidence.why(source, 'evidence_case_close') end
         local player = exports.whip_core:GetPlayer(source)
         who = player and WhipEvidence.officerLabel(source, player) or who
     end
@@ -432,15 +459,21 @@ end
 function WhipEvidence.Cases.open(source, caseId)
     local id = validId(caseId)
     if not id then return false, L('invalid_case') end
-    if not WhipEvidence.can(source, 'evidence_locker') then return false, L('not_allowed') end
+    if not WhipEvidence.can(source, 'evidence_locker') then return false, WhipEvidence.why(source, 'evidence_locker') end
     local locker = lockerNear(source)
     if not locker then return false, L('need_locker') end
     local c = Cases[id]
     if not c then return false, L('no_case_evidence', id) end
     local readOnly = c.closed or not WhipEvidence.can(source, 'evidence_locker_take')
+    local done = exports.whip_core:Progress(source, WhipEvidence.bar('locker', {
+        label = L('opening_locker'), duration = 1000, icon = 'pickup',
+        disable = { move = true, combat = true, car = true },
+        near = { coords = WhipEvidence.vec(locker.coords), range = 3.0 },
+    }))
+    if not done then return false end
     local ok, why = exports.whip_core:OpenStore(source, { kind = KIND, id = id },
         { coords = WhipEvidence.vec(locker.coords), range = 3.0, readOnly = readOnly })
-    if not ok then return false, why end
+    if not ok then return false, why or L('locker_not_opened') end
     openLockers[source] = id
     exports.whip_core:LogActivity(source, 'evidence_locker_open', { detail = 'case ' .. id })
     if readOnly then
@@ -506,12 +539,56 @@ function WhipEvidence.Cases.register()
             range = 3.0,
         },
     }, function(source, player, labId, caseId)
+        local device
+        for _, lab in ipairs(Config.Labs) do
+            if lab.id == labId then device = WhipEvidence.vec(lab.device) end
+        end
+        local done = exports.whip_core:Progress(source, WhipEvidence.bar('lab', {
+            label = L('uploading_case'), duration = 1500, icon = 'timer',
+            disable = { move = true, combat = true, car = true },
+            near = device and { coords = device, range = 3.0 } or nil,
+        }))
+        if not done or not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
         local moved, waiting = WhipEvidence.Cases.uploadFromLab(source, labId, caseId)
         if not moved then return false, waiting end
-        WhipEvidence.Lab.publish(labId)
+        WhipEvidence.Lab.uploaded(labId, validId(caseId), moved, waiting, WhipEvidence.officerLabel(source, player))
         local text = L('lab_uploaded', moved, validId(caseId))
         if waiting > 0 then text = text .. L('lab_upload_waiting', waiting) end
         exports.whip_core:NotifyPlayer(source, text, 'success')
+    end)
+
+    -- The case list (picked with a click instead of typing): open cases by last change, then the closed ones.
+    -- mode 'locker': at an evidence locker. mode 'upload': at a lab device (no closed cases: nothing goes in).
+    Whip.core:SecureCallback('whip_evidence:lockerCases', {
+        rateLimit = 1500, burst = 2,
+        params = { { 'mode', 'enum', { 'locker', 'upload' }, 'locker' }, { 'lab', 'string', 32, '' } },
+    }, function(source, player, mode, labId)
+        if mode == 'upload' then
+            if not WhipEvidence.can(source, 'evidence_upload') then return { error = WhipEvidence.why(source, 'evidence_upload') } end
+            local here, at = GetEntityCoords(GetPlayerPed(source)), nil
+            for _, lab in ipairs(Config.Labs) do
+                if lab.id == labId and lab.device then at = WhipEvidence.vec(lab.device) end
+            end
+            if not at or #(here - at) > 3.5 then return { error = L('lab_too_far') } end
+        else
+            if not WhipEvidence.can(source, 'evidence_locker') then return { error = WhipEvidence.why(source, 'evidence_locker') } end
+            if not lockerNear(source) then return { error = L('need_locker') } end
+        end
+        local list = {}
+        for id, c in pairs(Cases) do
+            local items, taken = 0, 0
+            for _ in pairs(c.slots) do items = items + 1 end
+            for _ in pairs(c.taken) do taken = taken + 1 end
+            if not (mode == 'upload' and c.closed) then
+                list[#list + 1] = { id = id, items = items, taken = taken, closed = c.closed == true, at = c.touched or c.created or 0 }
+            end
+        end
+        table.sort(list, function(a, b)
+            if a.closed ~= b.closed then return not a.closed end
+            return a.at > b.at
+        end)
+        while #list > 500 do list[#list] = nil end
+        return { cases = list, now = os.time() }
     end)
 
     Whip.core:SecureEvent('whip_evidence:openLocker', {

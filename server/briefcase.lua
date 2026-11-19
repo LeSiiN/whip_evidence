@@ -40,6 +40,7 @@ end
 
 -- Every new bag goes through here: case first, else the pockets. Returns 'case', the AddItem answer, or false.
 function WhipEvidence.giveBag(source, meta, reason)
+    TriggerClientEvent('whip_evidence:client:bagged', source)   -- a short sound: the bag is sealed
     if Config.BagsIntoCase ~= false and WhipEvidence.Briefcase.put(source, meta) then return 'case' end
     return exports.whip_core:AddItem(source, I.bag, 1, meta, reason)
 end

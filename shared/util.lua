@@ -62,6 +62,16 @@ function WhipEvidence.isPoliceJob(key)
     return false
 end
 
+-- A Progress bar's options with the animation and prop of Config.Animations[key] (prop left out with Config.HandProps = false)
+function WhipEvidence.bar(key, opts)
+    local a = (Config.Animations or {})[key]
+    if a then
+        opts.anim = opts.anim or a.anim
+        if a.prop and Config.HandProps ~= false then opts.prop = a.prop end
+    end
+    return opts
+end
+
 function WhipEvidence.isIgnoredWeapon(item)
     for _, name in ipairs(Config.IgnoreWeapons) do
         if name == item then return true end

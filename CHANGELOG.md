@@ -7,11 +7,21 @@
 - **Rank permissions by level**: "Lowest rank level" per action in `/whip` → Settings → Forensics, the same for every police job (no more toggles in the Job Manager).
 
 ### New
+- **More immersion**: every bar has a fitting animation, many with a prop in the hand (notepad, clipboard, sponge, torch), taken from WHIP's emotes and listed in `Config.Animations` (`Config.HandProps = false`: no props). Collecting ends with sealing and labelling the bag. New short bars for lab unload/upload and opening a locker. A sealed bag makes a sound. A tested or swabbed person holds their hands out.
+- **Vehicles at a scene**: every vehicle with traces gets a blue marker "V1", "V2", ... (card when aimed at, no limit). A photo lists number, plate, model and colour; the plate only counts from the front or back within 12 m. The card shows "No photo yet" / "Photo without plate" / "Photographed". Releasing a scene asks when vehicles have no photo of their plate (and logs them).
+- **Fragments name their car**: the car hit pieces came from is involved too ("Fragments at the scene"), even with nothing inside.
 - **Bodies**: players and pedestrians killed by a player can be examined (time of death, wounds, body parts), bullets taken out for the lab, blood sample and GSR test on the hands. Card "L1" in the scan, respawn held while police examine, pedestrian bodies don't despawn. Dev tools: test pedestrians and a stand-in with your blood.
 - Findings sheet per body (cause of death, wounds per body part, shot distance, bullets in the body or through, defence wounds, weapon in hand, moved after death), copy as text, controller.
 - Every body gets its own purple marker ("L1", "L2", ...) like evidence, the card shows for the one you aim at. Bodies are listed on crime scene photos. Every pedestrian works, also ones only your game knows. The prompt sits on the chest.
+- **Evidence locker case list**: the locker shows the cases instead of asking for an ID: 15 latest changed first (more with a button), closed ones greyed (look only), with evidence count, items taken out and last change. The search field also opens an ID not in the list. Mouse, keyboard and controller. "Upload to a case" at the lab uses the same list (open cases only; a new MDT case ID is typed in the search field).
+- Fix: the evidence locker did not open after typing the case ID (no message) since whip_core's early panel drawing (2026-11-18): each press of the locker prompt now has a fresh id, so nothing early is drawn and declined.
+- A refused action says why: "Your rank is level 10, this needs level 20". The evidence locker prompt shows for every officer on duty (the rank is checked when opening).
+- Fix: shots at police, emergency and parked NPC cars made no fragments or bullet holes (the car was not found). The car hit is now found by a ray through the impact; a car only one game knew is networked first.
 - Fix: blood, casings and fragments landed on top of awnings, balconies or roofs above the spot. The floor is now found straight below.
 - Settings group "Bodies" in `/whip`, rank level for "Examine bodies".
+- **Lab monitor**: locked with clock and status when nobody is at the device; an officer stepping up signs in ("Welcome, name") and is shown in the taskbar; screensaver after 2 minutes. Start and finish play a sound at the monitor, the notification also shows on the lock screen. While running: each bag in turn (done / running % / about when), who started it, progress under the taskbar icon, a badge with the results. The current bag shows what the instrument sees: DNA peaks (blood), fingerprint points, striations lining up (casings, bullets), lead/barium/antimony (GSR), paint layers (vehicle fragments). Everything moves in steps once a second with the analysis (smooth motion shimmers on a monitor in the world).
+- Upload to a case at the lab: the monitor shows the transfer (bags → case folder, item by item), then "uploaded" with a sound; once no analysed bag is left in the lab it goes back to "Ready".
+- Dev tool "Give me every evidence bag": each kind once, not analysed (ground, person, weapon, vehicle, body), with your own fingerprint and blood.
 
 ## 4.0.0
 

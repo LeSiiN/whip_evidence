@@ -43,6 +43,54 @@ local function revealMine(source)
     return #done
 end
 
+-- Every kind of evidence bag once, not analysed yet (tests the lab, lockers and MDT without the minigames).
+-- Your own fingerprint and blood, gun serial TEST-<charId>. Straight into the pockets.
+local function giveAllBags(source, player)
+    local officer = WhipEvidence.officerLabel(source, player)
+    local traits = WhipEvidence.Data.traits(player.charId) or {}
+    local me = ('%s %s'):format(player.firstName or '', player.lastName or ''):gsub('^%s+', ''):gsub('%s+$', '')
+    if me == '' then me = officer end
+    local gun = { serial = 'TEST-' .. player.charId, caliber = '9mm' }
+    local fp, blood = { fingerprint = traits.fingerprint or 'TEST' }, { blood = traits.blood or 'O+' }
+    local car = L('vehicle_plate', 'TEST 123')
+    local list = {
+        -- kind, label, data for the lab (nil = nothing to analyse), extra fields, age at collection (s)
+        { 'casing', WhipEvidence.label('casing'), gun, { marker = '#1' }, 600 },
+        { 'bullet', WhipEvidence.label('bullet'), gun, { marker = '#2' }, 600 },
+        { 'blood', WhipEvidence.label('blood'), blood, { marker = '#3' }, 1500 },
+        { 'fingerprint', WhipEvidence.label('fingerprint'), fp, { marker = '#4' }, 3600 },
+        { 'vehicle_fragment', WhipEvidence.label('vehicle_fragment'), { colour = 'Test Red' }, { marker = '#5' }, 300 },
+        { 'blood', L('type_blood_clothing'), blood, { tested_on = me } },
+        { 'gsr', L('gsr_test'), nil, { tested_on = me, gsr = L('gsr_strong') } },
+        { 'fingerprint', L('type_fp_weapon'), fp, { tested_on = ('Pistol (%s)'):format(gun.serial), street = '-' } },
+        { 'fingerprint', L('type_fp_vehicle'), fp, { tested_on = car } },
+        { 'blood', L('type_blood_vehicle'), blood, { tested_on = car } },
+        { 'casing', L('type_casing_vehicle', 2), gun, { tested_on = car } },
+        { 'bullet', L('type_bullet_vehicle', 1), gun, { tested_on = car } },
+        { 'gsr', L('type_gsr_vehicle'), nil, { tested_on = car, gsr = 'POSITIVE' } },
+        { 'bullet', L('type_bullet_body'), gun, { tested_on = 'L1', marker = 'L1' } },
+        { 'blood', L('type_blood_body'), blood, { tested_on = 'L1', marker = 'L1' } },
+        { 'gsr', L('gsr_test'), nil, { tested_on = 'L1', gsr = L('gsr_weak') } },
+    }
+    local queries, made = {}, 0
+    for _, e in ipairs(list) do
+        local meta = {
+            evidence_id = WhipEvidence.Data.newId(), kind = e[1], type = e[2],
+            time = os.date('%Y-%m-%d %H:%M:%S'), street = 'Test', collected_by = officer,
+            photographed = e[5] and L('no') or nil,
+        }
+        for k, v in pairs(e[4]) do meta[k] = v end
+        meta.custody = WhipEvidence.custody(nil, L('custody_collected'), officer)
+        local secret = e[3] and WhipEvidence.Evidence.secretFor(e[1], e[3], meta, e[5]) or nil
+        if exports.whip_core:AddItem(source, WhipEvidence.Items.bag, 1, meta, 'Forensics test bags') then
+            made = made + 1
+            if secret and next(secret) then queries[#queries + 1] = WhipEvidence.Data.bagQuery(meta.evidence_id, e[1], secret) end
+        end
+    end
+    WhipEvidence.Data.saveBags(queries)
+    return made, #list
+end
+
 local function giveKit(source)
     local I = WhipEvidence.Items
     local list = {
@@ -97,7 +145,7 @@ function WhipEvidence.Admin.register()
 
     Whip.core:SecureEvent('whip_evidence:adminTest', {
         ace = 'whip.devtools', rateLimit = 1000,
-        params = { { 'action', 'enum', { 'spawn', 'ready', 'finishLabs', 'reveal', 'kit' } } },
+        params = { { 'action', 'enum', { 'spawn', 'ready', 'finishLabs', 'reveal', 'kit', 'bags' } } },
     }, function(source, player, action)
         local text
         if action == 'spawn' then
@@ -107,6 +155,10 @@ function WhipEvidence.Admin.register()
                 WhipEvidence.Evidence.makeReady(GetEntityCoords(GetPlayerPed(source)), 25.0))
         elseif action == 'finishLabs' then
             text = ('%d running analysis/analyses finished.'):format(WhipEvidence.Lab.finishNow())
+        elseif action == 'bags' then
+            local made, all = giveAllBags(source, player)
+            text = ('%d of %d evidence bag(s) given (not analysed).'):format(made, all)
+            if made < all then text = text .. ' Pockets full?' end
         elseif action == 'reveal' then
             text = ('%d bag(s) in your pockets analysed.'):format(revealMine(source))
         else

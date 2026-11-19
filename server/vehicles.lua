@@ -2,8 +2,9 @@
 -- (casings, GSR) and bullet holes. Police collects them at a front door, a cleaning cloth removes them.
 WhipEvidence.Vehicles = {}
 
-local traces = {}   -- [key] = { net, plate, prints = { [charId] = t }, blood = { [charId] = { t, data } },
-                    --           casing = { [serial] = { t, n, data } }, bullet = { [serial] = { t, n, data } }, gsr = t }
+local traces = {}   -- [key] = { net, plate, no, pos, prints = { [charId] = t }, blood = { [charId] = { t, data } },
+                    --           casing = { [serial] = { t, n, data } }, bullet = { [serial] = { t, n, data } }, gsr = t,
+                    --           fragments = n, fragT = t (pieces of it on the ground), photo = id, plateSeen = true }
 
 local function entityOf(net)
     local ent = NetworkGetEntityFromNetworkId(net)
@@ -25,14 +26,30 @@ local function count(t)
     return n
 end
 
--- What clients see while scanning (no names, no serials)
+-- What clients see while scanning (no names, no serials). The plate is on the car for everyone to see.
 local function summary(tr)
     local casings, bullets = 0, 0
     for _, c in pairs(tr.casing) do casings = casings + c.n end
     for _, b in pairs(tr.bullet) do bullets = bullets + b.n end
-    local s = { prints = next(tr.prints) ~= nil, blood = count(tr.blood), casing = casings, bullet = bullets, gsr = tr.gsr ~= nil }
-    if not s.prints and s.blood == 0 and s.casing == 0 and s.bullet == 0 and not s.gsr then return nil end
+    local s = { prints = next(tr.prints) ~= nil, blood = count(tr.blood), casing = casings, bullet = bullets, gsr = tr.gsr ~= nil,
+                fragments = tr.fragments or 0, no = tr.no, plate = tr.plate,
+                photo = tr.photo ~= nil, plateSeen = tr.plateSeen == true }
+    if not s.prints and s.blood == 0 and s.casing == 0 and s.bullet == 0 and not s.gsr and s.fragments == 0 then return nil end
     return s
+end
+
+-- inside traces a police officer can bag at the door (fragments lie on the ground)
+local function hasInside(tr)
+    return next(tr.prints) ~= nil or next(tr.blood) ~= nil or next(tr.casing) ~= nil or next(tr.bullet) ~= nil or tr.gsr ~= nil
+end
+
+-- V1, V2, ...: one higher than the involved cars around
+local function nextNo(pos)
+    local n = 0
+    for _, o in pairs(traces) do
+        if o.no and o.pos and #(o.pos - pos) < 80.0 and o.no > n then n = o.no end
+    end
+    return n + 1
 end
 
 -- Changed cars go out together every 500 ms (shots from inside a car change it every shot)
@@ -58,11 +75,13 @@ local function traceOf(ent, create)
     local key, plate = keyOf(ent)
     local tr = traces[key]
     if not tr and create then
-        tr = { prints = {}, blood = {}, casing = {}, bullet = {} }
+        local pos = GetEntityCoords(ent)
+        tr = { prints = {}, blood = {}, casing = {}, bullet = {}, no = nextNo(pos), pos = pos }
         traces[key] = tr
     end
     if tr then
         tr.net, tr.plate, tr.key = NetworkGetNetworkIdFromEntity(ent), plate, key
+        tr.pos = GetEntityCoords(ent)
     end
     return tr
 end
@@ -84,17 +103,59 @@ function WhipEvidence.Vehicles.addTrace(ent, kind, data, charId)
         list[key] = entry
     elseif kind == 'gsr' then
         tr.gsr = t
+    elseif kind == 'fragment' then
+        tr.fragments, tr.fragT = math.min((tr.fragments or 0) + 1, 99), t
     end
     local after = summary(tr)
     if json.encode(before) ~= json.encode(after) then push(tr) end
 end
 
--- For photos: what a car shows and its plate (nil without traces)
-function WhipEvidence.Vehicles.photoInfo(ent)
+-- Can a camera at camPos read the plate? Close enough, and from the front or the back (not the side)
+local PLATE_RANGE = 12.0
+local function plateReadable(ent, camPos)
+    local pos = GetEntityCoords(ent)
+    local to = camPos - pos
+    local d = #to
+    if d > PLATE_RANGE then return false end
+    if d < 0.5 then return true end
+    local h = math.rad(GetEntityHeading(ent))
+    local fx, fy = -math.sin(h), math.cos(h)
+    local flat = math.sqrt(to.x * to.x + to.y * to.y)
+    if flat < 0.01 then return false end
+    local cos = (fx * to.x + fy * to.y) / flat
+    return math.abs(cos) >= 0.5   -- within 60 degrees of straight ahead or straight behind
+end
+
+-- For photos: what a car shows, its plate (when readable), number and colour (nil without traces)
+function WhipEvidence.Vehicles.photoInfo(ent, camPos)
     local tr = traceOf(ent, false)
     local s = tr and summary(tr)
     if not s then return nil end
-    return s, tr.plate
+    local c1, c2 = GetVehicleColours(ent)
+    return s, plateReadable(ent, camPos) and tr.plate or nil, tr.no, WhipEvidence.Evidence.colourName(c1, c2)
+end
+
+-- The car was on a photo: photographed, and its plate is on record when it was readable
+function WhipEvidence.Vehicles.markPhotographed(ent, photoId, plateSeen)
+    local tr = traceOf(ent, false)
+    if not tr then return end
+    local before = (tr.photo and 'p' or '') .. (tr.plateSeen and 's' or '')
+    tr.photo = tr.photo or photoId
+    if plateSeen then tr.plateSeen = true end
+    if before ~= (tr.photo and 'p' or '') .. (tr.plateSeen and 's' or '') then push(tr) end
+end
+
+-- Involved cars near a spot without a photo of their plate: { 'V1 (ABC123)', ... }
+function WhipEvidence.Vehicles.unphotographed(pos, radius)
+    local list = {}
+    for _, tr in pairs(traces) do
+        local ent = tr.net and entityOf(tr.net)
+        if ent and summary(tr) and not tr.plateSeen and #(GetEntityCoords(ent) - pos) <= radius then
+            list[#list + 1] = ('V%d (%s)'):format(tr.no or 0, tr.plate or '?')
+        end
+    end
+    table.sort(list)
+    return list
 end
 
 function WhipEvidence.Vehicles.summaries()
@@ -116,6 +177,7 @@ function WhipEvidence.Vehicles.tick()
         for id, c in pairs(tr.casing) do if c.t < cutoff then tr.casing[id] = nil end end
         for id, b in pairs(tr.bullet) do if b.t < cutoff then tr.bullet[id] = nil end end
         if tr.gsr and tr.gsr < cutoff then tr.gsr = nil end
+        if tr.fragT and tr.fragT < cutoff then tr.fragments, tr.fragT = nil, nil end
         local s = summary(tr)
         if json.encode(s) ~= before then push(tr) end
         if not s then traces[key] = nil end
@@ -141,12 +203,11 @@ local function isEmpty(ent)
 end
 
 local function examine(source, ent, label)
-    local done = exports.whip_core:Progress(source, {
+    local done = exports.whip_core:Progress(source, WhipEvidence.bar('vehicle', {
         label = label, duration = 15000, icon = 'car',
-        anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 1 },
         disable = { move = true, combat = true, car = true },
         near = { coords = GetEntityCoords(ent), range = 6.0 },
-    })
+    }))
     return done
 end
 
@@ -214,7 +275,7 @@ function WhipEvidence.Vehicles.register()
         local ent = entityOf(net)
         if not ent then return false, L('vehicle_not_found') end
         if not WhipEvidence.isPolice(source) then return false, L('police_only_collect') end
-        if not WhipEvidence.can(source, 'evidence_vehicle') then return false, L('not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_vehicle') then return false, WhipEvidence.why(source, 'evidence_vehicle') end
         if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, L('need_kit') end
         if not WhipEvidence.hasEmptyBags(source) then return false, L('no_empty_bags') end
         if not isEmpty(ent) then return false, L('vehicle_not_empty') end
@@ -229,11 +290,14 @@ function WhipEvidence.Vehicles.register()
 
         WhipEvidence.wear(source, WhipEvidence.Items.kit)
         local tr = traceOf(ent, false)
-        if not tr or not summary(tr) then return false, L('no_traces') end
-        traces[tr.key] = nil
-        TriggerClientEvent('whip_evidence:client:vehicleTraces', -1, tr.net, nil)
-
+        if not tr or not hasInside(tr) then return false, L('no_traces') end
         local made, lost = collect(source, player, tr, street)
+        -- the inside is bagged; pieces on the ground, the number and the photo stay with the car
+        tr.prints, tr.blood, tr.casing, tr.bullet, tr.gsr = {}, {}, {}, {}, nil
+        if summary(tr) then push(tr) else
+            traces[tr.key] = nil
+            TriggerClientEvent('whip_evidence:client:vehicleTraces', -1, tr.net, nil)
+        end
         exports.whip_core:LogActivity(source, 'evidence_vehicle_traces', { detail = ('%s: %d'):format(tr.plate or '?', made) })
         if lost > 0 then
             exports.whip_core:NotifyPlayer(source, L('traces_lost', made, lost), 'warning')
@@ -252,12 +316,11 @@ function WhipEvidence.Vehicles.register()
         if not ent then return false, L('vehicle_not_found') end
         if not exports.whip_core:HasItem(source, WhipEvidence.Items.wipe) then return false, L('need_cloth') end
 
-        local done = exports.whip_core:Progress(source, {
+        local done = exports.whip_core:Progress(source, WhipEvidence.bar('vehicle_clean', {
             label = L('cleaning_interior'), duration = 8000, icon = 'car',
-            anim = { dict = 'mini@repair', clip = 'fixing_a_ped', flag = 1 },
             disable = { move = true, combat = true, car = true },
             near = { coords = GetEntityCoords(ent), range = 6.0 },
-        })
+        }))
         TriggerClientEvent('whip_evidence:client:vehicleDone', source, net)
         if not done then return false end
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end

@@ -186,14 +186,22 @@ local function paintFor(id)
     local st = GlobalState['whip_evidence:lab:' .. id]
     if type(st) ~= 'table' then return end
     local msg = { action = 'paint', state = st.state, label = st.label, pending = st.pending, analysed = st.analysed,
-                  newGuns = st.newGuns, count = st.count, guns = st.guns, by = st.by, kinds = st.kinds,
-                  summary = st.summary, results = st.results, finished = st.finished }
+                  newGuns = st.newGuns, count = st.count, guns = st.guns, by = st.by, kinds = st.kinds, items = st.items,
+                  summary = st.summary, results = st.results, finished = st.finished, user = st.user, upload = st.upload }
+    -- nobody signed in: how long already (the page locks, and shows the screensaver after a while)
+    if not st.user then
+        local since = GetGameTimer() - (received[id] or GetGameTimer())
+        msg.idleMs = st.userLeft and st.now and math.max(0, (st.now - st.userLeft) * 1000 + since) or 0
+    end
+    if st.upload and st.now then
+        msg.uploadAge = math.max(0, (st.now - st.upload.at) * 1000 + GetGameTimer() - (received[id] or GetGameTimer()))
+    end
     if st.state == 'running' and st.ends and st.now then
         local since = GetGameTimer() - (received[id] or GetGameTimer())
         msg.leftMs = math.max(0, (st.ends - st.now) * 1000 - since)
         msg.totalMs = math.max(1000, (st.ends - (st.started or st.now)) * 1000)
     end
-    local key = json.encode({ id, st.state, st.ends, st.pending, st.analysed, st.newGuns, st.finished, st.label })
+    local key = json.encode({ id, st.state, st.ends, st.pending, st.analysed, st.newGuns, st.finished, st.label, st.user, st.userLeft, st.upload and st.upload.at })
     if key ~= lastPaint then
         lastPaint = key
         send(msg)
@@ -217,13 +225,39 @@ local function drawLoop()
     end)
 end
 
+-- A sound from the monitor itself, heard only near it: an analysis starts, is done, or went to a case
+local seen = {}   -- [labId] = { state, upload } last heard (nothing on the first look after joining)
+local function markOf(st)
+    return { state = ('%s|%s'):format(st.state, st.finished or st.started or ''), upload = st.upload and st.upload.at or false }
+end
+
+local function chime(lab, st)
+    if type(st) ~= 'table' then return end
+    local now, before = markOf(st), seen[lab.id]
+    seen[lab.id] = now
+    if not before then return end
+    local p = WhipEvidence.vec(lab.screen)
+    if #(GetEntityCoords(PlayerPedId()) - p) > DRAW then return end
+    if now.upload and now.upload ~= before.upload then
+        PlaySoundFromCoord(-1, 'PICK_UP', p.x, p.y, p.z, 'HUD_FRONTEND_DEFAULT_SOUNDSET', false, 12, false)
+    elseif now.state ~= before.state and st.state == 'done' then
+        PlaySoundFromCoord(-1, 'Hack_Success', p.x, p.y, p.z, 'DLC_HEIST_BIOLAB_PREP_HACKING_SOUNDS', false, 12, false)
+    elseif now.state ~= before.state and st.state == 'running' then
+        PlaySoundFromCoord(-1, 'Beep_Green', p.x, p.y, p.z, 'DLC_HEIST_HACKING_SNAKE_SOUNDS', false, 12, false)
+    end
+end
+
 -- a lab's state changed: remember when (time left is counted from here) and repaint if it is on screen
 for _, lab in ipairs(Config.Labs or {}) do
     if lab.id and lab.screen then
-        AddStateBagChangeHandler('whip_evidence:lab:' .. lab.id, 'global', function()
+        seen[lab.id] = nil
+        AddStateBagChangeHandler('whip_evidence:lab:' .. lab.id, 'global', function(_, _, value)
             received[lab.id] = GetGameTimer()
+            chime(lab, value)
             if active == lab.id then SetTimeout(0, function() paintFor(lab.id) end) end
         end)
+        local st = GlobalState['whip_evidence:lab:' .. lab.id]
+        if type(st) == 'table' then seen[lab.id] = markOf(st) end
     end
 end
 

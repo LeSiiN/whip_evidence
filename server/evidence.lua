@@ -404,9 +404,10 @@ end)
 
 local function colourName(c1, c2)
     local a, b = VehicleColors[c1], VehicleColors[c2]
-    if a and b then return b .. ' on ' .. a end
+    if a and b then return L('colour_on', b, a) end
     return a or b or L('unknown')
 end
+WhipEvidence.Evidence.colourName = colourName
 
 local function xyz(t) return vector3(t.x + 0.0, t.y + 0.0, t.z + 0.0) end
 
@@ -494,13 +495,21 @@ local function pickup(source, player, ev, street)
         return false, L('failed_attempt', ev.fails, Config.MaxFails)
     end
 
-    local done = exports.whip_core:Progress(source, {
+    local done = exports.whip_core:Progress(source, WhipEvidence.bar('collect', {
         label = L('collecting'), duration = 1800, icon = 'pickup',
-        anim = { dict = 'random@domestic', clip = 'pickup_low', flag = 0 },
         disable = { move = true, combat = true, car = true },
         near = { coords = ev.coords, range = Config.PickupDistance + 2.5 },
-    })
+    }))
     if not done then return false end
+    -- then the bag is sealed and labelled, standing (skipped without an animation for it)
+    if (Config.Animations or {}).label_bag then
+        done = exports.whip_core:Progress(source, WhipEvidence.bar('label_bag', {
+            label = L('labelling_bag'), duration = 1200, icon = 'pickup',
+            disable = { move = true, combat = true, car = true },
+            near = { coords = ev.coords, range = Config.PickupDistance + 3.5 },
+        }))
+        if not done then return false end
+    end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
     if not Evidence[ev.id] then return false, L('evidence_gone') end
 
@@ -533,12 +542,11 @@ local function destroy(source, player, ev)
         return false, L('slipped')
     end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
-    local done = exports.whip_core:Progress(source, {
+    local done = exports.whip_core:Progress(source, WhipEvidence.bar(bullet and 'bullet' or 'wipe', {
         label = bullet and L('pulling_bullet') or L('wiping_evidence'), duration = 3000, icon = 'fail',
-        anim = { dict = 'creatures@rottweiler@tricks@', clip = 'petting_franklin', flag = 0 },
         disable = { move = true, combat = true, car = true },
         near = { coords = ev.coords, range = Config.PickupDistance + 2.5 },
-    })
+    }))
     if not done then return false end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
     if not Evidence[ev.id] then return false end
@@ -554,12 +562,11 @@ local function laser(source, player, ev)
     if placing and not exports.whip_core:HasItem(source, WhipEvidence.Items.laser) then
         return false, L('need_laser')
     end
-    local done = exports.whip_core:Progress(source, {
-        label = placing and L('placing_laser') or L('removing_laser'), duration = 1000, icon = 'target',
-        anim = { dict = 'mp_arresting', clip = 'a_uncuff', flag = 0 },
+    local done = exports.whip_core:Progress(source, WhipEvidence.bar('laser', {
+        label = placing and L('placing_laser') or L('removing_laser'), duration = 1500, icon = 'target',
         disable = { move = true, combat = true, car = true },
         near = { coords = ev.coords, range = Config.PickupDistance + 2.5 },
-    })
+    }))
     if not done then return false end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
     if not Evidence[ev.id] then return false end
@@ -583,12 +590,11 @@ end
 
 -- Police clean-up: the piece is gone, the log says whether it had a photo
 local function clearAway(source, player, ev)
-    local done = exports.whip_core:Progress(source, {
+    local done = exports.whip_core:Progress(source, WhipEvidence.bar('clear', {
         label = L('clearing'), duration = 2000, icon = 'pickup',
-        anim = { dict = 'random@domestic', clip = 'pickup_low', flag = 0 },
         disable = { move = true, combat = true, car = true },
         near = { coords = ev.coords, range = Config.PickupDistance + 2.5 },
-    })
+    }))
     if not done then return false end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
     if not Evidence[ev.id] then return false end
@@ -648,7 +654,7 @@ function WhipEvidence.Evidence.register()
         local ev = Evidence[id]
         if not ev then return false, L('evidence_gone') end
         if not WhipEvidence.isPolice(source) then return false, L('police_only_collect') end
-        if not WhipEvidence.can(source, 'evidence_collect') then return false, L('not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_collect') then return false, WhipEvidence.why(source, 'evidence_collect') end
         if ev.phase == 'green' then return false, L('too_fresh') end
         if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then
             return false, L('no_kit_collect')
@@ -678,7 +684,7 @@ function WhipEvidence.Evidence.register()
         local ev = Evidence[id]
         if not ev then return false, L('evidence_gone') end
         if ev.kind ~= 'bullet' or not ev.origin then return false end
-        if not WhipEvidence.can(source, 'evidence_laser') then return false, L('not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_laser') then return false, WhipEvidence.why(source, 'evidence_laser') end
         local ok, why = withLock('whip_evidence:laser', source, ev, function() return laser(source, player, ev) end)
         if not ok and why then return false, why end
     end)
@@ -691,7 +697,7 @@ function WhipEvidence.Evidence.register()
     }, function(source, player, id, force)
         local ev = Evidence[id]
         if not ev then return false, L('evidence_gone') end
-        if not WhipEvidence.can(source, 'evidence_clear') then return false, L('not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_clear') then return false, WhipEvidence.why(source, 'evidence_clear') end
         if not ev.photo and not force then return false, L('not_photographed') end
         local ok, why = withLock('whip_evidence:clear', source, ev, function() return clearAway(source, player, ev) end)
         if not ok and why then return false, why end
@@ -703,7 +709,7 @@ function WhipEvidence.Evidence.register()
         rateLimit = 5000,
         params = { { 'mode', 'enum', { 'photo', 'all' } } },
     }, function(source, player, mode)
-        if not WhipEvidence.can(source, 'evidence_release') then return false, L('not_allowed') end
+        if not WhipEvidence.can(source, 'evidence_release') then return false, WhipEvidence.why(source, 'evidence_release') end
         local pos = GetEntityCoords(GetPlayerPed(source))
         local function pick()
             local list = {}
@@ -714,12 +720,11 @@ function WhipEvidence.Evidence.register()
         end
         if #pick() == 0 then return false, L('nothing_to_clear') end
 
-        local done = exports.whip_core:Progress(source, {
+        local done = exports.whip_core:Progress(source, WhipEvidence.bar('release', {
             label = L('releasing'), duration = 6000, icon = 'target',
-            anim = { dict = 'amb@world_human_clipboard@male@idle_a', clip = 'idle_c', flag = 49 },
             disable = { move = true, combat = true, car = true },
             near = { coords = pos, range = 3.0 },
-        })
+        }))
         if not done then return false end
         if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
 
@@ -735,6 +740,8 @@ function WhipEvidence.Evidence.register()
 
         local detail = ('%d cleared'):format(#ids)
         if #unphotographed > 0 then detail = detail .. ', without photo: ' .. table.concat(unphotographed, ' ') end
+        local cars = WhipEvidence.Vehicles.unphotographed(pos, Config.ReleaseRadius)
+        if #cars > 0 then detail = detail .. ', vehicles without photo: ' .. table.concat(cars, ', ') end
         if kept > 0 then detail = detail .. (', %d kept (no photo)'):format(kept) end
         exports.whip_core:LogActivity(source, 'evidence_scene_released', { detail = detail })
         local text = L('scene_released', #ids)
@@ -801,6 +808,8 @@ function WhipEvidence.Evidence.register()
             local ground = vector3(veh.gx + 0.0, veh.gy + 0.0, veh.gz + 0.0)
             if #(ground - vcoords) < 6.0 then
                 WhipEvidence.Evidence.create('vehicle_fragment', { coords = ground, data = { colour = colourName(veh.c1, veh.c2) } })
+                -- the car the pieces came from is involved too (even without traces inside)
+                WhipEvidence.Vehicles.addTrace(car, 'fragment')
             end
         end
     end)

@@ -322,6 +322,44 @@ end
 
 local function xyz(v) return { x = v.x, y = v.y, z = v.z } end
 
+-- Is the impact point on (or right next to) this car? Its own box, 0.5 m around.
+local function onCar(car, ip)
+    local off = GetOffsetFromEntityGivenWorldCoords(car, ip.x, ip.y, ip.z)
+    local mn, mx = GetModelDimensions(GetEntityModel(car))
+    return off.x >= mn.x - 0.5 and off.x <= mx.x + 0.5 and off.y >= mn.y - 0.5 and off.y <= mx.y + 0.5
+        and off.z >= mn.z - 0.5 and off.z <= mx.z + 0.5
+end
+
+-- The car a shot hit. GetClosestVehicle leaves out police and emergency cars, so:
+-- 1) a short ray through the impact point that only sees vehicles, 2) every car close by, by its box.
+local function carAt(from, ip)
+    local d = ip - from
+    local len = #d
+    if len > 0.01 then
+        local dir = d / len
+        local a, b = ip - dir * 0.6, ip + dir * 0.6
+        local ray = StartExpensiveSynchronousShapeTestLosProbe(a.x, a.y, a.z, b.x, b.y, b.z, 2, PlayerPedId(), 0)
+        local _, hit, _, _, ent = GetShapeTestResult(ray)
+        if hit == 1 and ent and ent ~= 0 and GetEntityType(ent) == 2 then return ent end
+    end
+    for _, car in ipairs(GetGamePool('CVehicle')) do
+        if #(GetEntityCoords(car) - ip) < 12.0 and onCar(car, ip) then return car end
+    end
+    return 0
+end
+
+-- A car only this game knows (a parked one nobody else has seen yet) becomes networked, so the server can see it
+local function networked(car)
+    if NetworkGetEntityIsNetworked(car) then return true end
+    NetworkRegisterEntityAsNetworked(car)
+    local untilAt = GetGameTimer() + 1000
+    while DoesEntityExist(car) and not NetworkGetEntityIsNetworked(car) and GetGameTimer() < untilAt do Wait(50) end
+    if not DoesEntityExist(car) or not NetworkGetEntityIsNetworked(car) then return false end
+    SetNetworkIdCanMigrate(NetworkGetNetworkIdFromEntity(car), true)
+    Wait(250)   -- the server has to know it first
+    return true
+end
+
 AddEventHandler('CEventGunShot', function()
     local now = GetGameTimer()
     if now < shotCooldown then return end
@@ -334,23 +372,27 @@ AddEventHandler('CEventGunShot', function()
     local hit, impact = 'none', from
     local veh = { net = 0, c1 = 0, c2 = 0, gx = 0.0, gy = 0.0, gz = 0.0 }
 
+    local car = 0
     local hasHit, ip = GetPedLastWeaponImpactCoord(ped)
     if hasHit and not IsAnyPedNearPoint(ip.x, ip.y, ip.z, 1.5) then
         impact = ip
-        if IsAnyVehicleNearPoint(ip.x, ip.y, ip.z, 2.5) then
-            local car = GetClosestVehicle(ip.x, ip.y, ip.z, 3.0, 0, 70)
-            if car ~= 0 and NetworkGetEntityIsNetworked(car) then
-                hit = 'vehicle'
-                local c1, c2 = GetVehicleColours(car)
-                local g = WhipEvidence.ground(GetEntityCoords(car))
-                veh = { net = NetworkGetNetworkIdFromEntity(car), c1 = c1, c2 = c2, gx = g.x, gy = g.y, gz = g.z }
-            end
-        else
-            hit = 'world'
-        end
+        car = carAt(from, ip)
+        hit = car ~= 0 and 'vehicle' or 'world'
+    end
+    if hit ~= 'vehicle' then
+        return TriggerServerEvent('whip_evidence:shot', xyz(casing), hit, xyz(impact), veh)
     end
 
-    TriggerServerEvent('whip_evidence:shot', xyz(casing), hit, xyz(impact), veh)
+    -- a car: its colours and the ground under it for the fragments (may have to network it first)
+    local c1, c2 = GetVehicleColours(car)
+    local g = WhipEvidence.ground(GetEntityCoords(car))
+    CreateThread(function()
+        if not networked(car) then
+            return TriggerServerEvent('whip_evidence:shot', xyz(casing), 'world', xyz(impact), veh)
+        end
+        veh = { net = NetworkGetNetworkIdFromEntity(car), c1 = c1, c2 = c2, gx = g.x, gy = g.y, gz = g.z }
+        TriggerServerEvent('whip_evidence:shot', xyz(casing), hit, xyz(impact), veh)
+    end)
 end)
 
 ---------------------------------------------------------------- Blood and fingerprints

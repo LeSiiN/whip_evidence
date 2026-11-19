@@ -22,6 +22,14 @@ function WhipEvidence.can(source, permission)
     return WhipEvidence.levelAllows(job.roleLevel, permission)
 end
 
+-- Why not? "Your rank (level 10) needs level 20 for this." / police only, on duty
+function WhipEvidence.why(source, permission)
+    local job = exports.whip_core:GetPlayerJob(source)
+    if not job or not WhipEvidence.isPoliceJob(job.key) then return L('police_on_duty_only') end
+    local need = tonumber((Config.Permissions or {})[permission]) or 1
+    return L('rank_too_low', tonumber(job.roleLevel) or 0, need)
+end
+
 -- AddAction / item option requirement: the police job on duty (the rank level is checked by the server)
 function WhipEvidence.req(_, extra)
     local r = { job = Config.PoliceJobs, onDuty = true }
