@@ -37,7 +37,7 @@ local function contents(containerId, read)
             if meta.evidence_id then c.bags[meta.evidence_id] = { slot = tonumber(slot), meta = meta }
             else c.noId = c.noId + 1 end
         elseif Config.Calibers[it.item] and meta.serial then
-            c.guns[#c.guns + 1] = { slot = tonumber(slot), item = it.item, serial = meta.serial }
+            c.guns[#c.guns + 1] = { slot = tonumber(slot), item = it.item, serial = meta.serial, meta = meta }
         end
     end
     return c
@@ -49,15 +49,17 @@ local function status(containerId, read)
     local ids = {}
     for id in pairs(c.bags) do ids[#ids + 1] = id end
     local pending = WhipEvidence.Data.pendingSecrets(ids)
-    local states = WhipEvidence.Data.bagStates(ids)
     local s = { total = #ids + c.noId, pending = {}, analysed = 0, nothing = c.noId, newGuns = {}, guns = #c.guns }
+    -- "analysed" = what "Upload to case" would take: also reports that come ready (restored serial, post-mortem)
+    local ready = WhipEvidence.Cases and WhipEvidence.Cases.ready
     for _, id in ipairs(ids) do
         if pending[id] then s.pending[#s.pending + 1] = id
-        elseif states[id] and states[id].analysed then s.analysed = s.analysed + 1
+        elseif ready and ready(WhipEvidence.Items.bag, c.bags[id].meta) then s.analysed = s.analysed + 1
         else s.nothing = s.nothing + 1 end
     end
     for _, g in ipairs(c.guns) do
         if not c.refs[g.serial] then s.newGuns[#s.newGuns + 1] = g end
+        if ready and ready(g.item, g.meta) then s.analysed = s.analysed + 1 end   -- test-fired: goes to the case too
     end
     return s
 end
@@ -280,7 +282,7 @@ local function ensureLab(def)
     end
 
     local lab = labs[def.id] or {}
-    lab.def, lab.containerId = def, real.containerId
+    lab.def, lab.containerId, lab.stashAt = def, real.containerId, vector3(real.x, real.y, real.z)
     labs[def.id] = lab
 
     -- a restart during an analysis leaves it locked: open it again
@@ -332,7 +334,7 @@ local function report()
     end
 end
 
--- The screens: every 15 s (storage counts change when officers put bags in), and right after start / finish
+-- The screens: every 15 s as a fallback (a bag put in or taken out updates at once, below), and right after start / finish
 CreateThread(function()
     while true do
         Wait(15000)
@@ -398,6 +400,46 @@ CreateThread(function()
         end
     end
 end)
+
+-- The screen counts update at once when an officer puts a bag in or takes one out: WHIP tells us who opened the lab
+-- storage (container:opened) and when their pockets change (inventory:changed, right after the move)
+local atStorage = {}   -- [source] = lab id
+
+local function soon(id)
+    local lab = labs[id]
+    if not lab or lab.soon then return end
+    lab.soon = true   -- several moves in a row: one update
+    SetTimeout(100, function()
+        lab.soon = nil
+        publish(id)
+    end)
+end
+
+AddEventHandler('whip_core:container:opened', function(e)
+    if type(e) ~= 'table' then return end
+    for id, lab in pairs(labs) do
+        if lab.containerId and lab.containerId == tonumber(e.containerId) then
+            atStorage[tonumber(e.source) or -1] = id
+            return
+        end
+    end
+end)
+
+AddEventHandler('whip_core:inventory:changed', function(e)
+    local src = type(e) == 'table' and tonumber(e.source)
+    local id = src and atStorage[src]
+    if not id then return end
+    local lab = labs[id]
+    local ped = GetPlayerPed(src)
+    -- walked away from the storage: no longer watched
+    if not lab or not lab.stashAt or not ped or ped == 0 or #(GetEntityCoords(ped) - lab.stashAt) > 8.0 then
+        atStorage[src] = nil
+        return
+    end
+    soon(id)
+end)
+
+AddEventHandler('playerDropped', function() atStorage[source] = nil end)
 
 -- Dev tools: finish every running analysis now. Returns how many.
 function WhipEvidence.Lab.finishNow()

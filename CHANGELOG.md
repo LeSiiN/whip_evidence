@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.2.5
+
+### New
+
+- **Lab screen updates at once**: while someone has the lab storage open, "Bags waiting for analysis" and "Analysed, in storage" update at once when a bag is put in or taken out (before: up to 15 s).
+- **Fix**: "Analysed, in storage" now counts everything "Upload to case" would take, also reports that come ready (restored serial number, post-mortem report) and test-fired guns. Before it stayed at 0 for them.
+
 ## 4.2.4
 
 ### New

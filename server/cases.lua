@@ -49,6 +49,12 @@ local function analysed(item, m)
     return true
 end
 
+-- Would "Upload to case" at a lab take it? Analysed bags, ready-made reports (serial, post-mortem), tested guns
+function WhipEvidence.Cases.ready(item, m)
+    m = type(m) == 'table' and m or {}
+    return allowedItem(item) and refOf(item, m) ~= nil and analysed(item, m)
+end
+
 local function gunName(item)
     local def = exports.whip_core:GetItemDef(item)
     return def and def.name or item
