@@ -112,7 +112,7 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
    <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/IcqnrAH21Dcj.jpg" alt="Collect prompt with the trace card" width="616" height="335">
 
    <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/RNkChaXrRvhq.png" alt="Tweezers: casings" width="285" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/1O3ENQkCA3rt.png" alt="Swab: blood" width="272" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/m2buOqwYfmc3.png" alt="Dust: fingerprints" width="295" height="240">
-   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/WjfnTXHaUbI4.png" alt="Pull: bullets" width="290" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/oNTR0p5FZIhD.png" alt="Shards: vehicle fragments" width="286" height="240">
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/WjfnTXHaUbI4.png" alt="Pull: bullets" width="290" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/oNTR0p5FZIhD.png" alt="Shards: vehicle fragments" width="286" height="240"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/WKAtytPrhOGO.png" alt="Dust: shoe prints" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/hNTXAYOozo0y.png" alt="Dust: tyre tracks" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/7hkSac5ModJa.png" alt="Dust: glove fibers" width="288" height="156">
 
    **Bodies.** Someone killed by a player (player or any pedestrian) is a body: a purple marker "L1" in the scan like any trace, card when aimed at, listed on photos. Police: "Examine the body"
    opens the findings: cause of death, wounds per body part, shot distance, bullets in the body, defence wounds, moved after death.
@@ -128,7 +128,7 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
    The lab also tells how old a trace was when it was collected. The monitor shows progress and results:
    locked until an officer steps up, each bag in turn with what the instrument sees, a sound when done.
 
-   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/a07o3wVLJOxZ.png" alt="Lab monitor: lockscreen" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/TjF8Cg6SwPCM.png" alt="Lab monitor logging in" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/wet4dmtm7mVk.png" alt="Lab monitor when ready" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/W88C0hLwXNe1.png" alt="Lab monitor analysing bullets" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/hR9SZn7mwCkj.png" alt="Lab monitor when analysing vehicle fragments" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/qfdPG4JuHjek.png" alt="Lab monitor when analysing blood" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/FXXmeyAUrvOw.png" alt="Lab monitor when analysing fingerprints" width="288" height="156">
+   <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/a07o3wVLJOxZ.png" alt="Lab monitor: lockscreen" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/TjF8Cg6SwPCM.png" alt="Lab monitor logging in" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/wet4dmtm7mVk.png" alt="Lab monitor when ready" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/W88C0hLwXNe1.png" alt="Lab monitor analysing bullets" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/hR9SZn7mwCkj.png" alt="Lab monitor when analysing vehicle fragments" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/qfdPG4JuHjek.png" alt="Lab monitor when analysing blood" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/FXXmeyAUrvOw.png" alt="Lab monitor when analysing fingerprints" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/mRl0Q5PdFrui.png" alt="Lab monitor when analysing shoe prints" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/Cy6lQFu6hMk6.png" alt="Lab monitor when analysing tyre tracks" width="288" height="156"> 
 
 6. **Case.** Upload analysed items to a case in your MDT (or at the lab device: "Upload to a case").
    They move into that case's locker. Open it at any evidence locker: pick the case from the list (latest first, search for others).
@@ -201,7 +201,7 @@ try one with `/e <name>` and copy its animation and prop together. `Config.HandP
 finish lab analyses, analyse your bags, test bodies, fit the lab screen, manage case lockers (open, close, reopen, delete).
 Console: `clearevidence`.
 
-<img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/7v6xjfYUgcgk.png" alt="Forensics dev tools in /w" width="260" height="638">
+<img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/FignUplu5Yvl.png" alt="Forensics dev tools in /w" width="260" height="638">
 
 ## For other scripts
 
