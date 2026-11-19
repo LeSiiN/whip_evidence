@@ -13,6 +13,10 @@ Version 4.1.2 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `
 - [whip_evidence_assets](https://github.com/LeSiiN/whip_evidence_assets) (props, ships with this)
 - `whip_gunny` (shots, weapon prints)
 
+## Optional but highly Recommended
+
+- [es_mdt](https://github.com/Dagermor/es_mdt) (does already support my evidence script)
+  
 ## Install
 
 1. Put `whip_evidence` and `whip_evidence_assets` in `resources/`. Don't rename `whip_evidence` (the folder name sets the item names).
