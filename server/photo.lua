@@ -45,6 +45,7 @@ local function carText(s)
     if s.bullet > 0 then parts[#parts + 1] = L('car_bullet_holes', s.bullet) end
     if s.gsr then parts[#parts + 1] = 'GSR' end
     if s.prints then parts[#parts + 1] = L('possible_prints') end
+    if s.burnt then parts[#parts + 1] = L('car_burnt') end
     if (s.fragments or 0) > 0 then parts[#parts + 1] = L('car_fragments_scene') end
     return table.concat(parts, ', ')
 end
@@ -57,7 +58,10 @@ local function photoText(m)
     }
     for _, e in ipairs(type(m.entries) == 'table' and m.entries or {}) do
         local line = ('#%s %s'):format(e.n or '?', e.t or '?')
-        if e.s then line = line .. L('photo_text_age', e.s, e.a or 0) end
+        if e.s then
+            local age = e.w == nil and WhipEvidence.ageWords((e.a or 0) * 60) or e.w   -- photos from before 4.2: minutes
+            line = line .. (age and L('photo_text_age', e.s, age) or (' (%s)'):format(e.s))
+        end
         lines[#lines + 1] = line .. (' · %d m'):format(e.d or 0)
     end
     for _, c in ipairs(type(m.cars) == 'table' and m.cars or {}) do
@@ -142,6 +146,7 @@ function WhipEvidence.Photo.register()
                 entries[#entries + 1] = {
                     n = ev.no, t = WhipEvidence.label(ev.kind), d = math.floor(dist + 0.5),
                     s = WhipEvidence.Evidence.phaseName(ev.phase), a = math.floor((now - ev.created) / 60),
+                    w = WhipEvidence.ageWords(now - ev.created) or false,
                 }
             end
         end

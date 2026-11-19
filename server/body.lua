@@ -156,6 +156,16 @@ local function applyWear(source, amount)
     if c > 0 and n == 0 then exports.whip_core:NotifyPlayer(source, L('gloves_torn'), 'warning') end
 end
 
+-- Fibres of the gloves someone wears now: a number 0-65535 ("FA-3F2A"), nil without gloves.
+-- The same gloves always give the same fibre.
+function WhipEvidence.Body.fiber(source)
+    local d = worn[source]
+    if not d then return nil end
+    return GetHashKey(('whip_evidence:fiber:%d:%d'):format(GetEntityModel(GetPlayerPed(source)), d)) & 0xFFFF
+end
+
+function WhipEvidence.fiberCode(n) return ('FA-%04X'):format(tonumber(n) or 0) end
+
 function WhipEvidence.Body.gloveWear(source, amount)
     if not worn[source] or not amount or amount <= 0 then return end
     pendingWear[source] = (pendingWear[source] or 0) + amount
@@ -221,6 +231,34 @@ function WhipEvidence.Body.register()
         rateLimit = 3000, burst = 2, sheet = 'light',
     }, function(source)
         WhipEvidence.Body.gloveWear(source, Config.GloveWearTouch)
+    end)
+
+    -- Police takes fibres from the gloves someone wears (to compare with fibres from cars and weapons)
+    Whip.core:SecureEvent('whip_evidence:fiberSample', {
+        rateLimit = 3000,
+        params = { { 'target', 'player', { range = 3.0 } }, { 'street', 'string', 80, 'Unknown' } },
+    }, function(source, player, target, street)
+        if not WhipEvidence.isPolice(source) then return false, L('police_only') end
+        if not WhipEvidence.can(source, 'evidence_collect') then return false, WhipEvidence.why(source, 'evidence_collect') end
+        if not exports.whip_core:HasItem(source, WhipEvidence.Items.kit) then return false, L('need_kit') end
+        if not WhipEvidence.hasEmptyBags(source) then return false, L('no_empty_bags') end
+        if not WhipEvidence.Body.fiber(target.source) then return false, L('no_gloves_on') end
+        local passed, res = WhipEvidence.minigame(source, 'fiber_sample')
+        if not passed then return false, res == 'busy' and L('busy') or nil end
+        exports.whip_core:NotifyPlayer(target.source, L('being_fibered'), 'info')
+        TriggerClientEvent('whip_evidence:client:handsOut', target.source, 3000)
+        local done = exports.whip_core:Progress(source, WhipEvidence.bar('swab_person', {
+            label = L('taking_fibers'), duration = 3000, icon = 'target',
+            disable = { move = true, combat = true, car = true },
+            near = { coords = GetEntityCoords(GetPlayerPed(target.source)), range = 3.5 },
+        }))
+        if not done or not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
+        local fiber = WhipEvidence.Body.fiber(target.source)
+        if not fiber then return false, L('no_gloves_on') end
+        local meta = WhipEvidence.bagMeta(source, player, 'fiber', L('type_fiber_person'), target.fullName, street)
+        exports.whip_core:LogActivity(source, 'evidence_fiber_sample', { detail = target.fullName })
+        local ok, why = WhipEvidence.giveReference(source, meta, { fiber = fiber }, 'Glove fibres ' .. target.fullName)
+        if not ok then return false, why end
     end)
 
     -- New clothes: the blood on the old ones is gone

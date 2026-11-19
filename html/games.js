@@ -12,6 +12,9 @@
         pull: ['Pull it out', 'Hold to pull. Keep the needle in the green zone. Too hard breaks it.'],
         shards: ['Pick up fragments', 'Click every fragment. They glint now and then.'],
         gsrswab: ['GSR swab', 'Hold the swab on each glowing spot: right hand first, then the left.'],
+        castshoe: ['Plaster cast', 'Hold to pour the plaster over the whole print. Keep moving and stay inside the frame.'],
+        casttyre: ['Plaster cast', 'Hold to pour the plaster over the whole track. Keep moving and stay inside the frame.'],
+        fibers: ['Glove fibres', 'Pick up only the fibres in the colour of the gloves. Click right on a fibre.'],
     };
 
     // ---------------------------------------------------------------- page bits
@@ -148,6 +151,15 @@
             ctx.fillStyle = `rgb(${r},${gb},${gb})`;
             ctx.beginPath(); ctx.ellipse(0, 0, 8, 11, 0, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
+        },
+        cup(x, y, down) {
+            ctx.save(); ctx.translate(x, y); ctx.rotate(down ? -0.9 : -0.3);
+            ctx.fillStyle = '#e5e7eb'; ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(-14, -34); ctx.lineTo(14, -34); ctx.lineTo(10, -4); ctx.lineTo(-10, -4); ctx.closePath(); ctx.fill(); ctx.stroke();
+            if (down) { ctx.fillStyle = 'rgba(241,245,249,.85)'; ctx.fillRect(-3, -4, 6, 10); }
+            ctx.restore();
+            ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.stroke();
         },
         dot(x, y) {
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
@@ -505,6 +517,186 @@
             });
         },
         cursorFill(g) { return 0.15 + 0.5 * (g.i / g.spots.length); },
+    };
+
+    // 7. Shoe print / tyre track: pour plaster over the whole print without spilling, then lift it when it is set
+    function castGame(shape) {
+        return {
+            tool: 'cup', strikes: 3,
+            start(g, L) {
+                g.surface = makeSurface(['#5b4636', '#3f3026'], ['#a8a29e', '#292524', '#78716c'], 2600);
+                g.frame = shape === 'shoe' ? { x: 210, y: 40, w: 180, h: 300 } : { x: 90, y: 120, w: 420, h: 140 };
+                // the print on its own canvas, and the cells that need plaster
+                const pc = document.createElement('canvas'); pc.width = W; pc.height = H;
+                const p = pc.getContext('2d');
+                p.fillStyle = 'rgba(25,18,12,.75)';
+                const inside = [];
+                if (shape === 'shoe') {
+                    const cx = 300;
+                    p.beginPath(); p.ellipse(cx, 120, 52, 70, 0, 0, Math.PI * 2); p.fill();
+                    p.beginPath(); p.ellipse(cx + 4, 262, 40, 54, 0, 0, Math.PI * 2); p.fill();
+                    p.fillRect(cx - 34, 150, 66, 90);
+                    p.fillStyle = 'rgba(120,100,80,.45)';
+                    for (let y = 60; y < 312; y += 13) for (let x = cx - 50; x < cx + 50; x += 20) p.fillRect(x + (y % 26 ? 10 : 0), y, 12, 4);
+                    inside.push((x, y) => ((x - cx) / 52) ** 2 + ((y - 120) / 70) ** 2 < 1 || ((x - cx - 4) / 40) ** 2 + ((y - 262) / 54) ** 2 < 1
+                        || (x > cx - 34 && x < cx + 32 && y > 150 && y < 240));
+                } else {
+                    p.fillRect(110, 140, 380, 100);
+                    p.fillStyle = 'rgba(120,100,80,.45)';
+                    for (let x = 116; x < 480; x += 26) { p.beginPath(); p.moveTo(x, 160); p.lineTo(x + 13, 150); p.lineTo(x + 26, 160); p.lineTo(x + 26, 172); p.lineTo(x + 13, 162); p.lineTo(x, 172); p.fill(); }
+                    for (let x = 116; x < 480; x += 26) { p.beginPath(); p.moveTo(x, 210); p.lineTo(x + 13, 200); p.lineTo(x + 26, 210); p.lineTo(x + 26, 222); p.lineTo(x + 13, 212); p.lineTo(x, 222); p.fill(); }
+                    inside.push((x, y) => x > 110 && x < 490 && y > 140 && y < 240);
+                }
+                g.print = pc;
+                g.step = 12;
+                g.cells = [];
+                for (let y = g.frame.y + 6; y < g.frame.y + g.frame.h; y += g.step) for (let x = g.frame.x + 6; x < g.frame.x + g.frame.w; x += g.step) {
+                    g.cells.push({ x, y, need: inside[0](x, y), fill: 0 });
+                }
+                g.need = g.cells.filter((c) => c.need).length;
+                // a cell counts as covered once it looks covered (COVER); 80 % of the print is enough
+                g.r = 28 / Math.sqrt(L); g.rate = 0.09; g.cover = 0.3; g.needShare = 0.8; g.spill = 0; g.spillMax = 60 / L; g.phase = 'pour'; g.lastSpot = 0; g.warnAt = 0;
+                g.layer = document.createElement('canvas'); g.layer.width = W; g.layer.height = H; g.layerDirty = true;
+            },
+            update(g, L, dt, now) {
+                const fr = g.frame;
+                if (g.phase === 'pour') {
+                    if (input.down) {
+                        const out = input.x < fr.x || input.x > fr.x + fr.w || input.y < fr.y || input.y > fr.y + fr.h;
+                        if (out) {
+                            g.spill += dt;
+                            if (now > g.warnAt) { g.warnAt = now + 700; flash(T('mg_spill', 'Spilling: stay inside the frame')); }
+                            if (g.spill > g.spillMax) { g.spill = 0; strike(T('mg_spilled', 'Spilled plaster everywhere!')); }
+                        }
+                        // standing still pours too thick: bubbles
+                        const speed = dist(input.x, input.y, input.px, input.py) / dt;
+                        g.lastSpot = speed < 0.4 ? g.lastSpot + dt : Math.max(0, g.lastSpot - dt * 2);
+                        if (g.lastSpot > 70 / L) { g.lastSpot = 0; strike(T('mg_bubbles', 'Too thick in one spot: bubbles!')); }
+                        for (const c of g.cells) {
+                            if (c.fill < 1 && dist(c.x, c.y, input.x, input.y) < g.r) { c.fill = Math.min(1, c.fill + g.rate * dt); g.layerDirty = true; }
+                        }
+                    }
+                    let covered = 0;
+                    for (const c of g.cells) if (c.need && c.fill >= g.cover) covered++;
+                    const share = covered / g.need;
+                    g.progress = 0.8 * Math.min(1, share / g.needShare);
+                    if (share >= g.needShare) {
+                        g.phase = 'set'; g.set = 0; g.zone = [0.72, 0.72 + 0.16 / L];
+                        flash(T('mg_cast_wait', 'Let it set…'), '#fde047');
+                        $('mgHint').textContent = T('mg_cast_lift', 'Click to lift the cast when the bar is in the green.');
+                    }
+                } else {
+                    g.set += dt * 0.006 * L;
+                    if (g.set > 1.05) { g.set = 0.35; strike(T('mg_cast_stuck', 'Too late: it is stuck, start over the setting')); }
+                    if (input.pressed) {
+                        if (g.set >= g.zone[0] && g.set <= g.zone[1]) { g.progress = 1; finish(true); }
+                        else if (g.set < g.zone[0]) { g.set = Math.max(0, g.set - 0.25); strike(T('mg_cast_soft', 'Still soft: it bends!')); }
+                        else strike(T('mg_cast_stuck', 'Too late: it is stuck, start over the setting'));
+                    }
+                    g.progress = 0.8 + 0.2 * clamp(g.set / g.zone[0], 0, 1);
+                }
+            },
+            draw(g) {
+                const fr = g.frame;
+                ctx.drawImage(g.surface, 0, 0, W, H);
+                ctx.drawImage(g.print, 0, 0, W, H);
+                ctx.strokeStyle = 'rgba(253,224,71,.7)'; ctx.lineWidth = 3; ctx.setLineDash([8, 5]);
+                ctx.strokeRect(fr.x, fr.y, fr.w, fr.h); ctx.setLineDash([]);
+                if (g.layerDirty) {
+                    const l = g.layer.getContext('2d');
+                    l.clearRect(0, 0, W, H);
+                    // soft blobs that run into one another (a ready-made sprite: cheap)
+                    if (!g.blob) {
+                        g.blob = document.createElement('canvas'); g.blob.width = g.blob.height = 48;
+                        const b = g.blob.getContext('2d'), rg = b.createRadialGradient(24, 24, 4, 24, 24, 24);
+                        rg.addColorStop(0, 'rgba(240,238,235,1)'); rg.addColorStop(0.6, 'rgba(231,229,228,.9)'); rg.addColorStop(1, 'rgba(231,229,228,0)');
+                        b.fillStyle = rg; b.fillRect(0, 0, 48, 48);
+                    }
+                    for (const c of g.cells) {
+                        if (c.fill <= 0) continue;
+                        l.globalAlpha = Math.min(1, 0.25 + 0.75 * c.fill / g.cover);   // looks covered = counts as covered
+                        l.drawImage(g.blob, c.x - 20, c.y - 20, 40, 40);
+                    }
+                    l.globalAlpha = 1;
+                    g.layerDirty = false;
+                }
+                ctx.drawImage(g.layer, 0, 0, W, H);
+                if (g.phase === 'set') {
+                    const bx = 40, by = 60, bh = 260;
+                    ctx.fillStyle = 'rgba(0,0,0,.45)'; roundRect(bx - 16, by - 10, 32, bh + 20, 10); ctx.fill();
+                    ctx.fillStyle = 'rgba(74,222,128,.6)';
+                    ctx.fillRect(bx - 9, by + bh * (1 - g.zone[1]), 18, bh * (g.zone[1] - g.zone[0]));
+                    ctx.fillStyle = '#e7e5e4'; ctx.fillRect(bx - 9, by + bh * (1 - clamp(g.set, 0, 1)), 18, bh * clamp(g.set, 0, 1));
+                    text(T('mg_cast_label', 'SET'), bx, by + bh + 28, 12, 'rgba(255,255,255,.6)');
+                }
+            },
+        };
+    }
+    GAMES.castshoe = castGame('shoe');
+    GAMES.casttyre = castGame('tyre');
+
+    // 8. Glove fibres: pick only the fibres in the glove's colour, not lint or hairs
+    GAMES.fibers = {
+        tool: 'tweezers', strikes: 3,
+        start(g, L) {
+            const hues = [215, 0, 120, 35, 280];
+            g.hue = hues[Math.floor(Math.random() * hues.length)];
+            g.surface = makeSurface([`hsl(${g.hue} 25% 22%)`, `hsl(${g.hue} 25% 14%)`], ['#9ca3af', '#1f2937'], 1800);
+            const n = L >= 1.6 ? 7 : (L >= 1.3 ? 6 : 5);
+            const make = (good) => {
+                const pts = [], x0 = rand(70, W - 70), y0 = rand(60, H - 60), a = rand(0, Math.PI * 2), len = rand(30, 55);
+                for (let i = 0; i <= 8; i++) {
+                    const t = i / 8;
+                    pts.push({ x: x0 + Math.cos(a) * len * t + Math.sin(t * 6 + x0) * 4, y: y0 + Math.sin(a) * len * t + Math.cos(t * 5 + y0) * 4 });
+                }
+                const hue = good ? g.hue + rand(-8, 8) : (Math.random() < 0.5 ? g.hue + rand(60, 300) : -1);
+                return { pts, good, got: 0, hue, w: rand(1.4, 2.2), wob: rand(0, 6) };
+            };
+            g.fibres = [];
+            for (let i = 0; i < n; i++) g.fibres.push(make(true));
+            for (let i = 0; i < n + 3; i++) g.fibres.push(make(false));
+            g.need = n; g.hitR = 7 / Math.sqrt(L) + 4;
+        },
+        near(f, x, y) {
+            for (let i = 1; i < f.pts.length; i++) {
+                const a = f.pts[i - 1], b = f.pts[i];
+                const t = clamp(((x - a.x) * (b.x - a.x) + (y - a.y) * (b.y - a.y)) / ((b.x - a.x) ** 2 + (b.y - a.y) ** 2 || 1), 0, 1);
+                if (dist(x, y, a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t) < this.r) return true;
+            }
+            return false;
+        },
+        update(g, L, dt) {
+            for (const f of g.fibres) { f.wob += 0.02 * dt * L; if (f.got) f.got = Math.min(1, f.got + 0.06 * dt); }
+            if (input.pressed) {
+                this.r = g.hitR;
+                const f = g.fibres.find((o) => !o.got && this.near(o, input.x, input.y));
+                if (!f) strike(T('mg_nothing', 'Nothing there'));
+                else if (!f.good) { f.got = 0.01; strike(T('mg_wrong_fibre', 'Wrong fibre: lint or a hair!')); }
+                else { f.got = 0.01; flash(T('mg_fibre', 'Fibre secured'), '#4ade80'); }
+            }
+            const got = g.fibres.filter((f) => f.good && f.got).length;
+            g.progress = got / g.need;
+            if (got === g.need) finish(true);
+        },
+        draw(g) {
+            ctx.drawImage(g.surface, 0, 0, W, H);
+            // the glove's colour as a swatch
+            ctx.fillStyle = `hsl(${g.hue} 70% 55%)`; roundRect(W - 92, 12, 80, 24, 6); ctx.fill();
+            text(T('mg_glove_colour', 'GLOVE'), W - 52, 29, 12, '#0b0f14');
+            for (const f of g.fibres) {
+                if (f.got >= 1) continue;
+                ctx.globalAlpha = 1 - f.got;
+                ctx.strokeStyle = f.hue < 0 ? 'rgba(203,213,225,.75)' : `hsl(${f.hue} 70% 58%)`;
+                ctx.lineWidth = f.w; ctx.lineCap = 'round';
+                ctx.beginPath();
+                f.pts.forEach((p, i) => {
+                    const x = p.x + Math.sin(f.wob + i) * 0.6, y = p.y + Math.cos(f.wob + i) * 0.6;
+                    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+        },
     };
 
     // ---------------------------------------------------------------- loop

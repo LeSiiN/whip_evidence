@@ -33,7 +33,7 @@ local function summary(tr)
     for _, b in pairs(tr.bullet) do bullets = bullets + b.n end
     local s = { prints = next(tr.prints) ~= nil, blood = count(tr.blood), casing = casings, bullet = bullets, gsr = tr.gsr ~= nil,
                 fragments = tr.fragments or 0, no = tr.no, plate = tr.plate,
-                photo = tr.photo ~= nil, plateSeen = tr.plateSeen == true }
+                photo = tr.photo ~= nil, plateSeen = tr.plateSeen == true, burnt = tr.burnt == true }
     if not s.prints and s.blood == 0 and s.casing == 0 and s.bullet == 0 and not s.gsr and s.fragments == 0 then return nil end
     return s
 end
@@ -93,6 +93,8 @@ function WhipEvidence.Vehicles.addTrace(ent, kind, data, charId)
     local before = summary(tr)
     if kind == 'print' then
         tr.prints[charId] = t
+    elseif kind == 'fiber' then
+        tr.prints['f' .. data] = t   -- fibres share the prints list (a text key instead of a charId)
     elseif kind == 'blood' then
         tr.blood[charId] = { t = t, data = data }
     elseif kind == 'casing' or kind == 'bullet' then
@@ -241,9 +243,13 @@ local function collect(source, player, tr, street)
         end
     end
 
-    for charId in pairs(tr.prints) do
-        local traits = WhipEvidence.Data.traits(charId)
-        if traits then give('fingerprint', L('type_fp_vehicle'), { fingerprint = traits.fingerprint }) end
+    for key in pairs(tr.prints) do
+        if type(key) == 'string' then
+            give('fiber', L('type_fiber_vehicle'), { fiber = tonumber(key:sub(2)) })
+        else
+            local traits = WhipEvidence.Data.traits(key)
+            if traits then give('fingerprint', L('type_fp_vehicle'), { fingerprint = traits.fingerprint }) end
+        end
     end
     for _, b in pairs(tr.blood) do give('blood', L('type_blood_vehicle'), b.data) end
     for _, c in pairs(tr.casing) do give('casing', L('type_casing_vehicle', c.n), c.data) end
@@ -256,13 +262,19 @@ end
 
 function WhipEvidence.Vehicles.register()
     -- The client sat in the car long enough (without gloves)
+    -- gloves = true: the gloves stopped the print, they may leave fibres instead
     Whip.core:SecureEvent('whip_evidence:touchVehicle', {
         rateLimit = 10000, burst = 2, sheet = 'light',
-        params = { { 'net', 'id', 1, 2147483647 } },
+        params = { { 'net', 'id', 1, 2147483647 }, { 'gloves', 'bool', false } },
         near = { at = vehicleNear(6.0).at, range = 6.0, message = false },
-    }, function(source, player, net)
+    }, function(source, player, net, gloves)
         local ent = entityOf(net)
         if not ent or GetVehiclePedIsIn(GetPlayerPed(source), false) ~= ent then return false end
+        if gloves then
+            local fiber = WhipEvidence.Body.fiber(source)
+            if fiber and WhipEvidence.roll(Config.FiberChance or 60) then WhipEvidence.Vehicles.addTrace(ent, 'fiber', fiber) end
+            return
+        end
         WhipEvidence.Vehicles.addTrace(ent, 'print', nil, player.charId)
     end)
 
@@ -304,6 +316,26 @@ function WhipEvidence.Vehicles.register()
         else
             exports.whip_core:NotifyPlayer(source, L('traces_collected', made), 'success')
         end
+    end)
+
+    -- A car with traces burnt out (a client near it saw it burn): the inside is gone.
+    -- Bullet holes, pieces on the ground, the number, the plate and the photo stay.
+    Whip.core:SecureEvent('whip_evidence:carBurnt', {
+        rateLimit = 3000, burst = 2, sheet = 'light',
+        params = { { 'net', 'id', 1, 2147483647 } },
+        near = { at = vehicleNear(150.0).at, range = 150.0, message = false },
+    }, function(source, player, net)
+        local ent = entityOf(net)
+        if not ent then return false end
+        -- only a car that really burnt (engine, tank or the car itself destroyed)
+        if GetVehicleEngineHealth(ent) > 0 and GetVehiclePetrolTankHealth(ent) > 0 and GetEntityHealth(ent) > 0 then return false end
+        local tr = traceOf(ent, false)
+        if not tr or tr.burnt then return end
+        tr.burnt = true
+        tr.prints, tr.blood, tr.casing, tr.gsr = {}, {}, {}, nil
+        push(tr)
+        if not summary(tr) then traces[tr.key] = nil end
+        exports.whip_core:LogActivity(source, 'evidence_vehicle_burnt', { detail = ('V%d (%s)'):format(tr.no or 0, tr.plate or '?') })
     end)
 
     -- Anyone with a cleaning cloth: clean the inside (prints, blood, GSR, casings). Bullet holes stay.

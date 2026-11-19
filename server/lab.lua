@@ -71,10 +71,13 @@ end
 
 -- One line per analysed bag for the screen: "#12 Casing · 9mm · ABC123"
 local function resultLine(meta)
-    local main = meta.weapon_serial or meta.fingerprint or meta.blood_type or meta.paint or meta.gsr
+    local main = meta.weapon_serial or meta.fingerprint or meta.fiber or meta.cleaner or meta.shoe_profile or meta.tyre_profile
+        or meta.blood_type or meta.paint or meta.gsr
     local parts = { meta.type or WhipEvidence.label(meta.kind) }
     if meta.ammo and meta.kind ~= 'reference' then parts[#parts + 1] = meta.ammo end
     if main and main ~= '???' then parts[#parts + 1] = main end
+    local extra = meta.shoe_size or meta.tyre_width
+    if extra and extra ~= '???' then parts[#parts + 1] = extra end
     if meta.age and meta.age ~= '???' then parts[#parts + 1] = meta.age end
     return { no = meta.marker, kind = meta.kind, text = table.concat(parts, ' · ') }
 end

@@ -1,5 +1,20 @@
 # Changelog
 
+## 4.2.0
+
+### New
+- **Shoe prints**: walking through mud, sand or snow (in snowy weather anywhere outside) leaves prints, and after stepping in blood a few bloody ones. The lab tells the sole pattern ("SP-3F2A", the same shoes always give the same code) and the shoe size; a bloody print also the blood type. Police take a shoe print from a person to compare ("Take a shoe print").
+- **Tyre tracks**: driving over mud, sand, snow or grass, and skidding or a burnout on any ground. The lab tells the tread pattern (same car and rims = same code) and the tyre width. Police take a tyre print at a front door (bikes: at the handlebar) to compare.
+- Drawn on the ground (no props), they fade with age and stay 20 minutes (`TrackMinutes`). At most 12 per player at once; police on duty leave none (`TrackPolice`). Scan filter "Prints & tracks", lab visuals for both, settings group in `/whip`.
+- **Glove fibres**: gloves that stop a print leave fibres instead (in cars and on weapons, `FiberChance`). The lab gives a code ("FA-3F2A", the same gloves always give the same one). Police take fibres from a person's gloves to compare ("Take glove fibres").
+- **Burnt-out cars**: a car with traces that burns loses what was inside (prints, blood, casings, GSR). Bullet holes, pieces on the ground, the number and the plate stay. The card and photos say "Burnt out".
+- **Bleach** (new item): cleans blood, prints and bloody shoe prints within 2.5 m at once (no minigame), but leaves a "cleaned spot" (60 min). A swab of it: the lab finds bleach.
+- **Filing a serial off** (new item: metal file): right-click a holstered gun. A few characters stay ("##3####M####"), prints on the weapon move along. Police at a lab device: "Restore serial (acid)" brings part of it back ("AB3?9X?M7Q?L", `SerialRestoreChance`) or nothing (`SerialLostChance`), once per weapon, as a lab report bag.
+- Dev tools: test pieces and "Give me every evidence bag" include shoe and tyre prints, fibres and a cleaned spot; the test kit has bleach and a file.
+- **Clean view in the camera**: K (controller: LB + D-pad up) hides the big card of the trace you aim at. Markers (also V1, L1), legend and text line stay. Again K or putting the camera away brings it back.
+- **Age without a clock**: `AgeShown` (scan card, legend, photos) and `LabAge` (the lab's age at collection), each 'exact', 'rough' (default) or 'off'. Rough: "fresh", "a while ago", "older", "old" on the scene; "Under 15 min", "Under 1 h", "Over 1 h" in the lab. The "time left" chip only shows with exact ages. Shoe prints, tyre tracks and cleaned spots are always rough in the lab. Settings in `/whip`.
+- **New minigames**: "Plaster cast" for shoe prints and tyre tracks (pour plaster over the whole print without spilling or pouring too thick, then lift the cast when it is set) and "Glove fibres" for fibres from a person (pick only the fibres in the glove's colour, not lint or hairs). Choosable per job in `/whip` like the others.
+
 ## 4.1.0
 
 ### Changed

@@ -37,7 +37,7 @@ local function refOf(item, m)
     return nil
 end
 
-local REVEAL = { 'weapon_serial', 'fingerprint', 'blood_type', 'paint', 'ammo', 'age' }
+local REVEAL = { 'weapon_serial', 'fingerprint', 'blood_type', 'paint', 'ammo', 'age', 'shoe_profile', 'shoe_size', 'tyre_profile', 'tyre_width', 'fiber', 'cleaner' }
 
 -- Uploadable = analysed: no lab value still '???'; a photo always; a gun once the lab test-fired it
 local function analysed(item, m)
@@ -65,6 +65,8 @@ local function entryOf(item, m)
         e.results = {
             ammo = m.ammo, weapon_serial = m.weapon_serial, fingerprint = m.fingerprint, blood_type = m.blood_type,
             paint = m.paint, gsr = m.gsr, ballistics = m.ballistics, age = m.age,
+            surface = m.surface, shoe_profile = m.shoe_profile, shoe_size = m.shoe_size,
+            tyre_profile = m.tyre_profile, tyre_width = m.tyre_width, fiber = m.fiber, cleaner = m.cleaner,
         }
     elseif item == I.photo then
         e.kind, e.type = 'photo', L('type_photo')

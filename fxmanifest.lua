@@ -6,7 +6,7 @@ lua54 'yes'
 name 'whip_evidence'
 author 'LeSiiN'
 description 'Forensics for WHIP: evidence, GSR, vehicle traces, weapon prints, labs'
-version '4.1.2'
+version '4.2.0'
 
 dependencies {
     'whip_core',
@@ -37,6 +37,7 @@ server_scripts {
     'server/body.lua',
     'server/bodies.lua',
     'server/vehicles.lua',
+    'server/tracks.lua',
     'server/weapons.lua',
     'server/lab.lua',
     'server/photo.lua',
@@ -62,6 +63,7 @@ client_scripts {
     'client/gsr.lua',
     'client/body.lua',
     'client/bodies.lua',
+    'client/tracks.lua',
     'client/admin.lua',
 }
 
@@ -75,4 +77,5 @@ files {
     'html/scan.html',   -- scan markers, cards, legend, photo view (DUI)
     'html/img/items/*.webp',
     'html/img/items/*.png',
+    'html/img/tracks/*.png',   -- shoe prints and tyre tracks on the ground
 }

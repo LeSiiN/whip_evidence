@@ -282,7 +282,7 @@
 
             const rows = (Array.isArray(d.entries) ? d.entries : []).map((e) => `<div class="row">
                 <span class="no">${esc(e.n)}</span>
-                <div class="what"><div class="t">${esc(e.t)}</div>${e.s ? `<div class="i">${esc(e.s)} · ${esc(T('nui_min_old', '%d min old').replace('%d', e.a || 0))}</div>` : ''}</div>
+                <div class="what"><div class="t">${esc(e.t)}</div>${e.s ? `<div class="i">${esc(e.s)}${e.w === false ? '' : ' · ' + esc(e.w ? e.w : T('nui_min_old', '%d min old').replace('%d', e.a || 0))}</div>` : ''}</div>
                 <span class="d">${esc(e.d || 0)} m</span></div>`);
             (Array.isArray(d.cars) ? d.cars : []).forEach((c, i) => {
                 const what = [c.m, c.c].filter(Boolean).join(', ');

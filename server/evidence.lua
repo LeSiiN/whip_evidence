@@ -84,6 +84,7 @@ local function view(ev, t)
         origin = ev.origin, phase = ev.phase, fails = ev.fails, laser = ev.laser ~= nil,
         no = ev.no, shot = ev.shot, photo = ev.photo ~= nil, dir = ev.dir,
         age = t - ev.created, left = math.max(0, ev.expires - t),   -- seconds, for the scan overlay
+        look = ev.data and ev.data.look,   -- shoe prints and tyre tracks: how they are drawn (surface, length)
     }
 end
 
@@ -144,14 +145,15 @@ local function tooClose(pos)
     return close
 end
 
--- kind: casing | bullet | blood | fingerprint | vehicle_fragment
--- opts: coords, heading?, origin? (shooter position, for the laser), shot? (shot id), data
+-- kind: casing | bullet | blood | fingerprint | vehicle_fragment | shoeprint | tyre_track
+-- opts: coords, heading?, origin? (shooter position, for the laser), shot? (shot id), data,
+--       lifetime? (seconds, default Config.Aging.Lifetime; the colours scale with it), anyDistance? (skip MinDistance)
 function WhipEvidence.Evidence.create(kind, opts)
     if not Config.Props[kind] then return false, 'unknown evidence type' end
     if not opts.coords then return false, 'no position' end
     local pos = WhipEvidence.vec(opts.coords)
     if WhipEvidence.inNoEvidenceZone(pos) then return false, 'area without evidence' end
-    if tooClose(pos) then return false, 'too close to other evidence' end
+    if not opts.anyDistance and tooClose(pos) then return false, 'too close to other evidence' end
     while count >= Config.MaxEvidence do
         local before = count
         removeOldest()
@@ -166,7 +168,7 @@ function WhipEvidence.Evidence.create(kind, opts)
         id = id, kind = kind, coords = pos,
         heading = (opts.heading or math.random(0, 359)) + 0.0,
         origin = opts.origin,
-        created = t, expires = t + Config.Aging.Lifetime,
+        created = t, expires = t + (tonumber(opts.lifetime) or Config.Aging.Lifetime),
         reduced = false, fails = 0,
         no = sceneNumber(pos), shot = opts.shot, dir = tonumber(opts.dir),
         data = opts.data or {},
@@ -439,8 +441,8 @@ local function bagFor(source, player, ev, street)
     return bagId, meta, secret
 end
 
--- How old a piece was when it was collected, as the lab puts it: "Under 5 min", "20-30 min", "1-2 h"
-local function ageText(seconds)
+-- An age in ranges: "Under 5 min", "20-30 min", "1-2 h" (also the time of death on a body's report)
+local function rangeText(seconds)
     local m = math.floor(math.max(0, seconds) / 60)
     if m < 5 then return L('age_under5') end
     if m < 10 then return L('age_5_10') end
@@ -451,14 +453,29 @@ local function ageText(seconds)
     local h = math.floor(m / 60)
     return L('age_hours', h, h + 1)
 end
-WhipEvidence.Evidence.ageText = ageText
+WhipEvidence.Evidence.ageText = rangeText
+
+-- How old a piece was when it was collected, as the lab puts it (Config.LabAge):
+-- 'exact' ranges, 'rough' ("Under 15 min", "Under 1 h", "Over 1 h"), 'off' nil (no age). rough = true forces rough.
+local function labAge(seconds, rough)
+    local mode = Config.LabAge or 'rough'
+    if mode == 'off' then return nil end
+    if rough or mode == 'rough' then
+        local m = math.floor(math.max(0, seconds) / 60)
+        if m < 15 then return L('lab_age_fresh') end
+        if m < 60 then return L('lab_age_hour') end
+        return L('lab_age_over')
+    end
+    return rangeText(seconds)
+end
 
 -- Fills the visible '???' fields into meta and returns the hidden values for the lab.
 -- age: seconds since it was left (ground evidence); the lab reveals it as "Age at collection"
 function WhipEvidence.Evidence.secretFor(kind, d, meta, age)
     local secret = {}
-    if age then
-        meta.age, secret.age = '???', ageText(age)
+    local said = age and labAge(age, kind == 'shoeprint' or kind == 'tyre_track' or kind == 'cleaned')
+    if said then
+        meta.age, secret.age = '???', said
     end
     if kind == 'casing' or kind == 'bullet' then
         meta.ammo, meta.weapon_serial = '???', '???'
@@ -472,7 +489,23 @@ function WhipEvidence.Evidence.secretFor(kind, d, meta, age)
     elseif kind == 'vehicle_fragment' then
         meta.paint = '???'
         secret.paint = d.colour or L('unknown')
+    elseif kind == 'fiber' then
+        meta.fiber = '???'
+        secret.fiber = d.fiber and WhipEvidence.fiberCode(d.fiber) or L('unknown')
+    elseif kind == 'cleaned' then
+        meta.cleaner = '???'
+        secret.cleaner = L('bleach_detected')
+    elseif kind == 'shoeprint' then
+        meta.shoe_profile, meta.shoe_size = '???', '???'
+        secret.shoe_profile = d.profile == 'barefoot' and L('barefoot') or (d.profile or L('unknown'))
+        secret.shoe_size = d.size and L('shoe_size_val', d.size) or L('unknown')
+        if d.blood then meta.blood_type, secret.blood_type = '???', d.blood end
+    elseif kind == 'tyre_track' then
+        meta.tyre_profile, meta.tyre_width = '???', '???'
+        secret.tyre_profile = d.profile or L('unknown')
+        secret.tyre_width = d.width and L('tyre_width_val', d.width, L('vt_' .. tostring(d.vtype or 'automobile'))) or L('unknown')
     end
+    if d.surface and (kind == 'shoeprint' or kind == 'tyre_track') then meta.surface = L('surface_' .. d.surface) end
     return secret
 end
 
@@ -641,10 +674,56 @@ local function bleed(source, charId, pos, dir)
     WhipEvidence.Evidence.create('blood', { coords = pos, dir = dir, data = { blood = traits.blood } })
 end
 
+---------------------------------------------------------------- Bleach (anyone with the item)
+
+-- Cleans blood, prints and bloody shoe prints around the player: no minigame, but a "cleaned spot" stays,
+-- and a swab of it shows bleach in the lab. Casings, bullets and other prints stay.
+local BLEACHABLE = { blood = true, fingerprint = true }
+local function bleach(source, player)
+    local pos = GetEntityCoords(GetPlayerPed(source))
+    local radius = tonumber(Config.BleachRadius) or 2.5
+    local function pick()
+        local list = {}
+        eachNear(pos, radius + 1.0, function(ev)
+            if not ev.busy and (BLEACHABLE[ev.kind] or (ev.kind == 'shoeprint' and ev.data and ev.data.surface == 'blood'))
+                and #(ev.coords - pos) <= radius + 1.0 then
+                list[#list + 1] = ev.id
+            end
+        end)
+        return list
+    end
+    if #pick() == 0 then return false, L('bleach_nothing') end
+    local done = exports.whip_core:Progress(source, WhipEvidence.bar('bleach', {
+        label = L('bleaching'), duration = 7000, icon = 'fail',
+        disable = { move = true, combat = true, car = true },
+        near = { coords = pos, range = 2.0 },
+    }))
+    if not done or not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
+    local ids = pick()
+    if #ids == 0 then return false, L('bleach_nothing') end
+    WhipEvidence.Evidence.remove(ids)
+    -- the spot (MinDistance does not apply: it lies where the evidence was)
+    local ground = vector3(pos.x, pos.y, pos.z - 0.95)
+    local spot
+    eachNear(ground, 3.0, function(ev) if ev.kind == 'cleaned' then spot = ev end end)
+    if not spot then
+        WhipEvidence.Evidence.create('cleaned', { coords = ground, data = { look = { s = 'cleaned' } }, anyDistance = true,
+            lifetime = math.max(60, (tonumber(Config.BleachMinutes) or 60) * 60) })
+    end
+    exports.whip_core:LogActivity(source, 'evidence_bleached', { detail = ('%d piece(s)'):format(#ids) })
+    exports.whip_core:NotifyPlayer(source, L('bleached', #ids), 'success')
+    return true
+end
+
 ---------------------------------------------------------------- Registration
 
 function WhipEvidence.Evidence.register()
     local reach = function() return Config.PickupDistance + 2.5 end
+
+    -- Bleach: one bottle per use
+    Whip.core:RegisterUseHandler(WhipEvidence.Items.bleach, function(source, player)
+        return bleach(source, player)
+    end)
 
     Whip.core:SecureEvent('whip_evidence:pickup', {
         rateLimit = 1500,

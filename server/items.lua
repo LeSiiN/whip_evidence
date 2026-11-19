@@ -1,4 +1,4 @@
--- Items: evidence bag, crime scene photo, forensics kit, laser pointer, pliers, cleaning cloth
+-- Items: evidence bag, crime scene photo, forensics kit, laser pointer, pliers, cleaning cloth, bleach, file
 WhipEvidence.ItemDefs = {}
 
 local I = WhipEvidence.Items
@@ -81,6 +81,9 @@ local COPY_FIELDS = {
     { 'fingerprint', L('f_fingerprint') },
     { 'blood_type', L('f_blood_type') },
     { 'paint', L('f_paint') },
+    { 'fiber', L('f_fiber') },
+    { 'shoe_profile', L('f_shoe_profile') },
+    { 'tyre_profile', L('f_tyre_profile') },
 }
 
 function WhipEvidence.ItemDefs.register()
@@ -100,6 +103,13 @@ function WhipEvidence.ItemDefs.register()
             { key = 'fingerprint',   label = L('f_fingerprint') },
             { key = 'blood_type',    label = L('f_blood_type') },
             { key = 'paint',         label = L('f_paint') },
+            { key = 'fiber',         label = L('f_fiber') },
+            { key = 'cleaner',       label = L('f_cleaner') },
+            { key = 'surface',       label = L('f_surface') },
+            { key = 'shoe_profile',  label = L('f_shoe_profile') },
+            { key = 'shoe_size',     label = L('f_shoe_size') },
+            { key = 'tyre_profile',  label = L('f_tyre_profile') },
+            { key = 'tyre_width',    label = L('f_tyre_width') },
             { key = 'gsr',           label = L('f_gsr') },
             { key = 'ballistics',    label = L('f_ballistics') },
             { key = 'tested_on',     label = L('f_tested_on') },
@@ -147,7 +157,21 @@ function WhipEvidence.ItemDefs.register()
         weight = 0.05, type = 'tool', stack = true, maxStack = 20, usable = false,
     })
 
+    Whip.core:RegisterItem(I.bleach, {
+        name = L('item_bleach'), desc = L('item_bleach_desc'),
+        weight = 1.0, type = 'consumable', stack = true, maxStack = 5, usable = true,
+        prop = 'prop_blox_spray',
+    })
+
+    Whip.core:RegisterItem(I.file, {
+        name = L('item_file'), desc = L('item_file_desc'),
+        weight = 0.3, type = 'tool', stack = false, usable = false,
+        metaFields = { { key = 'durability', label = L('f_condition'), value = '100' } },
+        settings = wearSetting(20),
+    })
+
     Whip.core:RegisterItemDefaultMetadata(I.kit, newTool)
+    Whip.core:RegisterItemDefaultMetadata(I.file, newTool)
     Whip.core:RegisterItemDefaultMetadata(I.pliers, newTool)
 
     -- Right-click "Copy data": the first analysed value goes to the clipboard

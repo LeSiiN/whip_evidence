@@ -1,7 +1,7 @@
 -- Dev tools for /w -> Forensics (whip.devtools + developer mode). Test helpers and case administration.
 WhipEvidence.Admin = {}
 
-local KINDS = { 'casing', 'bullet', 'blood', 'fingerprint', 'vehicle_fragment' }
+local KINDS = { 'casing', 'bullet', 'blood', 'fingerprint', 'vehicle_fragment', 'shoeprint', 'tyre_track' }
 
 -- One piece of each type around the admin, with the admin's own fingerprint / blood
 local function spawnAll(source, player)
@@ -14,12 +14,17 @@ local function spawnAll(source, player)
         blood = { blood = traits.blood or 'O+' },
         fingerprint = { fingerprint = traits.fingerprint or 'TEST' },
         vehicle_fragment = { colour = 'Test Red' },
+        shoeprint = WhipEvidence.Tracks.testShoe(source, player.charId),
+        tyre_track = WhipEvidence.Tracks.testTyre(),
     }
+    data.shoeprint.surface, data.shoeprint.look = 'mud', { s = 'mud' }
+    data.tyre_track.surface, data.tyre_track.look = 'mud', { s = 'mud', l = 8.0, w = 1.5 }
     local shot, made = WhipEvidence.Data.newId(), 0
     for i, kind in ipairs(KINDS) do
         local a = math.rad(heading + 90 + (i - 1) * 45)
-        local at = pos + vector3(math.cos(a) * 2.2, math.sin(a) * 2.2, -0.95)
-        local opts = { coords = at, data = data[kind] }
+        local dist = kind == 'tyre_track' and 6.0 or (kind == 'shoeprint' and 3.5 or 2.2)
+        local at = pos + vector3(math.cos(a) * dist, math.sin(a) * dist, -0.95)
+        local opts = { coords = at, data = data[kind], heading = heading }
         if kind == 'casing' or kind == 'bullet' then opts.shot = shot end
         if kind == 'bullet' then opts.origin = pos end
         if WhipEvidence.Evidence.create(kind, opts) then made = made + 1 end
@@ -53,6 +58,9 @@ local function giveAllBags(source, player)
     local gun = { serial = 'TEST-' .. player.charId, caliber = '9mm' }
     local fp, blood = { fingerprint = traits.fingerprint or 'TEST' }, { blood = traits.blood or 'O+' }
     local car = L('vehicle_plate', 'TEST 123')
+    local shoe = WhipEvidence.Tracks.testShoe(source, player.charId)
+    local tyre = WhipEvidence.Tracks.testTyre()
+    shoe.surface, tyre.surface = 'mud', 'mud'
     local list = {
         -- kind, label, data for the lab (nil = nothing to analyse), extra fields, age at collection (s)
         { 'casing', WhipEvidence.label('casing'), gun, { marker = '#1' }, 600 },
@@ -71,6 +79,14 @@ local function giveAllBags(source, player)
         { 'bullet', L('type_bullet_body'), gun, { tested_on = 'L1', marker = 'L1' } },
         { 'blood', L('type_blood_body'), blood, { tested_on = 'L1', marker = 'L1' } },
         { 'gsr', L('gsr_test'), nil, { tested_on = 'L1', gsr = L('gsr_weak') } },
+        { 'shoeprint', WhipEvidence.label('shoeprint'), shoe, { marker = '#6' }, 900 },
+        { 'shoeprint', L('type_shoe_person'), shoe, { tested_on = me } },
+        { 'tyre_track', WhipEvidence.label('tyre_track'), tyre, { marker = '#7' }, 900 },
+        { 'tyre_track', L('type_tyre_vehicle'), tyre, { tested_on = car } },
+        { 'fiber', L('type_fiber_vehicle'), { fiber = 12345 }, { tested_on = car } },
+        { 'fiber', L('type_fiber_weapon'), { fiber = 12345 }, { tested_on = ('Pistol (%s)'):format(gun.serial), street = '-' } },
+        { 'fiber', L('type_fiber_person'), { fiber = 12345 }, { tested_on = me } },
+        { 'cleaned', WhipEvidence.label('cleaned'), {}, { marker = '#8' }, 600 },
     }
     local queries, made = {}, 0
     for _, e in ipairs(list) do
@@ -95,6 +111,7 @@ local function giveKit(source)
     local I = WhipEvidence.Items
     local list = {
         { I.kit, 1 }, { I.case, 1 }, { I.empty, 10 }, { I.laser, 2 }, { I.pliers, 1 }, { I.wipe, 3 },
+        { I.bleach, 2 }, { I.file, 1 },
         { 'camera', 1 }, { 'gunny_torch', 1 },
     }
     local n = 0

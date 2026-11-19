@@ -14,6 +14,8 @@ WhipEvidence.Items = {
     laser  = RES .. '_laser',   -- laser pointer
     pliers = RES .. '_pliers',  -- pliers
     wipe   = RES .. '_wipe',    -- cleaning cloth
+    bleach = RES .. '_bleach',  -- bleach (cleans blood and prints around you, leaves a cleaned spot)
+    file   = RES .. '_file',    -- metal file (files a weapon's serial off)
 }
 
 WhipEvidence.GsrFlag = RES .. ':gsr'
@@ -85,6 +87,18 @@ function WhipEvidence.label(kind)
     if text ~= 'kind_' .. tostring(kind) then return text end
     local p = Config.Props[kind]
     return p and p.label or kind
+end
+
+-- How old something looks on the scan and photos (Config.AgeShown): "12 min old", "fresh", ... or nil (not shown)
+function WhipEvidence.ageWords(seconds)
+    local mode = Config.AgeShown or 'rough'
+    if mode == 'off' then return nil end
+    local m = math.floor(math.max(0, seconds or 0) / 60)
+    if mode == 'exact' then return L('chip_old', m < 1 and '<1 min' or ('%d min'):format(m)) end
+    if m < 5 then return L('age_fresh') end
+    if m < 20 then return L('age_while') end
+    if m < 45 then return L('age_older') end
+    return L('age_old')
 end
 
 function WhipEvidence.vec(t)

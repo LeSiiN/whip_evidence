@@ -11,6 +11,7 @@ local FLASHLIGHT = GetHashKey('WEAPON_FLASHLIGHT')
 local MAX_MARKERS, CAR_CARDS, LEGEND_ROWS, MAX_LINES = 60, 3, 12, 40
 local TAG_LIFT = 0.4          -- metres between evidence and the bottom of its tag
 local cameraUp = false        -- told by the server while the WHIP camera item is in hand
+local cardsHidden = false     -- camera: the big card of the aimed-at trace off (K); markers, legend and text stay
 local scanning = false
 local worldHidden = false     -- WHIP's clean screen (filming) hides world UI
 local markers, focus, cars, lines, lasers = {}, nil, {}, {}, {}
@@ -46,6 +47,7 @@ local FILTERS = {
     { key = 'bullet',           label = 'filter_bullet' },
     { key = 'fingerprint',      label = 'filter_fingerprint' },
     { key = 'vehicle_fragment', label = 'filter_fragment' },
+    { key = 'tracks',           label = 'filter_tracks' },
     { key = 'vehicles',         label = 'filter_vehicles' },
     { key = 'bodies',           label = 'filter_bodies' },
 }
@@ -53,7 +55,7 @@ local filter = 1
 
 local function passes(kind)
     local f = FILTERS[filter].key
-    return f == 'all' or f == kind
+    return f == 'all' or f == kind or (f == 'tracks' and (kind == 'shoeprint' or kind == 'tyre_track'))
 end
 
 ---------------------------------------------------------------- DUI atlas (one browser for everything)
@@ -154,7 +156,10 @@ end
 
 local function hint()
     local text = L('hint_filter', keyFor('evidence_filter', 'whip_evidence_filter', Config.ScanKeys.Filter), L(FILTERS[filter].label))
-    if cameraUp then text = text .. L('hint_photo', keyFor('evidence_photo', 'whip_evidence_photo', Config.ScanKeys.Photo)) end
+    if cameraUp then
+        text = text .. L('hint_photo', keyFor('evidence_photo', 'whip_evidence_photo', Config.ScanKeys.Photo))
+        text = text .. L(cardsHidden and 'hint_card_on' or 'hint_card_off', keyFor('evidence_cards', 'whip_evidence_cards', Config.ScanKeys.Cards or 'K'))
+    end
     return text
 end
 
@@ -250,11 +255,26 @@ RegisterKeyMapping('whip_evidence_filter', L('key_filter'), 'keyboard', Config.S
 RegisterCommand('whip_evidence_photo', takePhoto, false)
 RegisterKeyMapping('whip_evidence_photo', L('key_photo'), 'keyboard', Config.ScanKeys.Photo)
 
+-- Camera in hand: hide the big card of the aimed-at trace for a clean picture (markers, legend and text stay)
+local cardsPressedAt = 0
+local function toggleCards()
+    if not cameraUp or not keysAllowed() then return end
+    local now = GetGameTimer()
+    if now - cardsPressedAt < 250 then return end   -- key mapping and the camera fallback in the same frame
+    cardsPressedAt = now
+    cardsHidden = not cardsHidden
+    lastSummary = nil   -- the hint in the text line changes
+end
+RegisterCommand('whip_evidence_cards', toggleCards, false)
+RegisterKeyMapping('whip_evidence_cards', L('key_cards'), 'keyboard', Config.ScanKeys.Cards or 'K')
+
 -- Controller: the same two on WHIP's pad buttons (movable on the pause menu's Controller screen).
 -- Ready only while scanning (photo: camera up), otherwise the buttons stay GTA's.
-local padReady = { evidence_filter = false, evidence_photo = false }
+local padReady = { evidence_filter = false, evidence_photo = false, evidence_cards = false }
 Whip.register(function()
-    padReady = { evidence_filter = false, evidence_photo = false }
+    padReady = { evidence_filter = false, evidence_photo = false, evidence_cards = false }
+    Whip.core:RegisterPadAction('evidence_cards', { label = L('pad_cards'), slot = 'lb_dpad_up', menus = true, ready = false,
+        onPress = function() toggleCards() end })
     Whip.core:RegisterPadAction('evidence_filter', { label = L('pad_filter'), slot = 'lb_dpad_left', menus = true, ready = false,
         onPress = function() nextFilter() end })
     Whip.core:RegisterPadAction('evidence_photo', { label = L('pad_photo'), slot = 'lb_dpad_right', menus = true, ready = false,
@@ -262,7 +282,7 @@ Whip.register(function()
 end)
 
 local function padActions(filterOn, photoOn)
-    for id, on in pairs({ evidence_filter = filterOn, evidence_photo = photoOn }) do
+    for id, on in pairs({ evidence_filter = filterOn, evidence_photo = photoOn, evidence_cards = photoOn }) do
         if padReady[id] ~= on then
             padReady[id] = on
             Whip.core:SetPadActionReady(id, on)
@@ -272,8 +292,8 @@ end
 
 -- Fallback while the viewfinder is up: read G and H as game controls too (they still report while
 -- disabled). Only while the binding is still G / H, so a player who rebinds gets just their key.
-local KEY_CONTROLS = { G = { 47, 58 }, H = { 74, 304 } }
-local bound = { filter = nil, photo = nil, checkedAt = 0 }
+local KEY_CONTROLS = { G = { 47, 58 }, H = { 74, 304 }, K = { 311 } }
+local bound = { filter = nil, photo = nil, cards = nil, checkedAt = 0 }
 
 local function pressed(key)
     local list = KEY_CONTROLS[key]
@@ -290,15 +310,18 @@ local function cameraKeys()
         bound.checkedAt = now
         bound.filter = keyLabel('whip_evidence_filter', Config.ScanKeys.Filter)
         bound.photo = keyLabel('whip_evidence_photo', Config.ScanKeys.Photo)
+        bound.cards = keyLabel('whip_evidence_cards', Config.ScanKeys.Cards or 'K')
     end
     if pressed(bound.filter) then nextFilter() end
     if pressed(bound.photo) then takePhoto() end
+    if pressed(bound.cards) then toggleCards() end
 end
 
 ---------------------------------------------------------------- What to show
 
 RegisterNetEvent('whip_evidence:client:camera', function(on)
     cameraUp = on == true
+    if not cameraUp then cardsHidden = false end   -- camera away: everything back
 end)
 
 AddEventHandler('whip_core:player:logout', function()
@@ -342,8 +365,12 @@ local function evidenceCard(ev, dist, police)
     local chips = { { text = L(st.key), color = st.color } }
     if police then
         local now = GetGameTimer()
-        chips[#chips + 1] = { text = L('chip_old', minutes(now - (ev.bornAt or now))) }
-        chips[#chips + 1] = { text = L('chip_left', minutes(math.max(0, (ev.endsAt or now) - now))) }
+        local age = WhipEvidence.ageWords((now - (ev.bornAt or now)) / 1000)
+        if age then chips[#chips + 1] = { text = age } end
+        -- the time left would give the age away: only with exact ages
+        if (Config.AgeShown or 'rough') == 'exact' then
+            chips[#chips + 1] = { text = L('chip_left', minutes(math.max(0, (ev.endsAt or now) - now))) }
+        end
         if ev.fails and ev.fails > 0 then chips[#chips + 1] = { text = L('chip_failed', ev.fails, Config.MaxFails), color = 'red' } end
         if ev.laser then chips[#chips + 1] = { text = L('chip_laser'), color = 'red' } end
         chips[#chips + 1] = ev.photo and { text = L('chip_photo'), color = 'green' } or { text = L('chip_no_photo'), color = 'yellow' }
@@ -357,7 +384,8 @@ local function evidenceInfo(ev, police)
     local st = PHASE[ev.phase] or PHASE.yellow
     if not police then return L(st.key) end
     local now = GetGameTimer()
-    local text = L('legend_info', L(st.key), minutes(now - (ev.bornAt or now)))
+    local age = WhipEvidence.ageWords((now - (ev.bornAt or now)) / 1000)
+    local text = age and L('legend_info', L(st.key), age) or L(st.key)
     if ev.laser then text = text .. ' · ' .. L('chip_laser') end
     if ev.dir then text = text .. L('legend_trail', compass(ev.dir)) end
     return text
@@ -365,6 +393,7 @@ end
 
 local function carParts(s, police)
     local parts = {}
+    if s.burnt then parts[#parts + 1] = { text = L('car_burnt'), color = 'red' } end
     if s.blood > 0 then parts[#parts + 1] = { text = WhipEvidence.label('blood'), color = 'red' } end
     if s.casing > 0 then parts[#parts + 1] = { text = ('%d× %s'):format(s.casing, WhipEvidence.label('casing')) } end
     if s.bullet > 0 then parts[#parts + 1] = { text = L('car_bullet_holes', s.bullet) } end
@@ -795,7 +824,7 @@ end
 local function drawFrame(aspect)
     if shooting then HideHudAndRadarThisFrame() end
     if up and not worldHidden then
-        local focused = not shooting and focus
+        local focused = not shooting and not cardsHidden and focus
         local now = GetGameTimer()
         for i = 1, #markers do
             local m = markers[i]
@@ -820,7 +849,7 @@ local function drawFrame(aspect)
                 end
             end
         end
-        for i = 1, #cars do
+        for i = 1, cardsHidden and 0 or #cars do
             local c = cars[i]
             local p = (c.ent and DoesEntityExist(c.ent)) and GetEntityCoords(c.ent) or c.pos
             if p then

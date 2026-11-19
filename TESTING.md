@@ -128,6 +128,35 @@ Vorbereitung: `/w` → Forensics → „Give me the test kit“, Polizei im Dien
 - [ ] 7c.4 Schmauchtest / Abstrich an Spieler 2: Spieler 2 hält kurz die Hände nach vorne.
 - [ ] 7c.5 Props sitzen richtig in der Hand (sonst: Emote-Name nennen, das besser passt). `/whip` → „Props in the hand“ aus → nur Animationen.
 
+## 7d. Schuh- und Reifenspuren (alleine testbar, Polizei-Job aus oder `TrackPolice` an)
+- [ ] 7d.1 Über Sand (Strand) oder Matsch laufen → etwa alle 12 m vier Abdrücke (links/rechts, Zehen leicht nach außen, nicht ganz gleichmäßig, Ballen und Ferse kräftiger). Auf Asphalt nichts.
+- [ ] 7d.2 Durch eine Blutlache laufen → eine Strecke rote Abdrücke direkt danach, zur Lache hin kräftig, dann fast weg.
+- [ ] 7d.3 Mit dem Auto über Wiese/Sand/Matsch fahren → etwa 8 m Reifenspur, dann ~25 m nichts. Motorrad eine Spur. Auf Asphalt nur bei Burnout, Handbremse bei Tempo oder Vollbremsung aus hohem Tempo; normales Bremsen nichts.
+- [ ] 7d.4 Spuren werden mit der Zeit blasser und sind nach 20 Min weg. Mehr als 12 eigene → die ältesten verschwinden.
+- [ ] 7d.5 Scan: Marker und Karte wie bei anderen Spuren, Filter „Spuren“. Einsammeln → Beutel „Schuhabdruck“ / „Reifenspur“ mit Untergrund, Profil „???“.
+- [ ] 7d.5b Minigame „Gipsabguss“: Gips über den ganzen Abdruck gießen (Maus halten, bewegen). Außerhalb des Rahmens → „Daneben“, zu lange → Fehler; auf einer Stelle stehen bleiben → „Blasen“. Dann Balken: im Grünen klicken → fertig, zu früh „Noch weich“, zu spät „klebt fest“.
+- [ ] 7d.6 Labor: Bild „Sohlenprofil“ / „Reifenprofil“; danach „SP-xxxx · ca. 43 (EU)“ bzw. „RP-xxxx · 225 mm · Auto“. Blutiger Abdruck zeigt auch die Blutgruppe.
+- [ ] 7d.7 Vergleich: Polizei → Spieler „Schuhabdruck nehmen“ → gleiches SP-Profil wie seine Spuren. An der Vordertür (Motorrad: am Lenker) „Reifenabdruck nehmen“ → gleiches RP-Profil wie die Spur des Autos. Andere Schuhe/Felgen → anderer Code.
+- [ ] 7d.8 Wetter auf XMAS → überall draußen Abdrücke im Schnee.
+
+## 7e. Gegenspiel (Fasern, Feuer, Bleiche, Seriennummer)
+- [ ] 7e.1 Mit Handschuhen ins Auto setzen (1–2 Min) → Scan „Mögliche Abdrücke“; Polizei sammelt → Beutel „Handschuhfasern (Fahrzeug)“ statt Fingerabdruck (60 %). Labor: „FA-xxxx“.
+- [ ] 7e.2 Mit Handschuhen Waffe ziehen → einstauben → Beutel „Handschuhfasern (Waffe)“.
+- [ ] 7e.3 Spieler 2 trägt Handschuhe → „Handschuhfasern nehmen“ → Minigame (nur Fasern in Handschuhfarbe anklicken; Fussel/Haar = Fehler) → gleicher FA-Code. Ohne Handschuhe: „trägt keine Handschuhe“.
+- [ ] 7e.4 Auto mit Spuren anzünden (Molotov) und brennen lassen → Karte „Ausgebrannt“, Blut/Abdrücke/Hülsen innen weg, Einschusslöcher und Kennzeichen bleiben.
+- [ ] 7e.5 Bleiche benutzen neben Blut/Fingerabdruck → alles im Umkreis von 2,5 m weg, eine helle „gereinigte Stelle“ bleibt. Einsammeln → Labor: „Bleiche (Natriumhypochlorit)“. Ohne Spuren in der Nähe: „nichts zu reinigen“.
+- [ ] 7e.6 Waffe weggesteckt → Rechtsklick „Seriennummer wegfeilen“ (Feile) → Seriennummer z. B. „##3####M####“. Gezogen: „Steck die Waffe zuerst weg“. Danach schießen → Hülse zeigt im Labor die gefeilte Nummer.
+- [ ] 7e.7 Polizei am Laborgerät: Rechtsklick „Seriennummer wiederherstellen“ → Beutel „Seriennummer (Laborbericht)“ mit z. B. „AB3?9X?M7Q?L“ (oder „Zerstört“). Zweites Mal: „Schon wiederhergestellt“. Weg vom Gerät: „Nur an einem Laborgerät“.
+
+## 7e2. Kamera: saubere Ansicht
+- [ ] 7e2.1 Kamera hoch, auf eine Spur / V1 / L1 zielen → große Karte da. K → nur die große Karte weg; Marker, Legende und Textzeile bleiben (Hinweis „[K] Karte zeigen“). K → Karte wieder da. Kamera weg und wieder hoch → Karte da.
+- [ ] 7e2.2 Controller: LB + Steuerkreuz hoch macht dasselbe.
+
+## 7f. Alter ohne Uhr
+- [ ] 7f.1 Standard (grob): Scan-Karte zeigt „frisch“ / „vor einer Weile“ / „älter“ / „alt“, kein „noch X Min“. Legende genauso. Foto-Liste und Text auch.
+- [ ] 7f.2 Labor (grob): „Alter bei Sicherung: Unter 15 Min / Unter 1 Std / Über 1 Std“.
+- [ ] 7f.3 `/whip`: Alter auf „Exact“ → wieder Minuten und „noch X Min“; „Not shown“ → keine Altersangabe. Labor „Not told“ → neue Beutel ohne Altersfeld.
+
 ## 8. Neustart und Kanten
 - [ ] 8.1 Spur fotografieren, Resource neu starten → Spur, Nummer, Foto-Abzeichen und Blutrichtung sind noch da.
 - [ ] 8.2 Beweiskoffer an Spieler 2 geben → Custody „Received (evidence case)“ bei allen Beuteln, **nur einmal**.

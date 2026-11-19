@@ -19,7 +19,7 @@ end
 
 local function spawn(ev)
     local p = Config.Props[ev.kind]
-    if not p then return end
+    if not p or not p.model then return end   -- shoe prints and tyre tracks: client/tracks.lua draws them
     local hash = Whip.core:LoadModel(p.model)
     if not hash then return end
     -- removed or already spawned while the model loaded
@@ -59,7 +59,8 @@ CreateThread(function()
                 local made = 0
                 -- only the cells around the player
                 WhipEvidence.Ev.eachNear(pos, Config.RenderDistance, function(ev)
-                    if not spawned[ev.id] then
+                    local p = Config.Props[ev.kind]
+                    if not spawned[ev.id] and p and p.model then
                         if made < MAX_PER_PASS then
                             spawn(ev)
                             made = made + 1

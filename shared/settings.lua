@@ -64,11 +64,14 @@ Whip.configPage({
                   local games = { { value = 'dust', label = 'Dust for prints' }, { value = 'tweezers', label = 'Tweezers' },
                       { value = 'swab', label = 'Swab' }, { value = 'pull', label = 'Pull it out' },
                       { value = 'shards', label = 'Pick up fragments' }, { value = 'gsrswab', label = 'GSR swab' },
-                      { value = 'ring', label = 'WHIP ring' } }
+                      { value = 'castshoe', label = 'Plaster cast (shoe)' }, { value = 'casttyre', label = 'Plaster cast (tyre)' },
+                      { value = 'fibers', label = 'Glove fibres' }, { value = 'ring', label = 'WHIP ring' } }
                   local list = {}
                   for _, row in ipairs({ { 'fingerprint', 'Fingerprint' }, { 'casing', 'Casing' }, { 'blood', 'Blood' },
                       { 'bullet', 'Bullet' }, { 'vehicle_fragment', 'Vehicle fragments' }, { 'gsr', 'GSR test' },
-                      { 'wipe', 'Civilians wiping' }, { 'dust', 'Dusting a weapon' }, { 'body_bullet', 'Bullet from a body' } }) do
+                      { 'wipe', 'Civilians wiping' }, { 'dust', 'Dusting a weapon' }, { 'body_bullet', 'Bullet from a body' },
+                      { 'shoeprint', 'Shoe print' }, { 'tyre_track', 'Tyre track' }, { 'cleaned', 'Cleaned spot' },
+                      { 'fiber_sample', 'Glove fibres from a person' } }) do
                       list[#list + 1] = { key = row[1], type = 'enum', label = row[2], options = games }
                   end
                   return list
@@ -91,6 +94,10 @@ Whip.configPage({
             { key = 'Aging.Old', type = 'int', min = 60, max = 14400, unit = 's', label = 'Red from' },
             { key = 'Aging.Lifetime', type = 'int', min = 120, max = 28800, unit = 's', label = 'Removed after' },
             { key = 'RainFactor', type = 'number', min = 0.05, max = 1, step = 0.05, label = 'Time left in rain (share)' },
+            { key = 'AgeShown', type = 'enum', label = 'Age on the scan and photos', help = 'Real traces have no clock on them.',
+              options = { { value = 'exact', label = 'Exact (12 min)' }, { value = 'rough', label = 'Rough (fresh, older, old)' }, { value = 'off', label = 'Not shown' } } },
+            { key = 'LabAge', type = 'enum', label = 'Age the lab tells', help = 'Shoe prints and tyre tracks are always rough.',
+              options = { { value = 'exact', label = 'Exact (20-30 min)' }, { value = 'rough', label = 'Rough (under 1 h ...)' }, { value = 'off', label = 'Not told' } } },
             { key = 'NoEvidenceZones', type = 'records', widget = 'mapPoints', label = 'Areas without evidence',
               marker = { sprite = 1, colour = 1, name = 'No evidence' },
               fields = {
@@ -112,6 +119,12 @@ Whip.configPage({
               help = 'Until healed. 0 = off. Alive is 100-200.' },
             { key = 'BloodTrailHealth', type = 'int', min = 101, max = 199, label = 'Badly hurt below health',
               help = 'Carrying someone this hurt gets their blood on you. Alive is 100-200.' },
+        } },
+        { label = 'Shoe prints and tyre tracks', settings = {
+            { key = 'Tracks', type = 'bool', label = 'Shoe prints and tyre tracks', help = 'Mud, sand, snow and blood. Tyres also on grass and when skidding.' },
+            { key = 'TrackMinutes', type = 'int', min = 1, max = 240, unit = 'min', label = 'Stay for' },
+            { key = 'TrackMaxPerPlayer', type = 'int', min = 1, max = 100, label = 'Most per player', help = 'The oldest go first.' },
+            { key = 'TrackPolice', type = 'bool', label = 'Police on duty leave some too' },
         } },
         { label = 'Gunshot residue', settings = {
             { key = 'GsrMinutes', type = 'int', min = 1, max = 240, unit = 'min', label = 'Stays for' },
@@ -149,6 +162,11 @@ Whip.configPage({
             { key = 'PrintDelayMin', type = 'int', min = 5, max = 600, unit = 's', label = 'Print after (min)' },
             { key = 'PrintDelayMax', type = 'int', min = 5, max = 900, unit = 's', label = 'Print after (max)' },
             { key = 'GloveLeakChance', type = 'int', min = 0, max = 100, unit = '%', label = 'Print despite gloves' },
+            { key = 'FiberChance', type = 'int', min = 0, max = 100, unit = '%', label = 'Gloves leave fibres', help = 'When the gloves stop a print (cars, weapons).' },
+            { key = 'BleachRadius', type = 'number', min = 0.5, max = 10, step = 0.5, unit = 'm', label = 'Bleach cleans within' },
+            { key = 'BleachMinutes', type = 'int', min = 1, max = 480, unit = 'min', label = 'Cleaned spot stays for' },
+            { key = 'SerialRestoreChance', type = 'int', min = 0, max = 100, unit = '%', label = 'Filed serial: each character comes back' },
+            { key = 'SerialLostChance', type = 'int', min = 0, max = 100, unit = '%', label = 'Filed serial: nothing comes back' },
             { key = 'WeaponPrintHours', type = 'int', min = 1, max = 720, unit = 'h', label = 'Weapon prints stay for' },
         } },
         { label = 'Labs', settings = {

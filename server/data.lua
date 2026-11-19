@@ -109,6 +109,15 @@ function WhipEvidence.Data.setup()
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
     if not ok then return Whip.startProblem('table whip_evidence_case_items: %s', tostring(why)) end
 
+    -- filed serial numbers: what the weapon showed before (the lab gets part of it back)
+    ok, why = Whip.core:EnsureTable('whip_evidence_filed', [[CREATE TABLE IF NOT EXISTS `whip_evidence_filed` (
+        `filed` VARCHAR(32) NOT NULL,
+        `original` VARCHAR(32) NOT NULL,
+        `created` INT UNSIGNED NOT NULL,
+        PRIMARY KEY (`filed`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    if not ok then return Whip.startProblem('table whip_evidence_filed: %s', tostring(why)) end
+
     -- old pictures go, except those of a case (in its locker, or taken out of it)
     if (Config.Photo.KeepDays or 0) > 0 then
         local gone = MySQL.update.await([[DELETE FROM `whip_evidence_photos` WHERE `created` < ?
@@ -187,6 +196,22 @@ end
 function WhipEvidence.Data.wipeWeapon(serial)
     if not ready then return 0 end
     return MySQL.update.await('DELETE FROM `whip_evidence_weapon_prints` WHERE `serial` = ?', { serial }) or 0
+end
+
+---------------------------------------------------------------- Filed serial numbers
+
+-- Remembers the original, and moves the prints on the weapon to its new (filed) serial
+function WhipEvidence.Data.fileSerial(filed, original)
+    if not ready then return false end
+    return MySQL.transaction.await({
+        { query = 'INSERT INTO `whip_evidence_filed` (`filed`, `original`, `created`) VALUES (?, ?, ?)', values = { filed, original, os.time() } },
+        { query = 'UPDATE IGNORE `whip_evidence_weapon_prints` SET `serial` = ? WHERE `serial` = ?', values = { filed, original } },
+    })
+end
+
+function WhipEvidence.Data.filedOriginal(filed)
+    if not ready then return nil end
+    return MySQL.scalar.await('SELECT `original` FROM `whip_evidence_filed` WHERE `filed` = ?', { filed })
 end
 
 -- Fingerprint and blood type of a character (online or offline). Waits on the DB.

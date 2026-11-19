@@ -25,6 +25,12 @@ local function setGsrPrompt(on)
             { id = 'swab', label = L('opt_swab'), icon = 'target',
               canInteract = function(ctx) return ctx.player ~= nil and WhipEvidence.can('evidence_collect') end,
               onSelect = function(ctx) TriggerServerEvent('whip_evidence:bloodSwab', ctx.player.serverId, here()) end },
+            { id = 'fiber', label = L('opt_fibers'), icon = 'target',
+              canInteract = function(ctx) return ctx.player ~= nil and WhipEvidence.can('evidence_collect') end,
+              onSelect = function(ctx) TriggerServerEvent('whip_evidence:fiberSample', ctx.player.serverId, here()) end },
+            { id = 'shoe', label = L('opt_shoeprint'), icon = 'target',
+              canInteract = function(ctx) return ctx.player ~= nil and Config.Tracks ~= false and WhipEvidence.can('evidence_collect') end,
+              onSelect = function(ctx) TriggerServerEvent('whip_evidence:shoeSample', ctx.player.serverId, here()) end },
         },
     })
 end
@@ -224,6 +230,18 @@ Whip.register(function()
         onSelect = function() CreateThread(releaseScene) end,
     })
 
+    -- a print of the tyres, to compare with tyre tracks (whip_core has no wheel prompt: at the front doors)
+    local tyreOption = { id = 'tyre', label = L('opt_tyreprint'), icon = 'target', press = true,
+        require = { job = Config.PoliceJobs, onDuty = true, item = WhipEvidence.Items.kit },
+        canInteract = function() return Config.Tracks ~= false and WhipEvidence.can('evidence_collect') end,
+        onSelect = function(ctx)
+            local car = ctx.entity
+            if not car or not NetworkGetEntityIsNetworked(car) then return end
+            local w = WhipEvidence.wheelsOf(car)
+            TriggerServerEvent('whip_evidence:tyreSample', NetworkGetNetworkIdFromEntity(car),
+                { type = w.type, mod = w.mod }, WhipEvidence.street(GetEntityCoords(PlayerPedId())))
+        end }
+
     for _, part in ipairs({ 'door_dside_f', 'door_pside_f' }) do
         Whip.core:AddAction({
             id = 'veh_' .. part, at = { vehiclePart = part }, label = L('traces'),
@@ -235,9 +253,12 @@ Whip.register(function()
                 { id = 'wipe', label = L('clean_interior'), icon = 'fail', press = true,
                   require = { item = WhipEvidence.Items.wipe },
                   onSelect = function(ctx) vehicleAction('whip_evidence:wipeVehicle', ctx.entity) end },
+                tyreOption,
             },
         })
     end
+    -- bikes have no doors: the tyre print at their one prompt
+    Whip.core:AddAction({ id = 'veh_tyre_bike', at = { vehiclePart = 'bike' }, label = L('traces'), options = { tyreOption } })
 
     -- one device per lab; it analyses that lab's storage only
     for _, lab in ipairs(Config.Labs) do

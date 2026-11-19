@@ -482,15 +482,43 @@ AddEventHandler('whip_core:vehicle:entered', function(e)
         Wait(math.random(lo, hi) * 1000)
         pendingCar[car] = nil
         if GetVehiclePedIsIn(PlayerPedId(), false) ~= car or WhipEvidence.blocked() then return end
-        if WhipEvidence.glovesStopPrint() then return end
         if not NetworkGetEntityIsNetworked(car) then return end
-        TriggerServerEvent('whip_evidence:touchVehicle', NetworkGetNetworkIdFromEntity(car))
+        -- the gloves stop the print (they may leave fibres instead)
+        TriggerServerEvent('whip_evidence:touchVehicle', NetworkGetNetworkIdFromEntity(car), WhipEvidence.glovesStopPrint())
     end)
 end)
 
--- Drawing a weapon: the server knows which one (serial) from whip_gunny, we only say "no gloves"
+-- A car with traces that burns for a while (or blows up) loses what was inside: any client near it tells the server
+local burning, reported = {}, {}
+CreateThread(function()
+    while true do
+        Wait(2000)
+        local cars = WhipEvidence.Ev.vehicles()
+        if next(cars) then
+            local pos = GetEntityCoords(PlayerPedId())
+            for net, s in pairs(cars) do
+                if not s.burnt and not reported[net] and NetworkDoesNetworkIdExist(net) then
+                    local car = NetworkGetEntityFromNetworkId(net)
+                    if car ~= 0 and DoesEntityExist(car) and #(GetEntityCoords(car) - pos) < 120.0 then
+                        if IsEntityOnFire(car) or GetEntityHealth(car) <= 0 then
+                            burning[net] = (burning[net] or 0) + 2
+                            if burning[net] >= 14 or GetEntityHealth(car) <= 0 then
+                                reported[net] = true
+                                TriggerServerEvent('whip_evidence:carBurnt', net)
+                                SetTimeout(10000, function() reported[net] = nil end)
+                            end
+                        else
+                            burning[net] = nil
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Drawing a weapon: the server knows which one (serial) from whip_gunny, we only say whether gloves stopped the print
 AddEventHandler('whip_gunny:weapon:drawn', function(w)
     if type(w) ~= 'table' or not w.serial then return end
-    if WhipEvidence.glovesStopPrint() then return end
-    TriggerServerEvent('whip_evidence:touchWeapon')
+    TriggerServerEvent('whip_evidence:touchWeapon', WhipEvidence.glovesStopPrint())
 end)

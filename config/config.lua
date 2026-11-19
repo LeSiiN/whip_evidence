@@ -46,6 +46,7 @@ Config = {
     ScanKeys = {
         Filter = 'G',   -- next filter: all, blood, casings, ...
         Photo  = 'H',   -- take a crime scene photo (camera in hand)
+        Cards  = 'K',   -- camera: hide/show the big card of the aimed-at trace (clean view)
     },
 
     -- Crime scene photos (a real screenshot, kept in the database)
@@ -88,6 +89,9 @@ Config = {
         locker       = { anim = { dict = 'anim@heists@prison_heiststation@cop_reactions', clip = 'cop_b_idle', flag = 49 } },  -- /e type
         clean_self   = { anim = { dict = 'missheist_agency3aig_23', clip = 'urinal_sink_loop', flag = 49 } },           -- /e cleanhands
         hands_out    = { anim = { dict = 'anim@move_m@prisoner_cuffed', clip = 'idle', flag = 49 } },                   -- /e cuffedfront (the tested person)
+        bleach       = { anim = { dict = 'amb@medic@standing@tendtodead@base', clip = 'base', flag = 1 } },             -- /e medic2
+        file_serial  = { anim = { dict = 'anim@amb@clubhouse@tutorial@bkr_tut_ig3@', clip = 'machinic_loop_mechandplayer', flag = 49 } },  -- /e mechanic4
+        restore_serial = { anim = { dict = 'anim@amb@clubhouse@tutorial@bkr_tut_ig3@', clip = 'machinic_loop_mechandplayer', flag = 49 } },  -- /e mechanic4
     },
 
     -- Minigame per job. 'ring' = WHIP's ring (Config.SkillCheck below) instead of the forensic game.
@@ -101,6 +105,10 @@ Config = {
         wipe             = 'swab',      -- civilians wiping away evidence
         dust             = 'dust',      -- dusting a weapon for prints
         body_bullet      = 'pull',      -- taking a bullet out of a body
+        shoeprint        = 'castshoe',  -- pour plaster over the print, lift it when set
+        tyre_track       = 'casttyre',  -- the same for a tyre track
+        fiber_sample     = 'fibers',    -- fibres from a person's gloves (only the glove's colour)
+        cleaned          = 'swab',      -- a swab of a cleaned spot
     },
     MinigameLevel = 'easy',   -- easy, medium or hard
 
@@ -139,6 +147,10 @@ Config = {
     },
     RainFactor = 0.25,    -- rain leaves only this share of the remaining time
 
+    -- How old evidence looks (real traces have no clock on them)
+    AgeShown = 'rough',   -- scan card, legend, photos: 'exact' (12 min), 'rough' (fresh / a while / older / old), 'off'
+    LabAge   = 'rough',   -- the lab's "age at collection": 'exact' (20-30 min), 'rough' (under 1 h ...), 'off'
+
     -- No evidence inside these areas
     NoEvidenceZones = {
         { name = 'Oil Rig Paleto',     coords = vector3(4331.2090, 7834.4414, 43.2909),  radius = 150.0 },
@@ -171,6 +183,12 @@ Config = {
     GloveWearTouch = 2,     -- % per touch the gloves catch (car, weapon, ...)
     GloveTornLeak  = 60,    -- percent: a print through torn gloves (new gloves: GloveLeakChance)
 
+    -- Shoe prints (mud, sand, snow, blood) and tyre tracks (also grass, and skidding)
+    Tracks            = true,
+    TrackMinutes      = 20,     -- how long a print or track stays
+    TrackMaxPerPlayer = 12,     -- most prints and tracks of one player at once (the oldest go)
+    TrackPolice       = false,  -- police on duty leave some too (false: no own prints at a scene)
+
     -- Bodies: people and pedestrians killed by a player can be examined by police
     -- (time of death, wounds, bullets, blood sample, GSR on the hands).
     Bodies           = true,
@@ -184,6 +202,15 @@ Config = {
     PrintDelayMin       = 60,   -- seconds in the car before a print is left (min)
     PrintDelayMax       = 120,  -- ... (max)
     GloveLeakChance     = 5,    -- percent: a print despite gloves
+    FiberChance         = 60,   -- percent: gloves that stop a print leave fibres instead (cars, weapons)
+
+    -- Bleach: cleans blood, prints and bloody shoe prints around you (no minigame), leaves a "cleaned spot"
+    BleachRadius  = 2.5,    -- metres
+    BleachMinutes = 60,     -- how long the cleaned spot stays (the lab finds bleach in a swab of it)
+
+    -- Filed serial numbers: the lab gets part of it back with acid
+    SerialRestoreChance = 60,   -- percent per filed character
+    SerialLostChance    = 15,   -- percent: nothing comes back at all
 
     -- Prints on weapons (whip_gunny), dusted at the weapon's right-click menu
     WeaponPrintHours = 48,      -- how long a print stays on a weapon
@@ -221,6 +248,9 @@ Config = {
         bullet           = { label = 'Bullet',            model = 'lev_bullet',             rotX = -90.0,  rotY = 0.0, z = -0.02 },
         vehicle_fragment = { label = 'Vehicle fragments', model = 'v_ret_gc_sprinkler',     rotX = -180.0, rotY = 0.0, z = -0.06 },
         fingerprint      = { label = 'Fingerprint',       model = 'p_banknote_onedollar_s', rotX = 0.0,    rotY = 0.0, z = 0.0 },
+        cleaned          = { label = 'Cleaned spot' },  -- left by bleach, drawn on the ground
+        shoeprint        = { label = 'Shoe print' },   -- drawn on the ground, no prop
+        tyre_track       = { label = 'Tyre track' },
     },
 
     -- Weapon item -> caliber (whip_gunny). Missing = 'Unknown'

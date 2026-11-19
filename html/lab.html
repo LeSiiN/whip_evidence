@@ -231,7 +231,7 @@
         }
         const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         const KIND = { casing: 'Casings', bullet: 'Bullets', blood: 'Blood', fingerprint: 'Fingerprints', vehicle_fragment: 'Vehicle fragments',
-                       gsr: 'GSR', reference: 'Reference', other: 'Other' };
+                       shoeprint: 'Shoe prints', tyre_track: 'Tyre tracks', fiber: 'Fibres', cleaned: 'Cleaned spots', gsr: 'GSR', reference: 'Reference', other: 'Other' };
         const kindName = (k) => T('lab_kind_' + k, KIND[k] || k);
         // fallback mark if the logo file is missing
         const MARK = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#2563eb"/><circle cx="10.5" cy="10.5" r="5" fill="none" stroke="#fff" stroke-width="2"/><path d="M14.5 14.5l5 5" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>');
@@ -306,6 +306,63 @@
                 });
                 return { html: `<svg viewBox="0 0 240 130">${grid()}${bars}</svg>${cap(T('lab_viz_gsr', 'SEM/EDX analysis'), 'Pb · Ba · Sb')}`,
                     step: (q) => all('.el').forEach((el) => { const h = Math.round(+el.dataset.h * (.1 + .9 * q)); el.setAttribute('y', 120 - h); el.setAttribute('height', h); }) };
+            }
+            if (kind === 'fiber') {
+                // a few fibres under the microscope, one more in focus every step
+                const n = 9;
+                let fib = '';
+                for (let i = 0; i < n; i++) {
+                    const y = 15 + r() * 100, a = r() * 60 - 30;
+                    let d = `M${(10 + r() * 30).toFixed(0)} ${y.toFixed(0)}`;
+                    for (let x = 40; x <= 230; x += 30) d += ` Q${x - 15} ${(y + (r() * 30 - 15)).toFixed(0)} ${x} ${(y + Math.sin(x / 30 + a) * 10).toFixed(0)}`;
+                    fib += `<path class="fib" d="${d}" fill="none" stroke="hsl(${(210 + r() * 40).toFixed(0)} 40% 70%)" stroke-width="${(1 + r() * 1.5).toFixed(1)}" opacity=".2"/>`;
+                }
+                return { html: `<svg viewBox="0 0 240 130"><circle cx="120" cy="65" r="62" fill="#111827" stroke="#334155"/>${fib}</svg>
+                        ${cap(T('lab_viz_fiber', 'Fibre comparison'), T('lab_viz_measure', 'measuring'))}`,
+                    step: (q) => all('.fib').forEach((el, i) => { el.setAttribute('opacity', i < Math.ceil(q * n) ? '1' : '.2'); }) };
+            }
+            if (kind === 'cleaned') {
+                // a chemical test: the strip turns colour, chlorine shows
+                let pads = '';
+                for (let i = 0; i < 6; i++) pads += `<rect class="pad" x="${30 + i * 32}" y="40" width="22" height="50" rx="3" fill="#e5e7eb" data-c="${['#fde047', '#a3e635', '#fde047', '#e5e7eb', '#bef264', '#e5e7eb'][i]}"/>`;
+                return { html: `<svg viewBox="0 0 240 130"><rect x="20" y="30" width="200" height="70" rx="6" fill="#1d2433"/>${pads}
+                        <text x="120" y="118" text-anchor="middle" font-size="9" fill="#cbd5e1">NaClO · Cl⁻ · pH</text></svg>
+                        ${cap(T('lab_viz_chem', 'Chemical test'), T('lab_viz_measure', 'measuring'))}`,
+                    step: (q) => all('.pad').forEach((el, i) => { el.setAttribute('fill', i < Math.ceil(q * 6) ? el.dataset.c : '#e5e7eb'); }) };
+            }
+            if (kind === 'shoeprint') {
+                // the sole on a measuring grid; the tread pattern is traced in, row by row
+                let rows = '';
+                const n = 14;
+                for (let i = 0; i < n; i++) {
+                    const y = 16 + i * 7.4, off = i % 2 ? 6 : 0;
+                    let bars = '';
+                    for (let x = 0; x < 3; x++) bars += `<rect x="${103 + off + x * 12}" y="${y.toFixed(1)}" width="8" height="2.6" rx="1" fill="#e5e7eb"/>`;
+                    rows += `<g class="row">${bars}</g>`;
+                }
+                let ticks = '';
+                for (let i = 0; i <= 10; i++) ticks += `<line x1="70" y1="${10 + i * 11}" x2="${i % 5 ? 75 : 79}" y2="${10 + i * 11}" stroke="#94a3b8" stroke-width=".8"/>`;
+                return { html: `<svg viewBox="0 0 240 130">${grid()}
+                        <path d="M120 10c18 0 26 14 26 34 0 14-6 22-8 34-2 10 4 18 4 28 0 10-9 16-22 16s-22-6-22-16c0-10 6-18 4-28-2-12-8-20-8-34 0-20 8-34 26-34z"
+                              fill="rgba(96,205,255,.08)" stroke="#60cdff" stroke-width="1.2"/>
+                        ${rows}${ticks}<line x1="70" y1="10" x2="70" y2="120" stroke="#94a3b8" stroke-width=".8"/></svg>
+                        ${cap(T('lab_viz_shoe', 'Sole pattern'), T('lab_viz_measure', 'measuring'))}`,
+                    step: (q) => all('.row').forEach((el, i) => { el.style.display = i < Math.ceil(q * n) ? '' : 'none'; }) };
+            }
+            if (kind === 'tyre_track') {
+                // the tread band, read from left to right
+                let marks = '';
+                for (let i = 0; i < 12; i++) {
+                    const x = 14 + i * 18;
+                    marks += `<path class="mk" d="M${x} 40l9 -10l9 10v8l-9 -10l-9 10z" fill="#e5e7eb"/><path class="mk" d="M${x} 92l9 -10l9 10v8l-9 -10l-9 10z" fill="#e5e7eb"/>`;
+                }
+                return { html: `<svg viewBox="0 0 240 130"><rect x="8" y="22" width="224" height="88" rx="6" fill="#1d2433"/>${marks}
+                        <rect x="8" y="62" width="224" height="6" fill="#111827"/><rect class="line" x="8" y="18" width="2" height="96" fill="#60cdff"/></svg>
+                        ${cap(T('lab_viz_tyre', 'Tread pattern'), T('lab_viz_measure', 'measuring'))}`,
+                    step: (q) => {
+                        all('.line').forEach((el) => el.setAttribute('x', Math.round(8 + 222 * q)));
+                        all('.mk').forEach((el, i) => { el.style.opacity = (Math.floor(i / 2) / 12) < q ? '1' : '.25'; });
+                    } };
             }
             if (kind === 'vehicle_fragment') {
                 // paint layers in a cross-section, the scan line goes down with the analysis

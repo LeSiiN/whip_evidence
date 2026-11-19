@@ -10,6 +10,9 @@ local GAMES = {
     pull     = { label = 'Pull it out',      desc = 'Keep steady pull in the green zone. Too hard and it breaks.' },
     shards   = { label = 'Pick up shards',   desc = 'Find and pick up every fragment before time runs out.' },
     gsrswab  = { label = 'GSR swab',         desc = 'Swab the marked spots, right hand first, then the left.' },
+    castshoe = { label = 'Plaster cast (shoe)', desc = 'Pour plaster over the shoe print, then lift the cast when it is set.' },
+    casttyre = { label = 'Plaster cast (tyre)', desc = 'Pour plaster over the tyre track, then lift the cast when it is set.' },
+    fibers   = { label = 'Glove fibres',     desc = 'Pick only the fibres in the colour of the gloves, not lint or hairs.' },
 }
 
 -- the time on screen is shorter than timeoutMs; minMs: no game is honestly done faster

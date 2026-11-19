@@ -3,7 +3,7 @@
 Forensics for WHIP: evidence at crime scenes, real crime scene photos, minigames, labs with a monitor,
 ballistics, gunshot residue, vehicle and weapon traces, an evidence case and case lockers for your MDT.
 
-Version 4.1.2 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
+Version 4.2.0 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
 
 <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/Czztofsedr9H.jpg" alt="Camera scan with numbered markers and the crime scene legend" width="880" height="478">
 
@@ -72,6 +72,8 @@ Change them in `/whip` → Settings → Forensics → "Lowest rank level". `Conf
 | `whip_evidence_laser` | Laser pointer for bullet holes |
 | `whip_evidence_pliers` | Pliers: civilians pull bullets out (wears out) |
 | `whip_evidence_wipe` | Cleaning cloth: wipe evidence, car interiors and weapons |
+| `whip_evidence_bleach` | Bleach: cleans blood and prints around you, leaves a cleaned spot (used up) |
+| `whip_evidence_file` | Metal file: files a gun's serial off (wears out) |
 
 Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per use".
 
@@ -81,7 +83,7 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
 | Shop | Items |
 |---|---|
 | Police (station, job only) | `whip_evidence_kit`, `whip_evidence_case`, `whip_evidence_laser`, `whip_evidence_empty_bag`*, plus `camera` and `gunny_torch` |
-| Hardware / general store | `whip_evidence_wipe`, `whip_evidence_pliers` |
+| Hardware / general store | `whip_evidence_wipe`, `whip_evidence_pliers`, `whip_evidence_bleach`, `whip_evidence_file` |
 
 \* only needed with `Config.NeedEmptyBag = true`. Bags and photos are made in game, never sold.
 
@@ -90,7 +92,7 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
 1. **Scan.** On-duty police aim a flashlight (`gunny_torch`) or hold the `camera`. Every trace gets a numbered marker
    (same number for everyone). Colour: green = ready, red = gone soon (blue = too fresh, only if you turn on a wait in `Aging.Fresh`).
    Trajectories link a casing to its bullet. Blood trails show which way the person walked.
-   **G** changes the filter, the camera shows a legend (controller: LB + D-pad left). Bullet holes: place a laser pointer now, so it is on the photo.
+   **G** changes the filter, the camera shows a legend (controller: LB + D-pad left). **K** hides the big card of the aimed-at trace for a clean picture (LB + D-pad up). Bullet holes: place a laser pointer now, so it is on the photo.
 
    <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/8NgqmZlteT1z.jpg" alt="Flashlight scan: every trace gets a number" width="434" height="236"> 
    <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/mDFubMtx3fpS.jpg" alt="Blood trail: arrows show the way the person walked" width="434" height="236">
@@ -103,8 +105,9 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
    <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/gAeGhnzQELkS.jpg" alt="Crime scene photo with the list of evidence in the picture" width="880" height="478">
 
 3. **Collect.** "Collect" → minigame → the bag goes into your evidence case. Three fails ruin the trace.
-   Vehicles: at a front door. Weapons: right-click → "Dust for prints". People: aim → "GSR test" / "Swab clothes for blood".
-   Each trace has its own minigame (mouse or controller):
+   Vehicles: at a front door (also "Take a tyre print"). Weapons: right-click → "Dust for prints".
+   People: aim → "GSR test" / "Swab clothes for blood" / "Take glove fibres" / "Take a shoe print".
+   Each trace has its own minigame (mouse or controller), shoe prints and tyre tracks a plaster cast:
 
    <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/IcqnrAH21Dcj.jpg" alt="Collect prompt with the trace card" width="616" height="335">
 
@@ -128,7 +131,7 @@ Pictures: `html/img/items/`. Wear: `/whip` → Economy → Items → "Wear per u
    <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/a07o3wVLJOxZ.png" alt="Lab monitor: lockscreen" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/TjF8Cg6SwPCM.png" alt="Lab monitor logging in" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/wet4dmtm7mVk.png" alt="Lab monitor when ready" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/W88C0hLwXNe1.png" alt="Lab monitor analysing bullets" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/hR9SZn7mwCkj.png" alt="Lab monitor when analysing vehicle fragments" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/qfdPG4JuHjek.png" alt="Lab monitor when analysing blood" width="288" height="156"> <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/FXXmeyAUrvOw.png" alt="Lab monitor when analysing fingerprints" width="288" height="156">
 
 6. **Case.** Upload analysed items to a case in your MDT (or at the lab device: "Upload to a case").
-   They move into that case's locker. Open it at any evidence locker by typing the case ID.
+   They move into that case's locker. Open it at any evidence locker: pick the case from the list (latest first, search for others).
 
 Every bag and photo has a **chain of custody**: collected, received, in lab, analysed, uploaded, taken out, returned.
 Right-click → "Sign for evidence" when you take it over.
@@ -150,18 +153,28 @@ a cleaning item with `blood = true`, or after `Config.BloodOnMinutes`.
 
 **Gloves** wear out with every shot and every print they catch (a ring on your HUD, red when nearly torn).
 The more worn, the more prints get through: from `GloveLeakChance` (new) up to `GloveTornLeak` (torn).
-Each pair keeps its own wear; another pair starts fresh.
+Each pair keeps its own wear; another pair starts fresh. Gloves that stop a print may leave **fibres** instead (cars, weapons;
+`FiberChance`). Police compare them with fibres taken from a person's gloves.
+
+**Bleach** cleans blood, prints and bloody shoe prints around you in one go, but leaves a "cleaned spot": a swab of it shows bleach in the lab.
+
+**A burning car** loses what was inside (prints, blood, casings, GSR). Bullet holes, pieces on the ground and the plate stay.
+
+**Filing a serial off** (metal file, right-click the gun, holstered): a few characters stay ("##3####M####").
+Police get part of it back with acid at a lab device ("AB3?9X?M7Q?L"), sometimes nothing. The result comes as a lab report bag.
 
 ## Where traces come from
 
 - **Shots**: casings, bullets, vehicle fragments, GSR. Shots from inside a car stay in the car.
 - **Blood**: when you lose health and where you die. A hit leaves a trail for a while (`BloodTrailSeconds`, longer for heavy hits), thinning out towards the end; critically hurt players keep bleeding until healed.
 - **Fingerprints**: sitting in a car or drawing a weapon without gloves.
+- **Shoe prints**: walking through mud, sand, snow or blood. **Tyre tracks**: driving over mud, sand, snow or grass, or skidding. Compare them with a shoe print taken from a person or a tyre print taken at a front door.
 - Evidence ages and disappears; rain speeds it up. It survives restarts.
+- How old it looks: `AgeShown` (scan, photos) and `LabAge` (lab): exact, rough ("fresh", "older" …) or off.
 
 ## Controller
 
-Everything works with a controller. Scan filter and photo sit on LB + D-pad left / right (movable in the pause menu → Controller). Photo viewer: A zoom, LB/RB zoom, right stick moves, B back. Minigames: right stick + A, B gives up.
+Everything works with a controller. Scan filter and photo sit on LB + D-pad left / right, hiding the card on LB + D-pad up (movable in the pause menu → Controller). Photo viewer: A zoom, LB/RB zoom, right stick moves, B back. Minigames: right stick + A, B gives up.
 
 ## Animations and props
 
@@ -184,8 +197,9 @@ try one with `/e <name>` and copy its animation and prop together. `Config.HandP
 
 ## Admins
 
-`/w` → Forensics: remove evidence, test kit, place test evidence, make it ready, finish lab analyses,
-analyse your bags, fit the lab screen, manage case lockers (open, close, reopen, delete). Console: `clearevidence`.
+`/w` → Forensics: remove evidence, test kit, place test evidence, every evidence bag once (not analysed), make it ready,
+finish lab analyses, analyse your bags, test bodies, fit the lab screen, manage case lockers (open, close, reopen, delete).
+Console: `clearevidence`.
 
 <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/7v6xjfYUgcgk.png" alt="Forensics dev tools in /w" width="260" height="638">
 
@@ -295,13 +309,13 @@ after `Config.Photo.KeepDays` (photos in a case locker are never deleted).
 |---|---|---|---|---|
 | `ref` (`bag:<id>`, `photo:<id>`, `gun:<serial>`), `item`, `kind`, `type`, `case`, `analysed`, `custody` | ✓ | | | |
 | `time`, `street`, `collected_by`, `marker` (scene number), `photographed`, `tested_on` | | ✓ | | |
-| `results` = `{ ammo, weapon_serial, fingerprint, blood_type, paint, gsr, ballistics, age }` | | ✓ | | |
+| `results` = `{ ammo, weapon_serial, fingerprint, blood_type, paint, gsr, ballistics, age, fiber, cleaner, surface, shoe_profile, shoe_size, tyre_profile, tyre_width }` | | ✓ | | |
 | `photo_id`, `time`, `street`, `scene`, `taken_by`, `entries`, `cars` | | | ✓ | |
 | `serial`, `caliber`, `ballistics` | | | | ✓ |
 
 `custody` is one text: `"11/16 14:02 Collected · Sgt | Smith → 11/16 14:20 In lab: Police Lab · ..."`
 (split on `" → "`; first entry and the newest five are kept). `kind` for bags: `casing`, `bullet`, `blood`,
-`fingerprint`, `vehicle_fragment`, `gsr`, `reference`.
+`fingerprint`, `vehicle_fragment`, `gsr`, `reference`, `shoeprint`, `tyre_track`, `fiber`, `cleaned`, `serial` (lab report).
 
 **All exports**
 
