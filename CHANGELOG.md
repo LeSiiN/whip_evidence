@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.2.9
+
+### Fixes
+
+- **Ghost evidence on clients**: evidence made and removed again within a quarter second (the per-player drop cap, `MaxEvidence` pushing the oldest out) reached clients as "removed" first and "added" after it, so they kept a piece the server no longer had (a marker that could not be collected). The add is now taken out of the batch.
+- **Correction to 4.2.6 "Shoes and gloves from the server"**: a FiveM server cannot read a ped's clothes (`GetPedDrawableVariation` is client-only), so that check never ran; the sole and fibre codes still come from the client, as before 4.2.6. The dead code is removed. Nothing changes in play.
+
 ## 4.2.8
 
 ### New

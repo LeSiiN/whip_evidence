@@ -106,7 +106,7 @@ end
 ---------------------------------------------------------------- Create / remove
 
 function WhipEvidence.Evidence.remove(ids)
-    local gone = {}
+    local gone, gonePending = {}, nil
     for _, id in ipairs(ids) do
         local ev = Evidence[id]
         if ev then
@@ -117,7 +117,18 @@ function WhipEvidence.Evidence.remove(ids)
             gone[#gone + 1] = id
             dirty[id] = nil
             removed[#removed + 1] = id
+            gonePending = gonePending or {}
+            gonePending[id] = true
         end
+    end
+    -- made and removed before the next batch went out (the cap, MaxEvidence): drop it from the batch,
+    -- or clients would get the "remove" first and the "add" after it, and keep a piece the server no longer has
+    if gonePending and #pendingAdds > 0 then
+        local keep = {}
+        for _, v in ipairs(pendingAdds) do
+            if not gonePending[v.id] then keep[#keep + 1] = v end
+        end
+        pendingAdds = keep
     end
     if #gone > 0 then TriggerClientEvent('whip_evidence:client:remove', -1, gone) end
 end
