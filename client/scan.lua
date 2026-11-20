@@ -461,6 +461,8 @@ local function carParts(s, police)
     if s.gsr then parts[#parts + 1] = { text = 'GSR', color = 'yellow' } end
     if s.prints and police then parts[#parts + 1] = { text = L('possible_prints') } end
     if (s.fragments or 0) > 0 then parts[#parts + 1] = { text = L('car_fragments_scene'), color = 'yellow' } end
+    if (s.outBlood or 0) > 0 then parts[#parts + 1] = { text = L('car_blood_outside'), color = 'red' } end
+    if (s.paint or 0) > 0 then parts[#parts + 1] = { text = L('car_paint'), color = 'yellow' } end
     return parts
 end
 

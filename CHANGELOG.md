@@ -1,5 +1,24 @@
 # Changelog
 
+## 4.2.6
+
+### New
+
+- **Run over = car pieces**: running someone over (fast, or slow but deadly) leaves vehicle fragments in the car's colour where they were hit, and the car counts as involved ("Fragments at the scene"). One drop per victim and impact, `DropChance.runover` (default 100) in `/whip` → Forensics.
+- **Case locker full**: uploading to a case checks the locker first. A full locker says so ("The locker of case X is full.") instead of "0 uploaded", items that do not fit stay where they are, and the lab says how many did not fit. MDTs get `why` per item as before.
+- **Blood on the car**: a car that runs someone over gets their blood on the outside ("Blood on the outside" on the card). Police bag it at the door with the other traces ("Blood (vehicle, outside)"), the lab gives the blood type. A cleaning cloth wipes it off, a fire burns it.
+- **Impact speed and skid marks in the post-mortem report**: "Impact speed: about 50–70 km/h" and "Skid marks: none: no braking before the impact" (or "braked before the impact"). The skid line only shows where the driver leaves tracks (`Tracks` on, not police on duty without `TrackPolice`).
+- **Car against car**: a crash over ~22 km/h leaves a piece of each car on the road (each in its own colour), and each car gets the other one's paint ("Foreign paint" on the card, "Foreign paint (vehicle)" bag at the door, the lab tells the colour). Paint is in the paintwork: a cloth does not remove it. `CarCrash`, `DropChance.carcrash`.
+- **Blood on blades and bats**: stabbing or hitting someone with a melee weapon puts their blood on it (by serial, kept like prints for `WeaponPrintHours`). "Dust for prints" on the weapon also bags the blood ("Blood (weapon)"), a cleaning cloth wipes it. `DropChance.weapon_blood`. New table `whip_evidence_weapon_blood` (made on start).
+- **New languages**: French (`fr`), Spanish (`es`), Italian (`it`) and Polish (`pl`), pick them in `/whip` → Forensics → General → Language.
+
+### Security
+
+- **Fragment colour from the server**: a bullet hitting a car took the fragment colour from the shooter's client. The server now reads the car's colours itself (a cheat could plant fragments of a wrong colour).
+- **Drop flooding**: blood and fingerprints a player drops are kept to `DropMaxPerPlayer` (60) per player. Before, one player spamming drops could push the whole server's evidence out through `MaxEvidence`.
+- **Shoes and gloves from the server**: the sole code uses the shoes the server sees on the ped, and a glove report that does not match the ped is refused (a cheat could pick someone else's sole or fibre code).
+- **Run over / car crash / weapon blood**: only the driver can run someone over; a slow bump counts only when the server sees the victim dying; blood gets on a melee weapon only within 3 m; a car crash needs a dent on one of the cars and counts once per driver every 10 s.
+
 ## 4.2.5
 
 ### New

@@ -124,6 +124,11 @@ function WhipEvidence.bodyReport(b, died)
         row(L('rep_bullets'), L('rep_bullets_v', b.bullets or 0, d.through or 0), (b.bullets or 0) > 0 and 'red' or nil)
     end
     if d.defense then row(L('rep_defense'), L('rep_defense_v'), 'yellow') end
+    if d.impact then
+        row(L('rep_impact'), L('rep_impact_v', d.impact.lo, d.impact.hi), d.impact.hi >= 60 and 'red' or 'yellow')
+        if d.impact.skid == 'none' then row(L('rep_skid'), L('rep_skid_none'), 'red')
+        elseif d.impact.skid == 'yes' then row(L('rep_skid'), L('rep_skid_yes')) end
+    end
     if d.armed then row(L('rep_armed'), L('rep_armed_v'), 'yellow') end
     if d.moved then row(L('rep_moved'), L('rep_moved_v', d.moved), 'yellow') end
     local secured = {}

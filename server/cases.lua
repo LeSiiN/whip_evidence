@@ -289,9 +289,21 @@ function WhipEvidence.Cases.getUploadable(source)
     return list
 end
 
+-- Empty slots in a case's locker (every piece of evidence takes a slot of its own)
+local function freeSlots(id)
+    local c = Cases[id]
+    local top, used = Config.CaseSlots or 50, 0
+    for slot in pairs(c and c.slots or {}) do
+        used = used + 1
+        if slot > top then top = slot end
+    end
+    return math.max(0, top - used)
+end
+
 -- Moves found items ({ item, metadata, addr }) into a case's locker. Results per item.
 local function uploadItems(source, who, items, id)
     local results, moved = {}, 0
+    local free = freeSlots(id)
     for _, f in ipairs(items) do
         local m = f.metadata or {}
         local r = { ref = f.ref or refOf(f.item, m), ok = false }
@@ -301,6 +313,9 @@ local function uploadItems(source, who, items, id)
             r.why = L('not_analysed')
         elseif m.case and tostring(m.case) ~= id then
             r.why = L('other_case', tostring(m.case))
+        elseif free - moved <= 0 then
+            -- checked before anything moves: the item stays where it is
+            r.why = L('locker_full', id)
         else
             ensureCase(id)
             local custody = WhipEvidence.custody(m.custody, L('custody_uploaded', id), who)
@@ -396,8 +411,15 @@ function WhipEvidence.Cases.uploadFromLab(source, labId, caseId)
     if #items == 0 then
         return false, waiting > 0 and L('lab_nothing_analysed') or L('lab_nothing')
     end
-    local _, moved = uploadItems(source, who, items, id)
-    return moved, waiting
+    if freeSlots(id) == 0 then return false, L('locker_full', id) end
+    local results, moved = uploadItems(source, who, items, id)
+    if moved == 0 then
+        -- nothing went in: say why instead of "0 uploaded"
+        return false, (results[1] and results[1].why) or L('locker_move_failed')
+    end
+    local full, left = L('locker_full', id), 0
+    for _, r in ipairs(results) do if r.why == full then left = left + 1 end end
+    return moved, waiting, left
 end
 
 -- GetCase(caseId) -> { id, closed, closedBy, items = entries in the locker, taken = { ref = { by, at, what } } } or nil
@@ -562,12 +584,13 @@ function WhipEvidence.Cases.register()
             near = device and { coords = device, range = 3.0 } or nil,
         }))
         if not done or not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
-        local moved, waiting = WhipEvidence.Cases.uploadFromLab(source, labId, caseId)
+        local moved, waiting, left = WhipEvidence.Cases.uploadFromLab(source, labId, caseId)
         if not moved then return false, waiting end
         WhipEvidence.Lab.uploaded(labId, validId(caseId), moved, waiting, WhipEvidence.officerLabel(source, player))
         local text = L('lab_uploaded', moved, validId(caseId))
         if waiting > 0 then text = text .. L('lab_upload_waiting', waiting) end
-        exports.whip_core:NotifyPlayer(source, text, 'success')
+        if (left or 0) > 0 then text = text .. L('lab_upload_full', left) end
+        exports.whip_core:NotifyPlayer(source, text, (left or 0) > 0 and 'warning' or 'success')
     end)
 
     -- The case list (picked with a click instead of typing): open cases by last change, then the closed ones.

@@ -14,7 +14,9 @@ Whip.configPage({
         { label = 'General', settings = {
             { key = 'Debug', type = 'bool', label = 'Debug prints' },
             restart({ key = 'Locale', type = 'enum', label = 'Language', help = 'Texts for players (locales/).',
-              options = { { value = 'en', label = 'English' }, { value = 'de', label = 'Deutsch' } } }),
+              options = { { value = 'en', label = 'English' }, { value = 'de', label = 'Deutsch' },
+                          { value = 'fr', label = 'Français' }, { value = 'es', label = 'Español' },
+                          { value = 'it', label = 'Italiano' }, { value = 'pl', label = 'Polski' } } }),
             restart({ key = 'PoliceJobs', type = 'list', item = { type = 'string', maxLen = 40 }, label = 'Police jobs',
               help = 'Job keys from your job scripts or /whip -> Jobs. On duty they collect evidence, run GSR tests and use the labs. Nothing is created.' }),
             { key = 'UsePermissions', type = 'bool', label = 'Rank permissions',
@@ -88,6 +90,9 @@ Whip.configPage({
             chance('casing', 'Casing chance'),
             chance('bullet', 'Bullet chance'),
             chance('vehicle_fragment', 'Vehicle fragment chance'),
+            chance('runover', 'Fragment chance when run over'),
+            chance('carcrash', 'Fragment chance car against car'),
+            chance('weapon_blood', 'Blood on melee weapons'),
             chance('blood', 'Blood chance'),
             chance('fingerprint', 'Fingerprint chance'),
             { key = 'Aging.Fresh', type = 'int', min = 0, max = 7200, unit = 's', label = 'Too fresh to collect for', help = '0 = can be collected right away.' },
@@ -160,6 +165,7 @@ Whip.configPage({
         } },
         { label = 'Vehicles and weapons', settings = {
             { key = 'VehicleTraceMinutes', type = 'int', min = 1, max = 240, unit = 'min', label = 'Vehicle traces stay for' },
+            { key = 'CarCrash', type = 'bool', label = 'Car crashes leave traces', help = 'Fragments of both cars and foreign paint on each.' },
             { key = 'PrintDelayMin', type = 'int', min = 5, max = 600, unit = 's', label = 'Print after (min)' },
             { key = 'PrintDelayMax', type = 'int', min = 5, max = 900, unit = 's', label = 'Print after (max)' },
             { key = 'GloveLeakChance', type = 'int', min = 0, max = 100, unit = '%', label = 'Print despite gloves' },

@@ -47,6 +47,8 @@ local function carText(s)
     if s.prints then parts[#parts + 1] = L('possible_prints') end
     if s.burnt then parts[#parts + 1] = L('car_burnt') end
     if (s.fragments or 0) > 0 then parts[#parts + 1] = L('car_fragments_scene') end
+    if (s.outBlood or 0) > 0 then parts[#parts + 1] = L('car_blood_outside') end
+    if (s.paint or 0) > 0 then parts[#parts + 1] = L('car_paint') end
     return table.concat(parts, ', ')
 end
 

@@ -19,7 +19,9 @@ end
 local function shoeData(source, charId)
     local ped = GetPlayerPed(source)
     local model = GetEntityModel(ped)
-    local d = shoes[source] or 0
+    -- the shoes as the server sees the ped (a client could claim someone else's shoes); the report is the fallback
+    local ok, real = pcall(GetPedDrawableVariation, ped, 6)
+    local d = (ok and type(real) == 'number' and real >= 0) and real or (shoes[source] or 0)
     local bare = (model == MALE and d == 34) or (model == FEMALE and d == 35)
     -- the foot size belongs to the character
     local n = (GetHashKey('whip_evidence:size:' .. tostring(charId)) & 0xFF) % 6
@@ -78,6 +80,24 @@ local function giveReference(source, meta, data, why)
 end
 
 WhipEvidence.bagMeta, WhipEvidence.giveReference = bagMeta, giveReference
+
+-- Does this player leave prints and tracks at all? (off, or police on duty without TrackPolice)
+function WhipEvidence.Tracks.leavesTracks(source)
+    if Config.Tracks == false then return false end
+    return Config.TrackPolice == true or not policeOnDuty(source)
+end
+
+-- Did this character leave a skid mark near pos since then? (run over: braked or not)
+function WhipEvidence.Tracks.skidNear(charId, pos, since)
+    for _, id in ipairs(mine[charId] or {}) do
+        local ev = WhipEvidence.Evidence.get(id)
+        if ev and ev.kind == 'tyre_track' and ev.data and ev.data.surface == 'skid'
+            and (ev.created or 0) >= since and #(ev.coords - pos) <= 40.0 then
+            return true
+        end
+    end
+    return false
+end
 
 function WhipEvidence.Tracks.register()
     -- The client's shoes (component 6), sent when they change

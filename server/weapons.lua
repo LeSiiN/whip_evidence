@@ -1,5 +1,6 @@
 -- Prints on weapons. Drawing a gunny weapon without gloves leaves your print on it (by serial).
--- Police dusts it from the weapon's right-click menu, a cleaning cloth wipes it.
+-- A blade or bat that hurt someone carries their blood. Police dusts and swabs it from the weapon's
+-- right-click menu, a cleaning cloth wipes both.
 WhipEvidence.Weapons = {}
 
 local ACT_DUST = WhipEvidence.Res .. ':dust'
@@ -7,12 +8,13 @@ local ACT_WIPE = WhipEvidence.Res .. ':wipegun'
 local ACT_FILE = WhipEvidence.Res .. ':fileserial'
 local ACT_RESTORE = WhipEvidence.Res .. ':restoreserial'
 
-local drawn = {}     -- [source] = { serial, at }   (from whip_gunny:weapon:drawn)
+local drawn = {}     -- [source] = { serial, kind, at }   (from whip_gunny:weapon:drawn)
+local bloodWritten = {}   -- ["serial:who"] = os.time() of the last DB write
 local written = {}   -- ["serial:charId"] = os.time() of the last DB write, saves writes
 
 AddEventHandler('whip_gunny:weapon:drawn', function(e)
     if GetInvokingResource() ~= 'whip_gunny' or type(e) ~= 'table' or not e.source then return end
-    if e.serial then drawn[e.source] = { serial = e.serial, at = os.time() } end
+    if e.serial then drawn[e.source] = { serial = e.serial, kind = e.kind, at = os.time() } end
 end)
 
 AddEventHandler('whip_gunny:weapon:holstered', function(e)
@@ -24,6 +26,32 @@ end)
 AddEventHandler('playerDropped', function()
     drawn[source] = nil
 end)
+
+-- The serial of the melee weapon this player holds right now, or nil
+function WhipEvidence.Weapons.meleeInHand(source)
+    local d = drawn[source]
+    if d and not d.holstered and d.kind == 'melee' then return d.serial end
+    return nil
+end
+
+-- Someone's blood got on a weapon (bodies.lua: a stab or a hit). who = "c:charId" / "n:net"
+function WhipEvidence.Weapons.addBlood(serial, blood, who)
+    if not serial or not blood then return end
+    local key = serial .. ':' .. who
+    local now = os.time()
+    if bloodWritten[key] and now - bloodWritten[key] < 60 then return end   -- many hits, one write
+    bloodWritten[key] = now
+    WhipEvidence.Data.bloodWeapon(serial, who, blood)
+end
+
+local function forgetWritten(serial)
+    for key in pairs(written) do
+        if key:sub(1, #serial + 1) == serial .. ':' then written[key] = nil end
+    end
+    for key in pairs(bloodWritten) do
+        if key:sub(1, #serial + 1) == serial .. ':' then bloodWritten[key] = nil end
+    end
+end
 
 local function weaponName(slotData)
     local def = exports.whip_core:GetItemDef(slotData.item)
@@ -54,10 +82,29 @@ local function dust(source, player, slotData, addr)
 
     WhipEvidence.wear(source, WhipEvidence.Items.kit)
     local charIds = WhipEvidence.Data.weaponPrints(serial)
-    if #charIds == 0 then return false, L('no_prints') end
+    local bloods = WhipEvidence.Data.weaponBlood(serial)
+    if #charIds == 0 and #bloods == 0 then return false, L('no_prints') end
 
     local name = weaponName(slotData)
     local queries = {}
+    -- blood on the blade (or bat): one bag per person, the lab tells the blood type
+    for _, blood in ipairs(bloods) do
+        if WhipEvidence.useEmptyBag(source) then
+            local officer = WhipEvidence.officerLabel(source, player)
+            local meta = {
+                evidence_id = WhipEvidence.Data.newId(), kind = 'blood', type = L('type_blood_weapon'),
+                time = os.date('%Y-%m-%d %H:%M:%S'), street = '-', collected_by = officer,
+                tested_on = ('%s (%s)'):format(name, serial),
+                custody = WhipEvidence.custody(nil, L('custody_collected'), officer),
+            }
+            local secret = WhipEvidence.Evidence.secretFor('blood', { blood = blood }, meta)
+            if WhipEvidence.giveBag(source, meta, 'Weapon blood ' .. serial) then
+                queries[#queries + 1] = WhipEvidence.Data.bagQuery(meta.evidence_id, 'blood', secret)
+            else
+                WhipEvidence.returnEmptyBag(source)
+            end
+        end
+    end
     for _, charId in ipairs(charIds) do
         -- a negative id is a glove fibre (-(fibre + 1)), not a person
         local traits = charId > 0 and WhipEvidence.Data.traits(charId)
@@ -99,7 +146,7 @@ local function dust(source, player, slotData, addr)
     end
     WhipEvidence.Data.saveBags(queries)
     exports.whip_core:LogActivity(source, 'evidence_weapon_dusted', { detail = ('%s: %d'):format(serial, #queries), slotData = addr })
-    exports.whip_core:NotifyPlayer(source, L('prints_lifted', #queries), 'success')
+    exports.whip_core:NotifyPlayer(source, L('traces_collected', #queries), 'success')
 end
 
 local function wipe(source, player, slotData, addr)
@@ -113,9 +160,7 @@ local function wipe(source, player, slotData, addr)
     if not done then return false end
     if not exports.whip_core:IsSessionCurrent(source, player.session) then return false end
     WhipEvidence.Data.wipeWeapon(serial)
-    for key in pairs(written) do
-        if key:sub(1, #serial + 1) == serial .. ':' then written[key] = nil end
-    end
+    forgetWritten(serial)
     exports.whip_core:LogActivity(source, 'evidence_weapon_wiped', { slotData = addr })
     exports.whip_core:NotifyPlayer(source, L('weapon_wiped'), 'success')
 end
@@ -162,9 +207,7 @@ local function fileSerial(source, player, slotData, addr)
     if not filed or not WhipEvidence.Data.fileSerial(filed, serial) then return false, L('try_again') end
     local ok, why = exports.whip_core:SetItemMetadata(addr, { serial = filed, serial_filed = 'yes' })
     if not ok then return false, why end
-    for key in pairs(written) do
-        if key:sub(1, #serial + 1) == serial .. ':' then written[key] = nil end
-    end
+    forgetWritten(serial)
     WhipEvidence.wear(source, WhipEvidence.Items.file)
     exports.whip_core:LogActivity(source, 'evidence_serial_filed', { detail = serial .. ' -> ' .. filed, slotData = addr })
     exports.whip_core:NotifyPlayer(source, L('serial_filed', filed), 'success')

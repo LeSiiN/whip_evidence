@@ -8,6 +8,7 @@ local grid = {}           -- ["x:y"] = { [id] = true }, 32 m cells for quick "wh
 local CELL = 32.0
 local lastShot = {}       -- [source] = { at, item, serial }  (from whip_gunny:weapon:fired)
 local fragmentCooldown = {}
+local drops = {}          -- [charId] = { evidence ids }: blood and prints a player dropped, oldest first
 local pendingAdds = {}    -- new evidence, sent to clients in batches (a burst of shots = one message)
 local dirty, removed = {}, {}   -- to save: changed ids / removed ids (written every 5 s in one transaction)
 
@@ -663,6 +664,23 @@ local function evidenceNear(range)
     }
 end
 
+-- A player's own drops are kept to Config.DropMaxPerPlayer: someone spamming drops pushes out
+-- their own oldest ones, never the rest of the server's evidence (Config.MaxEvidence)
+local function rememberDrop(charId, id)
+    if not id then return end
+    local list = drops[charId] or {}
+    drops[charId] = list
+    for i = #list, 1, -1 do
+        if not Evidence[list[i]] then table.remove(list, i) end
+    end
+    list[#list + 1] = id
+    local cap = math.max(5, tonumber(Config.DropMaxPerPlayer) or 60)
+    while #list > cap do
+        local old = table.remove(list, 1)
+        if Evidence[old] and not Evidence[old].busy then WhipEvidence.Evidence.remove({ old }) end
+    end
+end
+
 -- Blood from a player: in a car it goes into the car, otherwise onto the ground
 local function bleed(source, charId, pos, dir)
     local traits = WhipEvidence.Data.traits(charId)
@@ -672,7 +690,7 @@ local function bleed(source, charId, pos, dir)
         WhipEvidence.Vehicles.addTrace(car, 'blood', { blood = traits.blood }, charId)
         return
     end
-    WhipEvidence.Evidence.create('blood', { coords = pos, dir = dir, data = { blood = traits.blood } })
+    rememberDrop(charId, WhipEvidence.Evidence.create('blood', { coords = pos, dir = dir, data = { blood = traits.blood } }))
 end
 
 ---------------------------------------------------------------- Bleach (anyone with the item)
@@ -887,7 +905,8 @@ function WhipEvidence.Evidence.register()
             fragmentCooldown[source] = GetGameTimer() + math.random(2000, 3500)
             local ground = vector3(veh.gx + 0.0, veh.gy + 0.0, veh.gz + 0.0)
             if #(ground - vcoords) < 6.0 then
-                WhipEvidence.Evidence.create('vehicle_fragment', { coords = ground, data = { colour = colourName(veh.c1, veh.c2) } })
+                -- the colours come from the car itself, not from the client
+                WhipEvidence.Evidence.create('vehicle_fragment', { coords = ground, data = { colour = colourName(GetVehicleColours(car)) } })
                 -- the car the pieces came from is involved too (even without traces inside)
                 WhipEvidence.Vehicles.addTrace(car, 'fragment')
             end
@@ -911,7 +930,7 @@ function WhipEvidence.Evidence.register()
         if kind == 'blood' then return bleed(source, player.charId, xyz(pos), dir >= 0 and dir or nil) end
         local traits = WhipEvidence.Data.traits(player.charId)
         if not traits then return false end
-        WhipEvidence.Evidence.create('fingerprint', { coords = xyz(pos), data = { fingerprint = traits.fingerprint } })
+        rememberDrop(player.charId, WhipEvidence.Evidence.create('fingerprint', { coords = xyz(pos), data = { fingerprint = traits.fingerprint } }))
     end)
 
     -- Lists for a client that is loading

@@ -39,6 +39,69 @@ local function playerOf(ent)
     return nil
 end
 
+-- The victim's blood type: a player's own; a pedestrian's is picked once and kept (its body gets the same)
+local function bloodOf(victim, net, p)
+    local charId = victim and exports.whip_core:GetCharId(victim) or (clones[net] and clones[net].charId)
+    local traits = charId and WhipEvidence.Data.traits(charId)
+    if traits and traits.blood then return traits.blood end
+    p.blood = p.blood or BLOOD[math.random(1, #BLOOD)]
+    return p.blood
+end
+
+-- Who a trace on a car or weapon came from: a character, or a pedestrian (never a server id)
+local function whoOf(victim, net)
+    local charId = victim and exports.whip_core:GetCharId(victim)
+    return charId and ('c:' .. charId) or ('n:' .. net)
+end
+
+-- Run over: the car breaks a little and leaves pieces where it hit, gets the victim's blood on it,
+-- and the post-mortem report gets the speed and whether it braked (one impact per victim every 10 s).
+-- The car is the one the reporting driver sits in; its colours and speed are read here, never sent by the client.
+local RUNOVER_SPEED = 4.0   -- m/s (~15 km/h): a slow bump leaves nothing unless it killed
+local function runOver(source, ent, victim, net, p, hit, fatal, ground)
+    local ped = GetPlayerPed(source)
+    local car = GetVehiclePedIsIn(ped, false)
+    if not car or car == 0 or GetPedInVehicleSeat(car, -1) ~= ped then return end   -- only the driver runs someone over
+    local vpos = GetEntityCoords(ent)
+    if #(GetEntityCoords(car) - vpos) > 8.0 then return end
+    local now = GetGameTimer()
+    if p.fragAt and now - p.fragAt < 10000 then return end   -- one impact sends several hits
+    local speed = #GetEntityVelocity(car)
+    -- "fatal" comes from the client: a slow bump only counts when the server sees the victim dying too
+    if speed < RUNOVER_SPEED and not (fatal and GetEntityHealth(ent) <= 100) then return end
+    p.fragAt = now
+    hit.kmh = math.floor(speed * 3.6 + 0.5)
+
+    local pos = ground and xyz(ground) or vpos
+    if #(pos - vpos) > 3.0 then pos = vpos end
+
+    -- their blood on the outside of the car (police bag it at the door, the lab gives the blood type)
+    if roll(fatal and 100 or (Config.DropChance.blood or 75)) then
+        WhipEvidence.Vehicles.addTrace(car, 'outblood', { blood = bloodOf(victim, net, p) }, whoOf(victim, net))
+    end
+
+    if roll(Config.DropChance.runover or Config.DropChance.vehicle_fragment) then
+        local c1, c2 = GetVehicleColours(car)
+        local ok = WhipEvidence.Evidence.create('vehicle_fragment', {
+            coords = pos, anyDistance = true,   -- the victim's blood lands on the same spot
+            data = { colour = WhipEvidence.Evidence.colourName(c1, c2) },
+        })
+        if ok then WhipEvidence.Vehicles.addTrace(car, 'fragment') end
+    end
+
+    -- Did it brake? Only where this driver leaves tracks at all. The client sends a skid in stretches,
+    -- so it is looked at a few seconds later.
+    if WhipEvidence.Tracks.leavesTracks(source) then
+        local charId, since = exports.whip_core:GetCharId(source), os.time() - 10
+        if charId then
+            CreateThread(function()
+                Wait(5000)
+                hit.skid = WhipEvidence.Tracks.skidNear(charId, pos, since) and 'yes' or 'none'
+            end)
+        end
+    end
+end
+
 -- where the body is now (it can be carried away)
 local function coordsOf(b)
     local ent = b.source and GetPlayerPed(b.source) or pedOf(b.net)
@@ -120,13 +183,22 @@ local function view(b)
         end
         marks[i] = { p = h.part, s = h.spot, w = h.wound, i = stays or nil, f = (h == fatal) or nil }
     end
+    -- hit by a car: the hardest impact, its speed (as a range) and whether the car braked
+    local impact
+    for _, h in ipairs(b.hits) do
+        if h.wound == 'vehicle' and h.kmh and (not impact or h.kmh > impact.kmh) then impact = h end
+    end
+    if impact then
+        local mid = math.floor(impact.kmh / 10 + 0.5) * 10
+        impact = { lo = math.max(0, mid - 10), hi = mid + 10, skid = impact.skid }
+    end
     v.wounds, v.parts, v.bullets = wounds, parts, #b.bullets
     v.details = {
         hits = #b.hits, byPart = byPart, ranges = rlist, through = through, defense = defense,
         fatal = fatal and { w = fatal.wound, p = fatal.part } or nil,
         sex = b.male == true and 'male' or (b.male == false and 'female' or nil),
         armed = b.armed == true, moved = moved >= 3.0 and math.floor(moved + 0.5) or nil,
-        marks = marks,
+        marks = marks, impact = impact,
     }
     return v
 end
@@ -208,7 +280,7 @@ local function pedDied(net, ent, p, ground)
     else
         gsr = p.armed and math.random(30, 80) or 0
     end
-    blood = blood or BLOOD[math.random(1, #BLOOD)]
+    blood = blood or p.blood or BLOOD[math.random(1, #BLOOD)]
     local b = create('ped', { net = net, coords = GetEntityCoords(ent), hits = p.hits, bullets = p.bullets, gsr = gsr, blood = blood,
                               male = p.male, armed = p.armed })
     if not b then return end
@@ -522,6 +594,12 @@ function WhipEvidence.Bodies.register()
         if #p.hits < MAX_HITS then p.hits[#p.hits + 1] = hit end
         if armed then p.armed = true end
         p.male = male
+        if wound == 'vehicle' then runOver(source, ent, victim, net, p, hit, fatal, ground) end
+        -- a blade or a bat in hand: the victim's blood is on it
+        if (wound == 'stab' or wound == 'blunt') and hit.dist <= 3.0 and roll(Config.DropChance.weapon_blood or 100) then
+            local serial = WhipEvidence.Weapons.meleeInHand(source)
+            if serial then WhipEvidence.Weapons.addBlood(serial, bloodOf(victim, net, p), whoOf(victim, net)) end
+        end
         if wound == 'gunshot' and #p.bullets < MAX_BULLETS and roll(Config.BodyBulletStays or 70) then
             local shot = WhipEvidence.Evidence.shotOf(source)
             if shot and not WhipEvidence.isIgnoredWeapon(shot.item) then

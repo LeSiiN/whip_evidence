@@ -4,7 +4,10 @@ WhipEvidence.Vehicles = {}
 
 local traces = {}   -- [key] = { net, plate, no, pos, prints = { [charId] = t }, blood = { [charId] = { t, data } },
                     --           casing = { [serial] = { t, n, data } }, bullet = { [serial] = { t, n, data } }, gsr = t,
-                    --           fragments = n, fragT = t (pieces of it on the ground), photo = id, plateSeen = true }
+                    --           fragments = n, fragT = t (pieces of it on the ground), photo = id, plateSeen = true,
+                    --           outBlood = { [who] = { t, data } } (someone it hit), paint = { [car key] = { t, colour } } (a car it hit) }
+
+local POS = { { 'x', 'number', -16000, 16000 }, { 'y', 'number', -16000, 16000 }, { 'z', 'number', -1000, 3000 } }
 
 local function entityOf(net)
     local ent = NetworkGetEntityFromNetworkId(net)
@@ -20,6 +23,8 @@ local function keyOf(ent)
     return 'p' .. plate, plate
 end
 
+function WhipEvidence.Vehicles.keyOf(ent) return (keyOf(ent)) end
+
 local function count(t)
     local n = 0
     for _ in pairs(t) do n = n + 1 end
@@ -33,14 +38,18 @@ local function summary(tr)
     for _, b in pairs(tr.bullet) do bullets = bullets + b.n end
     local s = { prints = next(tr.prints) ~= nil, blood = count(tr.blood), casing = casings, bullet = bullets, gsr = tr.gsr ~= nil,
                 fragments = tr.fragments or 0, no = tr.no, plate = tr.plate,
+                outBlood = count(tr.outBlood or {}), paint = count(tr.paint or {}),
                 photo = tr.photo ~= nil, plateSeen = tr.plateSeen == true, burnt = tr.burnt == true }
-    if not s.prints and s.blood == 0 and s.casing == 0 and s.bullet == 0 and not s.gsr and s.fragments == 0 then return nil end
+    if not s.prints and s.blood == 0 and s.casing == 0 and s.bullet == 0 and not s.gsr and s.fragments == 0
+        and s.outBlood == 0 and s.paint == 0 then return nil end
     return s
 end
 
--- inside traces a police officer can bag at the door (fragments lie on the ground)
+-- traces a police officer can bag at the door: inside, plus blood and foreign paint on the outside
+-- (fragments lie on the ground)
 local function hasInside(tr)
     return next(tr.prints) ~= nil or next(tr.blood) ~= nil or next(tr.casing) ~= nil or next(tr.bullet) ~= nil or tr.gsr ~= nil
+        or next(tr.outBlood or {}) ~= nil or next(tr.paint or {}) ~= nil
 end
 
 -- V1, V2, ...: one higher than the involved cars around
@@ -76,7 +85,7 @@ local function traceOf(ent, create)
     local tr = traces[key]
     if not tr and create then
         local pos = GetEntityCoords(ent)
-        tr = { prints = {}, blood = {}, casing = {}, bullet = {}, no = nextNo(pos), pos = pos }
+        tr = { prints = {}, blood = {}, casing = {}, bullet = {}, outBlood = {}, paint = {}, no = nextNo(pos), pos = pos }
         traces[key] = tr
     end
     if tr then
@@ -86,7 +95,8 @@ local function traceOf(ent, create)
     return tr
 end
 
--- kind: print | blood | casing | bullet | gsr
+-- kind: print | fiber | blood | casing | bullet | gsr | fragment
+--       outblood (data = { blood }, charId = who it came from) | paint (data = colour, charId = the other car's key)
 function WhipEvidence.Vehicles.addTrace(ent, kind, data, charId)
     local tr = traceOf(ent, true)
     local t = os.time()
@@ -107,6 +117,12 @@ function WhipEvidence.Vehicles.addTrace(ent, kind, data, charId)
         tr.gsr = t
     elseif kind == 'fragment' then
         tr.fragments, tr.fragT = math.min((tr.fragments or 0) + 1, 99), t
+    elseif kind == 'outblood' then
+        tr.outBlood = tr.outBlood or {}
+        tr.outBlood[charId] = { t = t, data = data }
+    elseif kind == 'paint' then
+        tr.paint = tr.paint or {}
+        tr.paint[charId] = { t = t, colour = data }
     end
     local after = summary(tr)
     if json.encode(before) ~= json.encode(after) then push(tr) end
@@ -180,6 +196,8 @@ function WhipEvidence.Vehicles.tick()
         for id, b in pairs(tr.bullet) do if b.t < cutoff then tr.bullet[id] = nil end end
         if tr.gsr and tr.gsr < cutoff then tr.gsr = nil end
         if tr.fragT and tr.fragT < cutoff then tr.fragments, tr.fragT = nil, nil end
+        for id, b in pairs(tr.outBlood or {}) do if b.t < cutoff then tr.outBlood[id] = nil end end
+        for id, p in pairs(tr.paint or {}) do if p.t < cutoff then tr.paint[id] = nil end end
         local s = summary(tr)
         if json.encode(s) ~= before then push(tr) end
         if not s then traces[key] = nil end
@@ -255,10 +273,15 @@ local function collect(source, player, tr, street)
     for _, c in pairs(tr.casing) do give('casing', L('type_casing_vehicle', c.n), c.data) end
     for _, b in pairs(tr.bullet) do give('bullet', L('type_bullet_vehicle', b.n), b.data) end
     if tr.gsr then give('gsr', L('type_gsr_vehicle'), {}, { gsr = 'POSITIVE' }) end
+    for _, b in pairs(tr.outBlood or {}) do give('blood', L('type_blood_car_outside'), b.data) end
+    for _, p in pairs(tr.paint or {}) do give('vehicle_fragment', L('type_paint_vehicle'), { colour = p.colour }) end
 
     WhipEvidence.Data.saveBags(queries)
     return made, lost
 end
+
+local crashBy = {}   -- [source] = game time of their last reported crash
+AddEventHandler('playerDropped', function() crashBy[source] = nil end)
 
 function WhipEvidence.Vehicles.register()
     -- The client sat in the car long enough (without gloves)
@@ -304,8 +327,9 @@ function WhipEvidence.Vehicles.register()
         local tr = traceOf(ent, false)
         if not tr or not hasInside(tr) then return false, L('no_traces') end
         local made, lost = collect(source, player, tr, street)
-        -- the inside is bagged; pieces on the ground, the number and the photo stay with the car
+        -- the inside (and blood and paint on the outside) is bagged; pieces on the ground, the number and the photo stay
         tr.prints, tr.blood, tr.casing, tr.bullet, tr.gsr = {}, {}, {}, {}, nil
+        tr.outBlood, tr.paint = {}, {}
         if summary(tr) then push(tr) else
             traces[tr.key] = nil
             TriggerClientEvent('whip_evidence:client:vehicleTraces', -1, tr.net, nil)
@@ -332,10 +356,57 @@ function WhipEvidence.Vehicles.register()
         local tr = traceOf(ent, false)
         if not tr or tr.burnt then return end
         tr.burnt = true
-        tr.prints, tr.blood, tr.casing, tr.gsr = {}, {}, {}, nil
+        tr.prints, tr.blood, tr.casing, tr.gsr, tr.outBlood = {}, {}, {}, nil, {}
         push(tr)
         if not summary(tr) then traces[tr.key] = nil end
         exports.whip_core:LogActivity(source, 'evidence_vehicle_burnt', { detail = ('V%d (%s)'):format(tr.no or 0, tr.plate or '?') })
+    end)
+
+    -- Car against car (the driver's own client saw the crash): a piece of each car on the road, and each
+    -- car gets the other one's paint. Both cars and their colours are read here, never sent by the client.
+    local crashes, crashClean = {}, 0   -- ["keyA|keyB"] = game time: both drivers report the same crash
+    Whip.core:SecureEvent('whip_evidence:carCrash', {
+        rateLimit = 2000, burst = 2, sheet = 'light',
+        params = { { 'net', 'id', 1, 2147483647 }, { 'at', 'record', POS } },
+        near = { at = function(_, _, _, at) return at end, range = 15.0, message = false },
+    }, function(source, player, net, at)
+        if Config.CarCrash == false then return false end
+        local ped = GetPlayerPed(source)
+        local mine = GetVehiclePedIsIn(ped, false)
+        if not mine or mine == 0 or GetPedInVehicleSeat(mine, -1) ~= ped then return false end
+        local other = entityOf(net)
+        if not other or other == mine then return false end
+        local a, b = GetEntityCoords(mine), GetEntityCoords(other)
+        local pos = WhipEvidence.vec(at)
+        if #(a - b) > 12.0 or #(pos - a) > 12.0 then return false end
+
+        -- a real crash dents something; and one driver reports one crash at a time
+        if GetVehicleBodyHealth(mine) >= 999.0 and GetVehicleBodyHealth(other) >= 999.0 then return false end
+        local last = crashBy[source]
+        if last and GetGameTimer() - last < 10000 then return false end
+        crashBy[source] = GetGameTimer()
+
+        local ka, kb = keyOf(mine), keyOf(other)
+        local pair = ka < kb and (ka .. '|' .. kb) or (kb .. '|' .. ka)
+        local now = GetGameTimer()
+        if now - crashClean > 60000 then crashes, crashClean = {}, now end
+        if crashes[pair] and now - crashes[pair] < 15000 then return end
+        crashes[pair] = now
+        if not WhipEvidence.roll(Config.DropChance.carcrash or 100) then return end
+
+        local colourA = WhipEvidence.Evidence.colourName(GetVehicleColours(mine))
+        local colourB = WhipEvidence.Evidence.colourName(GetVehicleColours(other))
+        -- one piece of each car, side by side across the impact
+        local flat = vector3(b.x - a.x, b.y - a.y, 0.0)
+        local off = #flat > 0.01 and (flat / #flat) * 0.9 or vector3(0.9, 0.0, 0.0)
+        if WhipEvidence.Evidence.create('vehicle_fragment', { coords = pos - off, anyDistance = true, data = { colour = colourA } }) then
+            WhipEvidence.Vehicles.addTrace(mine, 'fragment')
+        end
+        if WhipEvidence.Evidence.create('vehicle_fragment', { coords = pos + off, anyDistance = true, data = { colour = colourB } }) then
+            WhipEvidence.Vehicles.addTrace(other, 'fragment')
+        end
+        WhipEvidence.Vehicles.addTrace(mine, 'paint', colourB, kb)
+        WhipEvidence.Vehicles.addTrace(other, 'paint', colourA, ka)
     end)
 
     -- Anyone with a cleaning cloth: clean the inside (prints, blood, GSR, casings). Bullet holes stay.
@@ -360,10 +431,12 @@ function WhipEvidence.Vehicles.register()
         if not ent then return false end
 
         local tr = traceOf(ent, false)
-        if not tr or (not next(tr.prints) and not next(tr.blood) and not next(tr.casing) and not tr.gsr) then
+        if not tr or (not next(tr.prints) and not next(tr.blood) and not next(tr.casing) and not tr.gsr
+            and not next(tr.outBlood or {})) then
             return false, L('nothing_to_clean_car')
         end
-        tr.prints, tr.blood, tr.casing, tr.gsr = {}, {}, {}, nil
+        -- blood on the outside wipes off too; foreign paint is in the paintwork and stays
+        tr.prints, tr.blood, tr.casing, tr.gsr, tr.outBlood = {}, {}, {}, nil, {}
         push(tr)
         if not summary(tr) then traces[tr.key] = nil end
         exports.whip_core:LogActivity(source, 'evidence_vehicle_cleaned')

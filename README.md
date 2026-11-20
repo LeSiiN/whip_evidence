@@ -3,7 +3,7 @@
 Forensics for WHIP: evidence at crime scenes, real crime scene photos, minigames, labs with a monitor,
 ballistics, gunshot residue, vehicle and weapon traces, an evidence case and case lockers for your MDT.
 
-Version 4.2.5 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
+Version 4.2.6 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
 
 <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/Czztofsedr9H.jpg" alt="Camera scan with numbered markers and the crime scene legend" width="880" height="478">
 
@@ -188,7 +188,7 @@ try one with `/e <name>` and copy its animation and prop together. `Config.HandP
 - Admins: `/whip` → Settings → Forensics (overrides `config/config.lua`).
 - Officers: pause menu → Settings → Server Settings → Forensics (legend, marker and card size, photo viewer).
 - Keys: Settings → Key Bindings → FiveM.
-- Language: English or German for everything players see (`Config.Locale`, or `/whip` → Forensics → General → Language, applies after a restart).
+- Language: English, German, French, Spanish, Italian or Polish for everything players see (`Config.Locale`, or `/whip` → Forensics → General → Language, applies after a restart).
   Own language: copy `locales/en.lua` to `locales/xx.lua`, rename `Locales.en` to `Locales.xx`, translate the texts,
   add the file to `fxmanifest.lua` and set `Config.Locale = 'xx'`. Admin pages and logs stay English.
 - Lab monitor: pick any prop per lab (`screenModel`, `none` = a monitor already in the map). To put the picture exactly on the screen: `/w` → Forensics → "Fit the lab screen", then aim at the top left, top right and bottom left corner of the monitor's glass and click each (tilted monitors and any shape work). Then fine-tune: arrows move, W/S into/out of the monitor, mouse wheel size, R picks the corners again, Enter saves. Works with a controller too (hints show on screen). Logo: your PNG at `html/img/screen/logo.png`. Clock and date are the player's real time.

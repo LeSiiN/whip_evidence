@@ -61,6 +61,17 @@ function WhipEvidence.Data.setup()
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
     if not ok then return Whip.startProblem('table %s: %s', GUNS, tostring(why)) end
 
+    -- blood on melee weapons (a stab or a hit with a bat): the blood type, by serial
+    ok, why = Whip.core:EnsureTable('whip_evidence_weapon_blood', [[CREATE TABLE IF NOT EXISTS `whip_evidence_weapon_blood` (
+        `serial` VARCHAR(32) NOT NULL,
+        `who` VARCHAR(40) NOT NULL,
+        `blood` VARCHAR(4) NOT NULL,
+        `touched` INT UNSIGNED NOT NULL,
+        PRIMARY KEY (`serial`, `who`),
+        KEY `touched` (`touched`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4]])
+    if not ok then return Whip.startProblem('table whip_evidence_weapon_blood: %s', tostring(why)) end
+
     ok, why = Whip.core:EnsureTable(GROUND, [[CREATE TABLE IF NOT EXISTS `whip_evidence_ground` (
         `id` VARCHAR(16) NOT NULL,
         `kind` VARCHAR(24) NOT NULL,
@@ -144,6 +155,8 @@ function WhipEvidence.Data.setup()
     -- old weapon prints are useless: clear them once per start
     MySQL.update.await('DELETE FROM `whip_evidence_weapon_prints` WHERE `touched` < ?',
         { os.time() - Config.WeaponPrintHours * 3600 })
+    MySQL.update.await('DELETE FROM `whip_evidence_weapon_blood` WHERE `touched` < ?',
+        { os.time() - Config.WeaponPrintHours * 3600 })
 
     ready = true
 end
@@ -207,7 +220,25 @@ end
 
 function WhipEvidence.Data.wipeWeapon(serial)
     if not ready then return 0 end
+    MySQL.update.await('DELETE FROM `whip_evidence_weapon_blood` WHERE `serial` = ?', { serial })
     return MySQL.update.await('DELETE FROM `whip_evidence_weapon_prints` WHERE `serial` = ?', { serial }) or 0
+end
+
+-- Blood on a weapon (who = "c:charId" or "n:net", one row each)
+function WhipEvidence.Data.bloodWeapon(serial, who, blood)
+    if not ready then return end
+    MySQL.insert.await('INSERT INTO `whip_evidence_weapon_blood` (`serial`, `who`, `blood`, `touched`) VALUES (?, ?, ?, ?) ' ..
+        'ON DUPLICATE KEY UPDATE `blood` = VALUES(`blood`), `touched` = VALUES(`touched`)', { serial, who, blood, os.time() })
+end
+
+-- Blood types still on this weapon, one per person
+function WhipEvidence.Data.weaponBlood(serial)
+    if not ready then return {} end
+    local rows = MySQL.query.await('SELECT `blood` FROM `whip_evidence_weapon_blood` WHERE `serial` = ? AND `touched` >= ?',
+        { serial, os.time() - Config.WeaponPrintHours * 3600 }) or {}
+    local out = {}
+    for _, row in ipairs(rows) do out[#out + 1] = row.blood end
+    return out
 end
 
 ---------------------------------------------------------------- Filed serial numbers
@@ -218,6 +249,7 @@ function WhipEvidence.Data.fileSerial(filed, original)
     return MySQL.transaction.await({
         { query = 'INSERT INTO `whip_evidence_filed` (`filed`, `original`, `created`) VALUES (?, ?, ?)', values = { filed, original, os.time() } },
         { query = 'UPDATE IGNORE `whip_evidence_weapon_prints` SET `serial` = ? WHERE `serial` = ?', values = { filed, original } },
+        { query = 'UPDATE IGNORE `whip_evidence_weapon_blood` SET `serial` = ? WHERE `serial` = ?', values = { filed, original } },
     })
 end
 

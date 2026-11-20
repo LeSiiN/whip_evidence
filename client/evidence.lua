@@ -395,6 +395,64 @@ AddEventHandler('CEventGunShot', function()
     end)
 end)
 
+---------------------------------------------------------------- Car against car
+
+-- Own speed a moment ago: at the damage event both cars have already slowed down
+local speeds = { 0.0, 0.0 }
+CreateThread(function()
+    while true do
+        local car = GetVehiclePedIsIn(PlayerPedId(), false)
+        if car ~= 0 then
+            speeds[2], speeds[1] = speeds[1], GetEntitySpeed(car)
+            Wait(250)
+        else
+            speeds[1], speeds[2] = 0.0, 0.0
+            Wait(1000)
+        end
+    end
+end)
+
+local CRASH_SPEED = 6.0   -- m/s (~22 km/h): a parking bump leaves nothing
+local crashedWith, crashClean = {}, 0   -- [other car] = game time: one report per crash
+
+local function vehicleOf(e)
+    if not e or e == 0 or not DoesEntityExist(e) then return 0 end
+    if IsEntityAVehicle(e) then return e end
+    if IsEntityAPed(e) then return GetVehiclePedIsIn(e, false) end
+    return 0
+end
+
+-- The driver reports a crash with another car; the server checks both cars and drops pieces of each
+AddEventHandler('gameEventTriggered', function(name, args)
+    if name ~= 'CEventNetworkEntityDamage' or Config.CarCrash == false then return end
+    local ped = PlayerPedId()
+    local mine = GetVehiclePedIsIn(ped, false)
+    if mine == 0 or GetPedInVehicleSeat(mine, -1) ~= ped then return end
+    local victim, attacker = vehicleOf(args[1]), vehicleOf(args[2])
+    local other
+    if victim == mine and attacker ~= 0 and attacker ~= mine then
+        other = attacker
+    elseif attacker == mine and victim ~= 0 and victim ~= mine then
+        other = victim
+    else
+        return
+    end
+    if WhipEvidence.blocked() then return end
+    local now = GetGameTimer()
+    if now - crashClean > 60000 then crashedWith, crashClean = {}, now end
+    if crashedWith[other] and now - crashedWith[other] < 15000 then return end
+    if math.max(speeds[1], speeds[2], GetEntitySpeed(other)) < CRASH_SPEED then return end
+    local a, b = GetEntityCoords(mine), GetEntityCoords(other)
+    if #(a - b) > 10.0 then return end
+    crashedWith[other] = now
+    local ground = WhipEvidence.ground((a + b) / 2)
+    if WhipEvidence.inNoEvidenceZone(ground) then return end
+    CreateThread(function()
+        if not NetworkGetEntityIsNetworked(mine) or not networked(other) then return end
+        TriggerServerEvent('whip_evidence:carCrash', NetworkGetNetworkIdFromEntity(other), xyz(ground))
+    end)
+end)
+
 ---------------------------------------------------------------- Blood and fingerprints
 
 -- dir: heading the person was walking (blood trail), -1 = none

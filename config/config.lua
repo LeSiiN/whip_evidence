@@ -2,7 +2,7 @@
 -- Values saved in /whip win over this file.
 Config = {
     Debug = false,
-    Locale = 'en',   -- language: 'en' or 'de' (files in locales/)
+    Locale = 'en',   -- language: 'en', 'de', 'fr', 'es', 'it' or 'pl' (files in locales/)
 
     -- Jobs that collect evidence, run GSR tests and use the labs (on duty).
     -- Only listened to: the jobs come from your job scripts or /whip -> Jobs, nothing is created.
@@ -32,6 +32,7 @@ Config = {
 
     -- Evidence
     MaxEvidence     = 500,    -- more at once? the oldest is removed
+    DropMaxPerPlayer = 60,    -- blood and prints one player leaves at once (more: their own oldest go)
     MinDistance     = 1.6,    -- metres between two pieces of evidence
     PickupDistance  = 1.5,    -- metres to pick up
     SeeDistance     = 25.0,   -- metres you see evidence with a flashlight or camera (markers and info)
@@ -126,6 +127,9 @@ Config = {
         blood            = 75,
         bullet           = 50,
         vehicle_fragment = 50,
+        runover          = 100,   -- fragments where a car runs someone over (a slow bump only when it kills)
+        carcrash         = 100,   -- car against car: a piece of each car on the road, each gets the other one's paint
+        weapon_blood     = 100,   -- a stab or a hit with a melee weapon puts the victim's blood on it
         fingerprint      = 80,
     },
 
@@ -200,6 +204,7 @@ Config = {
 
     -- Traces inside vehicles: prints, blood, casings, bullet holes, GSR
     VehicleTraceMinutes = 30,   -- how long they stay in the car
+    CarCrash            = true, -- car against car (over ~22 km/h) leaves fragments and foreign paint
     PrintDelayMin       = 60,   -- seconds in the car before a print is left (min)
     PrintDelayMax       = 120,  -- ... (max)
     GloveLeakChance     = 5,    -- percent: a print despite gloves
