@@ -704,4 +704,5 @@ Locales.es = {
     rep_skid                  = 'Marcas de frenazo',
     rep_skid_none             = 'ninguna: no frenó antes del impacto',
     rep_skid_yes              = 'frenó antes del impacto',
+    chip_bloody               = 'Con sangre',
 }

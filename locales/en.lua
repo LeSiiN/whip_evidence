@@ -704,4 +704,5 @@ Locales.en = {
     rep_skid                  = 'Skid marks',
     rep_skid_none             = 'none: no braking before the impact',
     rep_skid_yes              = 'braked before the impact',
+    chip_bloody               = 'Blood on it',
 }

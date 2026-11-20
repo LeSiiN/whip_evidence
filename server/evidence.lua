@@ -86,6 +86,7 @@ local function view(ev, t)
         no = ev.no, shot = ev.shot, photo = ev.photo ~= nil, dir = ev.dir,
         age = t - ev.created, left = math.max(0, ev.expires - t),   -- seconds, for the scan overlay
         look = ev.data and ev.data.look,   -- shoe prints and tyre tracks: how they are drawn (surface, length)
+        bloody = (ev.kind == 'bullet' and ev.data and ev.data.blood) and true or nil,   -- went through someone
     }
 end
 
@@ -482,6 +483,8 @@ function WhipEvidence.Evidence.secretFor(kind, d, meta, age)
     if kind == 'casing' or kind == 'bullet' then
         meta.ammo, meta.weapon_serial = '???', '???'
         secret.ammo, secret.weapon_serial = d.caliber or L('unknown'), d.serial or L('unknown')
+        -- a bullet that went through someone (or came out of a body) carries their blood
+        if kind == 'bullet' and d.blood then meta.blood_type, secret.blood_type = '???', d.blood end
     elseif kind == 'fingerprint' then
         meta.fingerprint = '???'
         secret.fingerprint = d.fingerprint or L('unknown')
