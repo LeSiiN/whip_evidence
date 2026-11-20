@@ -705,4 +705,6 @@ Locales.en = {
     rep_skid_none             = 'none: no braking before the impact',
     rep_skid_yes              = 'braked before the impact',
     chip_bloody               = 'Blood on it',
+    f_blood_traces            = 'Blood traces',
+    blood_traces_bullet       = 'Blood found on the bullet',
 }

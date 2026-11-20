@@ -705,4 +705,6 @@ Locales.pl = {
     rep_skid_none             = 'brak: nie hamował przed uderzeniem',
     rep_skid_yes              = 'hamował przed uderzeniem',
     chip_bloody               = 'Ślady krwi',
+    f_blood_traces            = 'Ślady krwi',
+    blood_traces_bullet       = 'Na pocisku stwierdzono krew',
 }

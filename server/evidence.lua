@@ -484,7 +484,11 @@ function WhipEvidence.Evidence.secretFor(kind, d, meta, age)
         meta.ammo, meta.weapon_serial = '???', '???'
         secret.ammo, secret.weapon_serial = d.caliber or L('unknown'), d.serial or L('unknown')
         -- a bullet that went through someone (or came out of a body) carries their blood
-        if kind == 'bullet' and d.blood then meta.blood_type, secret.blood_type = '???', d.blood end
+        -- seen at once ("Blood found on the bullet"); whose blood type it is, the lab tells
+        if kind == 'bullet' and d.blood then
+            meta.blood_traces = L('blood_traces_bullet')
+            meta.blood_type, secret.blood_type = '???', d.blood
+        end
     elseif kind == 'fingerprint' then
         meta.fingerprint = '???'
         secret.fingerprint = d.fingerprint or L('unknown')

@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.2.8
+
+### New
+
+- **"Blood found on the bullet"**: a bullet with blood on it (a through-shot, or one taken out of a body) shows a new field "Blood traces: Blood found on the bullet" on the bag right away, also in an MDT (`results.blood_traces` in `GetCase` / `Upload` entries; es_mdt shows it as "Blood traces" without an update). The blood type itself still comes from the lab.
+
 ## 4.2.7
 
 ### New
