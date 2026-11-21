@@ -3,7 +3,7 @@
 Forensics for WHIP: evidence at crime scenes, real crime scene photos, minigames, labs with a monitor,
 ballistics, gunshot residue, vehicle and weapon traces, an evidence case and case lockers for your MDT.
 
-Version 4.2.9 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
+Version 4.3.0 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `CHANGELOG.md` · In-game test: `TESTING.md`
 
 <img src="https://r2.fivemanage.com/6l5prMFvrgPeOPFz5isJU/Czztofsedr9H.jpg" alt="Camera scan with numbered markers and the crime scene legend" width="880" height="478">
 
@@ -16,6 +16,7 @@ Version 4.2.9 · [GitHub](https://github.com/LeSiiN/whip_evidence) · Changes: `
 ## Optional but highly Recommended
 
 - [es_mdt](https://github.com/Dagermor/es_mdt) (does already support my evidence script)
+- [whip_gunstore](https://github.com/LeSiiN/whip_gunstore) (4.3.0+): every gun its Ammu-Nations sell is test-fired into a ballistic archive. The lab then names the buyer of the gun a casing or bullet came from, even with the serial filed off. Nothing to set up: start both.
   
 ## Install
 
